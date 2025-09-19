@@ -1,0 +1,10 @@
+# macos
+*.DS_Store
+
+# xcode
+*.app/
+*.dSYM/
+*.xcarchive/
+*.ipa
+*.xcscheme
+xcuserdata/
