@@ -1,0 +1,4 @@
+# generated
+*.pbxproj            linguist-generated=true
+*.storyboard         linguist-generated=true
+*.xcworkspacedata    linguist-generated=true
