@@ -6,19 +6,39 @@
 //
 
 #import "ViewController.h"
+#import "Terminal.h"
+
+@interface ViewController ()
+
+@property (strong) Terminal *terminal;
+
+@end
 
 @implementation ViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
 
-    // TODO
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        __weak typeof(weakSelf) strongSelf = weakSelf;
+        strongSelf.terminal = [[Terminal alloc] init];
+
+        strongSelf.terminal.file = @"/bin/ls";
+
+        NSError *error = nil;
+
+        if (![strongSelf.terminal start:&error]) {
+            NSLog(@"error: %@", error);
+
+            return;
+        }
+    });
 }
 
-- (void)setRepresentedObject:(id)representedObject {
-    [super setRepresentedObject:representedObject];
-
-    // TODO
+- (void)dealloc {
+    [self.terminal stop];
 }
 
 @end
