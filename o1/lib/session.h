@@ -32,7 +32,7 @@ void session_stop(session_t *session);
 
 ssize_t session_read(session_t *session, uint8_t *data, size_t length);
 
-ssize_t session_write(session_t *session, const uint8_t *data, size_t length);
+ssize_t session_write(session_t *session, const uint8_t *data, size_t length, size_t *overwrite);
 
 ssize_t session_flush_write(session_t *session);
 

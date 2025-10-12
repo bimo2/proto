@@ -160,7 +160,7 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
         if (!strongSelf) return;
 
-        session_write(strongSelf->session, (const uint8_t *)data.bytes, data.length);
+        session_write(strongSelf->session, (const uint8_t *)data.bytes, data.length, NULL);
 
         if (strongSelf->write_source && strongSelf->write_source_suspended) {
             dispatch_resume(strongSelf->write_source);

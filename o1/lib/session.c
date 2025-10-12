@@ -17,11 +17,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <termios.h>
 #include <unistd.h>
-#include <sys/uio.h>
+
+#ifdef __APPLE__
+#include <util.h>
+#else
+#include <pty.h>
+#endif
 
 struct session_t {
     pid_t pid;
@@ -83,90 +90,40 @@ char *session_process(session_t *session) {
 void session_start(session_t *session, const char *file, char *const argv[], char *const envp[]) {
     if (session->running) return;
 
-    int master_fd = posix_openpt(O_RDWR | O_NOCTTY);
+    int master_fd = -1;
+    struct termios tio;
 
-    if (master_fd < 0) {
-        perror("posix_openpt");
+    if (tcgetattr(STDIN_FILENO, &tio) == -1) memset(&tio, 0, sizeof(tio));
+
+    cfmakeraw(&tio);
+    tio.c_cc[VMIN] = 1;
+    tio.c_cc[VTIME] = 0;
+
+    pid_t pid = forkpty(&master_fd, NULL, &tio, NULL);
+
+    if (pid < 0) {
+        perror("forkpty");
 
         return;
+    }
+
+    if (pid == 0) {
+        execve(file, argv, envp);
+        perror("execve");
+        _exit(127);
     }
 
     int flags = fcntl(master_fd, F_GETFD);
 
     if (flags != -1) fcntl(master_fd, F_SETFD, flags | FD_CLOEXEC);
 
-    if (grantpt(master_fd) != 0) {
-        perror("grantpt");
-        close(master_fd);
+    int sflags = fcntl(master_fd, F_GETFL);
 
-        return;
-    }
+    if (sflags != -1) fcntl(master_fd, F_SETFL, sflags | O_NONBLOCK);
 
-    if (unlockpt(master_fd) != 0) {
-        perror("unlockpt");
-        close(master_fd);
-
-        return;
-    }
-
-    const char *slave_name = ptsname(master_fd);
-
-    if (!slave_name) {
-        perror("ptsname");
-        close(master_fd);
-
-        return;
-    }
-
-    pid_t child_pid = fork();
-
-    if (child_pid < 0) {
-        perror("fork");
-        close(master_fd);
-
-        return;
-    }
-
-    if (child_pid == 0) {
-        setsid();
-
-        int slave_fd = open(slave_name, O_RDWR);
-
-        if (slave_fd < 0) {
-            perror("open");
-            _exit(127);
-        }
-
-        if (ioctl(slave_fd, TIOCSCTTY, (char *)NULL) == -1) perror("ioctl");
-
-        struct termios tio;
-
-        if (tcgetattr(slave_fd, &tio) == 0) {
-            cfmakeraw(&tio);
-            tio.c_cc[VMIN] = 1;
-            tio.c_cc[VTIME] = 0;
-            tcsetattr(slave_fd, TCSANOW, &tio);
-        }
-
-        dup2(slave_fd, STDIN_FILENO);
-        dup2(slave_fd, STDOUT_FILENO);
-        dup2(slave_fd, STDERR_FILENO);
-
-        if (slave_fd > STDERR_FILENO) close(slave_fd);
-
-        close(master_fd);
-        execve(file, argv, envp);
-        perror("execve");
-        _exit(127);
-    }
-
-    session->pid = child_pid;
+    session->pid = pid;
     session->fd = master_fd;
     session->running = true;
-
-    int mflags = fcntl(master_fd, F_GETFL);
-
-    if (mflags != -1) fcntl(master_fd, F_SETFL, mflags | O_NONBLOCK);
 
     return;
 }
@@ -190,7 +147,7 @@ ssize_t session_read(session_t *session, uint8_t *data, size_t length) {
     return read(session->fd, data, length);
 }
 
-ssize_t session_write(session_t *session, const uint8_t *data, size_t length) {
+ssize_t session_write(session_t *session, const uint8_t *data, size_t length, size_t *overwrite) {
     if (session->fd < 0) return -1;
     if (length == 0) return 0;
 
@@ -215,9 +172,9 @@ ssize_t session_write(session_t *session, const uint8_t *data, size_t length) {
         length -= (size_t)total;
     }
 
-    if (length > 0) buffer_write(session->pending, data, length, NULL);
+    if (length > 0) buffer_write(session->pending, data, length, overwrite);
 
-    return total;
+    return total + (ssize_t)length;
 }
 
 ssize_t session_flush_write(session_t *session) {
@@ -251,15 +208,18 @@ ssize_t session_flush_write(session_t *session) {
     if (iov_count > 0) {
         total = writev(session->fd, iov, iov_count);
 
-        if (total > 0) {
-            buffer_shift(session->pending, total);
-        } else if (total < 0) {
-            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        if (total < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                total = 0;
+            } else {
                 perror("writev");
-
                 buffer_reset(session->pending);
+
+                return total;
             }
         }
+
+        buffer_shift(session->pending, total);
     }
 
     return total;
