@@ -13,6 +13,7 @@
 #include "session.h"
 
 #include <crt_externs.h>
+#include <sys/wait.h>
 
 static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
@@ -124,15 +125,10 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
     __weak typeof(self) weakSelf = self;
 
-    dispatch_sync(io_queue, ^{
+    dispatch_async(io_queue, ^{
         __strong typeof(weakSelf) strongSelf = weakSelf;
 
         if (!strongSelf) return;
-
-        if (strongSelf->proc_source) {
-            dispatch_source_cancel(strongSelf->proc_source);
-            strongSelf->proc_source = nil;
-        }
 
         if (strongSelf->write_source) {
             if (strongSelf->write_source_suspended) {
@@ -267,6 +263,8 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
         if (strongSelf.exitBlock) strongSelf.exitBlock(status);
 
+        dispatch_source_cancel(strongSelf->proc_source);
+        strongSelf->proc_source = nil;
         [strongSelf stop];
     });
 
