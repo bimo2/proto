@@ -7,6 +7,8 @@
 
 #import "Terminal.h"
 
+#import <dispatch/dispatch.h>
+
 #include "session.h"
 
 #include <crt_externs.h>
@@ -15,6 +17,9 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
 @interface Terminal () {
     session_t *session;
+    dispatch_queue_t io_queue;
+    dispatch_source_t read_source;
+    dispatch_source_t proc_source;
 }
 
 @end
@@ -26,6 +31,7 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
     if (self) {
         session = init_session();
+        io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
         _file = @"/bin/zsh";
         _flags = @[];
         _environment = @{};
@@ -98,7 +104,10 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
     free(argv);
     free(envp);
 
-    if (!self.running && error) {
+    if (self.running) {
+        [self setupReadSource];
+        [self setupProcSource];
+    } else if (error) {
         *error = [NSError errorWithDomain:TerminalErrorDomain code:errno userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"%s", strerror(errno)]}];
     }
 
@@ -109,6 +118,94 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
     if (!self.running) return;
 
     session_stop(session);
+}
+
+- (void)setupReadSource {
+    int fd = session_fd(session);
+
+    if (read_source || fd < 0) return;
+
+    read_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)fd, 0, io_queue);
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_source_set_event_handler(read_source, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        uint8_t bytes[16 * 1024];
+
+        while (1) {
+            ssize_t size = session_read(strongSelf->session, bytes, sizeof(bytes));
+
+            if (size > 0) {
+                if (strongSelf.dataBlock) strongSelf.dataBlock(bytes, size);
+
+                continue;
+            }
+
+            if (size == 0) {
+                if (strongSelf->read_source) {
+                    dispatch_source_cancel(strongSelf->read_source);
+                    strongSelf->read_source = nil;
+                }
+
+                break;
+            }
+
+            if (size < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) break;
+
+                if (strongSelf->read_source) {
+                    dispatch_source_cancel(strongSelf->read_source);
+                    strongSelf->read_source = nil;
+                }
+
+                break;
+            }
+        }
+    });
+
+    dispatch_resume(read_source);
+}
+
+- (void)setupProcSource {
+    pid_t pid = session_pid(session);
+
+    if (proc_source || pid < 1) return;
+
+    proc_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, (uintptr_t)pid, DISPATCH_PROC_EXIT, io_queue);
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_source_set_event_handler(proc_source, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        int status = 0;
+
+        waitpid(pid, &status, WNOHANG);
+
+        if (status == session_pid(strongSelf->session)) {
+            if (strongSelf.exitBlock) strongSelf.exitBlock(status);
+
+            session_stop(strongSelf->session);
+
+            if (strongSelf->read_source) {
+                dispatch_source_cancel(strongSelf->read_source);
+                strongSelf->read_source = nil;
+            }
+
+            if (strongSelf->proc_source) {
+                dispatch_source_cancel(strongSelf->proc_source);
+                strongSelf->proc_source = nil;
+            }
+        }
+    });
+
+    dispatch_resume(proc_source);
 }
 
 @end

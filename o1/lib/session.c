@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -158,4 +159,10 @@ void session_stop(session_t *session) {
 
     session->running = false;
     session->pid = -1;
+}
+
+ssize_t session_read(session_t *session, uint8_t *data, size_t length) {
+  if (session->fd < 0) return -1;
+
+  return read(session->fd, data, length);
 }

@@ -9,6 +9,7 @@
 #define SESSION_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 typedef struct session_t session_t;
@@ -26,5 +27,7 @@ bool session_running(session_t *session);
 void session_start(session_t *session, const char *file, char *const argv[], char *const envp[]);
 
 void session_stop(session_t *session);
+
+ssize_t session_read(session_t *session, uint8_t *data, size_t length);
 
 #endif // !SESSION_H

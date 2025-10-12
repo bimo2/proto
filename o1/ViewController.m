@@ -27,6 +27,17 @@
 
         strongSelf.terminal.file = @"/bin/ls";
 
+        strongSelf.terminal.dataBlock = ^(uint8_t *bytes, size_t length) {
+            NSData *data = [NSData dataWithBytes:bytes length:length];
+            NSString *string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+
+            NSLog(@"data: (%zu bytes)\n%@", length, string);
+        };
+
+        strongSelf.terminal.exitBlock = ^(int status) {
+            NSLog(@"exit: %d", status);
+        };
+
         NSError *error = nil;
 
         if (![strongSelf.terminal start:&error]) {
