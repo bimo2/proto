@@ -13,11 +13,13 @@
 @property (nonatomic, copy) NSArray<NSString *> *flags;
 @property (nonatomic, copy) NSDictionary<NSString *, NSString *> *environment;
 @property (assign, readonly, getter=isRunning) BOOL running;
-@property (nonatomic, copy) void (^dataBlock)(uint8_t *, size_t);
+@property (nonatomic, copy) void (^dataBlock)(NSData *);
 @property (nonatomic, copy) void (^exitBlock)(int);
 
 - (BOOL)start:(NSError **)error;
 
 - (void)stop;
+
+- (void)write:(NSData *)data;
 
 @end

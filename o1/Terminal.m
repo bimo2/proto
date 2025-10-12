@@ -20,7 +20,9 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
     session_t *session;
     dispatch_queue_t io_queue;
     dispatch_source_t read_source;
+    dispatch_source_t write_source;
     dispatch_source_t proc_source;
+    bool write_source_suspended;
 }
 
 @end
@@ -33,6 +35,7 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
     if (self) {
         session = init_session();
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
+        write_source_suspended = true;
         _file = @"/bin/zsh";
         _flags = @[];
         _environment = @{};
@@ -107,6 +110,7 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
     if (self.running) {
         [self setupReadSource];
+        [self setupWriteSource];
         [self setupProcSource];
     } else if (error) {
         *error = [NSError errorWithDomain:TerminalErrorDomain code:errno userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"%s", strerror(errno)]}];
@@ -118,7 +122,55 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 - (void)stop {
     if (!self.running) return;
 
-    session_stop(session);
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_sync(io_queue, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        if (strongSelf->proc_source) {
+            dispatch_source_cancel(strongSelf->proc_source);
+            strongSelf->proc_source = nil;
+        }
+
+        if (strongSelf->write_source) {
+            if (strongSelf->write_source_suspended) {
+                dispatch_resume(strongSelf->write_source);
+                strongSelf->write_source_suspended = false;
+            }
+
+            dispatch_source_cancel(strongSelf->write_source);
+            strongSelf->write_source = nil;
+            strongSelf->write_source_suspended = true;
+        }
+
+        if (strongSelf->read_source) {
+            dispatch_source_cancel(strongSelf->read_source);
+            strongSelf->read_source = nil;
+        }
+
+        session_stop(strongSelf->session);
+    });
+}
+
+- (void)write:(NSData *)data {
+    if (!self.running) return;
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_async(io_queue, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        session_write(strongSelf->session, (const uint8_t *)data.bytes, data.length);
+
+        if (strongSelf->write_source && strongSelf->write_source_suspended) {
+            dispatch_resume(strongSelf->write_source);
+            strongSelf->write_source_suspended = false;
+        }
+    });
 }
 
 - (void)setupReadSource {
@@ -141,16 +193,17 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
             ssize_t size = session_read(strongSelf->session, bytes, sizeof(bytes));
 
             if (size > 0) {
-                if (strongSelf.dataBlock) strongSelf.dataBlock(bytes, size);
+                if (strongSelf.dataBlock) {
+                    NSData *data = [NSData dataWithBytes:bytes length:size];
+
+                    strongSelf.dataBlock(data);
+                }
 
                 continue;
             }
 
             if (size == 0) {
-                if (strongSelf->read_source) {
-                    dispatch_source_cancel(strongSelf->read_source);
-                    strongSelf->read_source = nil;
-                }
+                [strongSelf stop];
 
                 break;
             }
@@ -158,10 +211,7 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
             if (size < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) break;
 
-                if (strongSelf->read_source) {
-                    dispatch_source_cancel(strongSelf->read_source);
-                    strongSelf->read_source = nil;
-                }
+                [strongSelf stop];
 
                 break;
             }
@@ -169,6 +219,32 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
     });
 
     dispatch_resume(read_source);
+}
+
+- (void)setupWriteSource {
+    int fd = session_fd(session);
+
+    if (write_source || fd < 0) return;
+
+    write_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, (uintptr_t)fd, 0, io_queue);
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_source_set_event_handler(write_source, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        if (session_flush_write(strongSelf->session) > -1) {
+            if (!strongSelf->write_source_suspended) {
+                dispatch_suspend(strongSelf->write_source);
+                strongSelf->write_source_suspended = true;
+            }
+        }
+    });
+
+    dispatch_resume(write_source);
+    dispatch_suspend(write_source);
 }
 
 - (void)setupProcSource {
@@ -189,21 +265,9 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
         waitpid(pid, &status, WNOHANG);
 
-        if (status == session_pid(strongSelf->session)) {
-            if (strongSelf.exitBlock) strongSelf.exitBlock(status);
+        if (strongSelf.exitBlock) strongSelf.exitBlock(status);
 
-            session_stop(strongSelf->session);
-
-            if (strongSelf->read_source) {
-                dispatch_source_cancel(strongSelf->read_source);
-                strongSelf->read_source = nil;
-            }
-
-            if (strongSelf->proc_source) {
-                dispatch_source_cancel(strongSelf->proc_source);
-                strongSelf->proc_source = nil;
-            }
-        }
+        [strongSelf stop];
     });
 
     dispatch_resume(proc_source);

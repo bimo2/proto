@@ -24,10 +24,16 @@ int session_fd(session_t *session);
 
 bool session_running(session_t *session);
 
+char *session_process(session_t *session);
+
 void session_start(session_t *session, const char *file, char *const argv[], char *const envp[]);
 
 void session_stop(session_t *session);
 
 ssize_t session_read(session_t *session, uint8_t *data, size_t length);
+
+ssize_t session_write(session_t *session, const uint8_t *data, size_t length);
+
+ssize_t session_flush_write(session_t *session);
 
 #endif // !SESSION_H

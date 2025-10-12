@@ -6,9 +6,12 @@
 //
 
 #include "session.h"
+#include "buffer.h"
+#include "include.h"
 
 #include <errno.h>
 #include <fcntl.h>
+#include <libproc.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,12 +21,13 @@
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
-#include <util.h>
+#include <sys/uio.h>
 
 struct session_t {
     pid_t pid;
     int fd;
     bool running;
+    buffer_t *pending;
 };
 
 session_t *init_session(void) {
@@ -34,6 +38,13 @@ session_t *init_session(void) {
     session->pid = -1;
     session->fd = -1;
     session->running = false;
+    session->pending = init_buffer(_MB(1));
+
+    if (!session->pending) {
+        free(session);
+
+        return NULL;
+    }
 
     return session;
 }
@@ -42,6 +53,7 @@ void free_session(session_t *session) {
     if (!session) return;
 
     session_stop(session);
+    free_buffer(session->pending);
     free(session);
 }
 
@@ -55,6 +67,17 @@ int session_fd(session_t *session) {
 
 bool session_running(session_t *session) {
     return session->running;
+}
+
+char *session_process(session_t *session) {
+    static _Thread_local char buffer[PROC_PIDPATHINFO_MAXSIZE];
+
+    if (proc_pidpath(session->pid, buffer, sizeof(buffer)) < 1) {
+        perror("proc_pidpath");
+        buffer[0] = '\0';
+    }
+
+    return buffer;
 }
 
 void session_start(session_t *session, const char *file, char *const argv[], char *const envp[]) {
@@ -162,7 +185,82 @@ void session_stop(session_t *session) {
 }
 
 ssize_t session_read(session_t *session, uint8_t *data, size_t length) {
-  if (session->fd < 0) return -1;
+    if (session->fd < 0) return -1;
 
-  return read(session->fd, data, length);
+    return read(session->fd, data, length);
+}
+
+ssize_t session_write(session_t *session, const uint8_t *data, size_t length) {
+    if (session->fd < 0) return -1;
+    if (length == 0) return 0;
+
+    ssize_t total = 0;
+
+    if (session->pending->size == 0) {
+        total = write(session->fd, data, length);
+
+        if (total < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                total = 0;
+            } else {
+                perror("write");
+
+                return total;
+            }
+        }
+
+        if ((size_t)total == length) return total;
+
+        data += total;
+        length -= (size_t)total;
+    }
+
+    if (length > 0) buffer_write(session->pending, data, length, NULL);
+
+    return total;
+}
+
+ssize_t session_flush_write(session_t *session) {
+    if (session->fd < 0) return -1;
+    if (session->pending->size == 0) return 0;
+
+    const uint8_t *segment_a;
+    const uint8_t *segment_b;
+    size_t length_a;
+    size_t length_b;
+
+    buffer_segment(session->pending, &segment_a, &length_a, &segment_b, &length_b);
+
+    struct iovec iov[2];
+    int iov_count = 0;
+
+    if (length_a > 0) {
+        iov[iov_count].iov_base = (void *)segment_a;
+        iov[iov_count].iov_len = length_a;
+        iov_count++;
+    }
+
+    if (length_b > 0) {
+        iov[iov_count].iov_base = (void *)segment_b;
+        iov[iov_count].iov_len = length_b;
+        iov_count++;
+    }
+
+    ssize_t total = 0;
+
+    if (iov_count > 0) {
+        total = writev(session->fd, iov, iov_count);
+
+        if (total > 0) {
+            buffer_shift(session->pending, total);
+        } else if (total < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                perror("writev");
+
+                buffer_reset(session->pending);
+            }
+        }
+    }
+
+    return total;
 }
