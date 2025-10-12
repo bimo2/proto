@@ -9,6 +9,7 @@
 
 #import <dispatch/dispatch.h>
 
+#include "include.h"
 #include "session.h"
 
 #include <crt_externs.h>
@@ -134,7 +135,7 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
         if (!strongSelf) return;
 
-        uint8_t bytes[16 * 1024];
+        uint8_t bytes[_KB(16)];
 
         while (1) {
             ssize_t size = session_read(strongSelf->session, bytes, sizeof(bytes));
