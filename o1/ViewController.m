@@ -29,10 +29,58 @@
         strongSelf.terminal = [[Terminal alloc] init];
         strongSelf.terminal.file = @"/bin/cat";
 
-        strongSelf.terminal.dataBlock = ^(NSData *data) {
-            NSString *string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        strongSelf.terminal.readBlock = ^(ansi_t *ansi) {
+            switch (ansi->event) {
+                case ANSI_EVENT_TEXT: {
+                    NSData *data = [NSData dataWithBytes:ansi->text.bytes length:ansi->text.length];
+                    NSString *string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 
-            NSLog(@"data: (%zu bytes)\n%@", string.length, string);
+                    NSLog(@"text: \"%@\"", string ?: data);
+
+                    break;
+                }
+                case ANSI_EVENT_CSI: {
+                    NSMutableString *parameters = [NSMutableString new];
+
+                    for (size_t i = 0; i < ansi->csi.parameters_count; i++) {
+                        if (i > 0) [parameters appendString:@";"];
+
+                        [parameters appendFormat:@"%d", ansi->csi.parameters[i]];
+                    }
+
+                    NSLog(@"csi: %d %@ %.*s %c", ansi->csi.dec_private, parameters, (int)ansi->csi.intermediates_count, ansi->csi.intermediates, ansi->csi.final_byte);
+
+                    break;
+                }
+                case ANSI_EVENT_OSC: {
+                    if (ansi->osc.payload == NULL) {
+                        NSLog(@"osc: %d", ansi->osc.code);
+
+                        break;
+                    }
+
+                    NSString *payload = [NSString stringWithUTF8String:ansi->osc.payload];
+
+                    NSLog(@"osc: %d %@", ansi->osc.code, payload);
+
+                    break;
+                }
+                case ANSI_EVENT_ESC:
+                    NSLog(@"esc: %d", ansi->esc.event);
+
+                    break;
+                case ANSI_EVENT_BELL:
+                    NSLog(@"bell");
+
+                    break;
+                case ANSI_EVENT_UNKNOWN: {
+                    NSData *data = [NSData dataWithBytes:ansi->unknown.bytes length:ansi->unknown.length];
+
+                    NSLog(@"unknown: %@", data);
+
+                    break;
+                }
+            }
         };
 
         strongSelf.terminal.exitBlock = ^(int status) {

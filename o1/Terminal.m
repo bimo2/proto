@@ -11,14 +11,17 @@
 
 #include "include.h"
 #include "session.h"
+#include "reader.h"
 
 #include <crt_externs.h>
 #include <sys/wait.h>
 
 static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
+static void on_ansi_callback(void *, ansi_t *);
 
 @interface Terminal () {
     session_t *session;
+    reader_t *reader;
     dispatch_queue_t io_queue;
     dispatch_source_t read_source;
     dispatch_source_t write_source;
@@ -35,11 +38,16 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
     if (self) {
         session = init_session();
+        reader = init_reader();
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
         write_source_suspended = true;
         _file = @"/bin/zsh";
         _flags = @[];
         _environment = @{};
+
+        __weak typeof(self) weakSelf = self;
+
+        reader_set_ansi_callback(reader, on_ansi_callback, (__bridge void *)weakSelf);
     }
 
     return self;
@@ -47,7 +55,12 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
 - (void)dealloc {
     [self stop];
+
+    free_reader(reader);
     free_session(session);
+
+    reader = NULL;
+    session = NULL;
 }
 
 - (BOOL)isRunning {
@@ -146,6 +159,7 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
             strongSelf->read_source = nil;
         }
 
+        reader_reset(strongSelf->reader);
         session_stop(strongSelf->session);
     });
 }
@@ -189,11 +203,7 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
             ssize_t size = session_read(strongSelf->session, bytes, sizeof(bytes));
 
             if (size > 0) {
-                if (strongSelf.dataBlock) {
-                    NSData *data = [NSData dataWithBytes:bytes length:size];
-
-                    strongSelf.dataBlock(data);
-                }
+                reader_feed(strongSelf->reader, bytes, (size_t)size);
 
                 continue;
             }
@@ -261,7 +271,11 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 
         waitpid(pid, &status, WNOHANG);
 
-        if (strongSelf.exitBlock) strongSelf.exitBlock(status);
+        if (strongSelf.exitBlock) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                strongSelf.exitBlock(status);
+            });
+        }
 
         dispatch_source_cancel(strongSelf->proc_source);
         strongSelf->proc_source = nil;
@@ -272,3 +286,17 @@ static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 }
 
 @end
+
+static void on_ansi_callback(void *user_data, ansi_t *ansi) {
+    Terminal *self = (__bridge Terminal *)user_data;
+
+    if (!self) return;
+
+    __strong Terminal *strongSelf = self;
+
+    if (strongSelf.readBlock) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            strongSelf.readBlock(ansi);
+        });
+    }
+}
