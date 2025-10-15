@@ -76,27 +76,27 @@ typedef enum ansi_csi_event_t {
 } ansi_csi_event_t;
 
 typedef enum ansi_dec_mode_t {
-    DEC_MODE_UNKNOWN         = 0,
-    DEC_MODE_CURSOR_BLINK    = 12,
-    DEC_MODE_CURSOR_VISIBLE  = 25,
-    DEC_MODE_MOUSE_X10       = 1000,
-    DEC_MODE_MOUSE_NORMAL    = 1002,
-    DEC_MODE_MOUSE_ALL       = 1003,
-    DEC_MODE_FOCUS_REPORT    = 1004,
-    DEC_MODE_MOUSE_SGR       = 1006,
-    DEC_MODE_BRACKETED_PASTE = 2004,
+    ANSI_DEC_MODE_UNKNOWN         = 0,
+    ANSI_DEC_MODE_CURSOR_BLINK    = 12,
+    ANSI_DEC_MODE_CURSOR_VISIBLE  = 25,
+    ANSI_DEC_MODE_MOUSE_X10       = 1000,
+    ANSI_DEC_MODE_MOUSE_NORMAL    = 1002,
+    ANSI_DEC_MODE_MOUSE_ALL       = 1003,
+    ANSI_DEC_MODE_FOCUS_REPORT    = 1004,
+    ANSI_DEC_MODE_MOUSE_SGR       = 1006,
+    ANSI_DEC_MODE_BRACKETED_PASTE = 2004,
 } ansi_dec_mode_t;
 
 typedef enum ansi_sgr_flag_t {
-    SGR_ATTR_NONE      = 0,
-    SGR_ATTR_BOLD      = 1u << 0,
-    SGR_ATTR_FAINT     = 1u << 1,
-    SGR_ATTR_ITALIC    = 1u << 2,
-    SGR_ATTR_UNDERLINE = 1u << 3,
-    SGR_ATTR_BLINK     = 1u << 4,
-    SGR_ATTR_INVERSE   = 1u << 5,
-    SGR_ATTR_HIDDEN    = 1u << 6,
-    SGR_ATTR_STRIKE    = 1u << 7,
+    ANSI_SGR_FLAG_NONE      = 0,
+    ANSI_SGR_FLAG_BOLD      = 1u << 0,
+    ANSI_SGR_FLAG_FAINT     = 1u << 1,
+    ANSI_SGR_FLAG_ITALIC    = 1u << 2,
+    ANSI_SGR_FLAG_UNDERLINE = 1u << 3,
+    ANSI_SGR_FLAG_BLINK     = 1u << 4,
+    ANSI_SGR_FLAG_INVERSE   = 1u << 5,
+    ANSI_SGR_FLAG_HIDDEN    = 1u << 6,
+    ANSI_SGR_FLAG_STRIKE    = 1u << 7,
 } ansi_sgr_flag_t;
 
 typedef struct ansi_sgr_t {

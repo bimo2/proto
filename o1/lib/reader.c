@@ -44,7 +44,7 @@ struct reader_t {
 static inline void sgr_reset_attributes(ansi_sgr_t *attributes) {
     if (!attributes) return;
 
-    attributes->flags = SGR_ATTR_NONE;
+    attributes->flags = ANSI_SGR_FLAG_NONE;
     attributes->fg_color = ANSI_COLOR_RESET;
     attributes->bg_color = ANSI_COLOR_RESET;
 }
@@ -70,80 +70,80 @@ static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, 
 
                 break;
             case 1:
-                attributes->flags |= SGR_ATTR_BOLD;
+                attributes->flags |= ANSI_SGR_FLAG_BOLD;
                 i++;
 
                 break;
             case 2:
-                attributes->flags |= SGR_ATTR_FAINT;
+                attributes->flags |= ANSI_SGR_FLAG_FAINT;
                 i++;
 
                 break;
             case 3:
-                attributes->flags |= SGR_ATTR_ITALIC;
+                attributes->flags |= ANSI_SGR_FLAG_ITALIC;
                 i++;
 
                 break;
             case 4:
-                attributes->flags |= SGR_ATTR_UNDERLINE;
+                attributes->flags |= ANSI_SGR_FLAG_UNDERLINE;
                 i++;
 
                 break;
             case 5:
             case 6:
-                attributes->flags |= SGR_ATTR_BLINK;
+                attributes->flags |= ANSI_SGR_FLAG_BLINK;
                 i++;
 
                 break;
             case 7:
-                attributes->flags |= SGR_ATTR_INVERSE;
+                attributes->flags |= ANSI_SGR_FLAG_INVERSE;
                 i++;
 
                 break;
             case 8:
-                attributes->flags |= SGR_ATTR_HIDDEN;
+                attributes->flags |= ANSI_SGR_FLAG_HIDDEN;
                 i++;
 
                 break;
             case 9:
-                attributes->flags |= SGR_ATTR_STRIKE;
+                attributes->flags |= ANSI_SGR_FLAG_STRIKE;
                 i++;
 
                 break;
             case 21:
             case 22:
-                attributes->flags &= ~SGR_ATTR_BOLD;
+                attributes->flags &= ~ANSI_SGR_FLAG_BOLD;
                 i++;
 
                 break;
             case 23:
-                attributes->flags &= ~SGR_ATTR_ITALIC;
+                attributes->flags &= ~ANSI_SGR_FLAG_ITALIC;
                 i++;
 
                 break;
             case 24:
-                attributes->flags &= ~SGR_ATTR_UNDERLINE;
+                attributes->flags &= ~ANSI_SGR_FLAG_UNDERLINE;
                 i++;
 
                 break;
             case 25:
             case 26:
-                attributes->flags &= ~SGR_ATTR_BLINK;
+                attributes->flags &= ~ANSI_SGR_FLAG_BLINK;
                 i++;
 
                 break;
             case 27:
-                attributes->flags &= ~SGR_ATTR_INVERSE;
+                attributes->flags &= ~ANSI_SGR_FLAG_INVERSE;
                 i++;
 
                 break;
             case 28:
-                attributes->flags &= ~SGR_ATTR_HIDDEN;
+                attributes->flags &= ~ANSI_SGR_FLAG_HIDDEN;
                 i++;
 
                 break;
             case 29:
-                attributes->flags &= ~SGR_ATTR_STRIKE;
+                attributes->flags &= ~ANSI_SGR_FLAG_STRIKE;
                 i++;
 
                 break;
@@ -215,23 +215,23 @@ static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, 
 static inline ansi_dec_mode_t dec_mode(int code) {
     switch (code) {
         case 12:
-            return DEC_MODE_CURSOR_BLINK;
+            return ANSI_DEC_MODE_CURSOR_BLINK;
         case 25:
-            return DEC_MODE_CURSOR_VISIBLE;
+            return ANSI_DEC_MODE_CURSOR_VISIBLE;
         case 1000:
-            return DEC_MODE_MOUSE_X10;
+            return ANSI_DEC_MODE_MOUSE_X10;
         case 1002:
-            return DEC_MODE_MOUSE_NORMAL;
+            return ANSI_DEC_MODE_MOUSE_NORMAL;
         case 1003:
-            return DEC_MODE_MOUSE_ALL;
+            return ANSI_DEC_MODE_MOUSE_ALL;
         case 1004:
-            return DEC_MODE_FOCUS_REPORT;
+            return ANSI_DEC_MODE_FOCUS_REPORT;
         case 1006:
-            return DEC_MODE_MOUSE_SGR;
+            return ANSI_DEC_MODE_MOUSE_SGR;
         case 2004:
-            return DEC_MODE_BRACKETED_PASTE;
+            return ANSI_DEC_MODE_BRACKETED_PASTE;
         default:
-            return DEC_MODE_UNKNOWN;
+            return ANSI_DEC_MODE_UNKNOWN;
     }
 }
 
@@ -405,7 +405,7 @@ static void send_csi(reader_t *reader, char final_byte) {
     }
 
     ansi.csi.event = event;
-    ansi.csi.dec_mode = DEC_MODE_UNKNOWN;
+    ansi.csi.dec_mode = ANSI_DEC_MODE_UNKNOWN;
 
     if (event == ANSI_CSI_DECSET || event == ANSI_CSI_DECRST) {
         if (ansi.csi.parameters_count > 0 && ansi.csi.parameters[0] >= 0)
@@ -510,21 +510,26 @@ static size_t utf8_incomplete_length(const uint8_t *bytes, size_t length) {
     while (continuation < 3 && length > continuation && utf8_incomplete(bytes[length - 1 - continuation]))
         continuation++;
 
-    if (continuation == 0) return 0;
+    if (continuation == 0) {
+        uint8_t last = bytes[length - 1];
+        size_t expected = utf8_expected_length(last);
 
-    size_t lead_index = length - 1 - continuation;
-    uint8_t lead = bytes[lead_index];
+        return (expected > 1) ? 1 : 0;
+    }
 
-    if (lead_index == 0 && utf8_incomplete(lead))
-        return continuation + 1;
+    if (length > continuation) {
+        size_t lead_index = length - 1 - continuation;
+        uint8_t lead = bytes[lead_index];
+        size_t expected = utf8_expected_length(lead);
 
-    size_t expected = utf8_expected_length(lead);
+        if (expected == 0) return continuation;
 
-    if (expected == 0) return 0;
+        size_t have = length - lead_index;
 
-    size_t have = length - lead_index;
+        return (have < expected) ? have : 0;
+    }
 
-    return (have < expected) ? have : 0;
+    return continuation;
 }
 
 reader_t *init_reader(void) {

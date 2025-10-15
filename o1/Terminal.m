@@ -55,10 +55,8 @@ static void on_ansi_callback(void *, ansi_t *);
 
 - (void)dealloc {
     [self stop];
-
     free_reader(reader);
     free_session(session);
-
     reader = NULL;
     session = NULL;
 }
@@ -295,7 +293,7 @@ static void on_ansi_callback(void *user_data, ansi_t *ansi) {
     __strong Terminal *strongSelf = self;
 
     if (strongSelf.readBlock) {
-        dispatch_async(dispatch_get_main_queue(), ^{
+        dispatch_sync(dispatch_get_main_queue(), ^{
             strongSelf.readBlock(ansi);
         });
     }
