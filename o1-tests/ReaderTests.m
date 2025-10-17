@@ -198,6 +198,34 @@ static void test_callback(void *, ansi_t *);
     free_reader(reader);
 }
 
+- (void)test_ansi_mode {
+    reader_t *reader = init_reader();
+    __weak typeof(self) weakSelf = self;
+
+    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+
+    const char *input =
+    "\x1b" "[4h"
+    "\x1b" "[4l";
+
+    reader_feed(reader, (const uint8_t *)input, strlen(input));
+    XCTAssertEqual(self.output.count, 2);
+
+    ansi_t ansi;
+
+    [self.output[0] getValue:&ansi];
+    XCTAssertEqual(ansi.event, ANSI_EVENT_CSI);
+    XCTAssertEqual(ansi.csi.event, ANSI_CSI_SM);
+    XCTAssertFalse(ansi.csi.dec_private);
+    XCTAssertEqual(ansi.csi.mode, ANSI_MODE_INSERT);
+    [self.output[1] getValue:&ansi];
+    XCTAssertEqual(ansi.event, ANSI_EVENT_CSI);
+    XCTAssertEqual(ansi.csi.event, ANSI_CSI_RM);
+    XCTAssertFalse(ansi.csi.dec_private);
+    XCTAssertEqual(ansi.csi.mode, ANSI_MODE_INSERT);
+    free_reader(reader);
+}
+
 - (void)test_ansi_dec {
     reader_t *reader = init_reader();
     __weak typeof(self) weakSelf = self;
@@ -205,6 +233,8 @@ static void test_callback(void *, ansi_t *);
     reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
+    "\x1b" "[?6h"
+    "\x1b" "[?7h"
     "\x1b" "[?12h"
     "\x1b" "[?25h"
     "\x1b" "[?1000h"
@@ -214,6 +244,8 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "[?1006h"
     "\x1b" "[?2004h"
     "\x1b" "[?999h"
+    "\x1b" "[?6l"
+    "\x1b" "[?7l"
     "\x1b" "[?12l"
     "\x1b" "[?25l"
     "\x1b" "[?1000l"
@@ -225,9 +257,11 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "[?999l";
 
     reader_feed(reader, (const uint8_t *)input, strlen(input));
-    XCTAssertEqual(self.output.count, 18);
+    XCTAssertEqual(self.output.count, 22);
 
     ansi_dec_mode_t expected[] = {
+        ANSI_DEC_MODE_ORIGIN,
+        ANSI_DEC_MODE_AUTO_WRAP,
         ANSI_DEC_MODE_CURSOR_BLINK,
         ANSI_DEC_MODE_CURSOR_VISIBLE,
         ANSI_DEC_MODE_MOUSE_X10,
@@ -237,6 +271,8 @@ static void test_callback(void *, ansi_t *);
         ANSI_DEC_MODE_MOUSE_SGR,
         ANSI_DEC_MODE_BRACKETED_PASTE,
         ANSI_DEC_MODE_UNKNOWN,
+        ANSI_DEC_MODE_ORIGIN,
+        ANSI_DEC_MODE_AUTO_WRAP,
         ANSI_DEC_MODE_CURSOR_BLINK,
         ANSI_DEC_MODE_CURSOR_VISIBLE,
         ANSI_DEC_MODE_MOUSE_X10,
@@ -254,7 +290,7 @@ static void test_callback(void *, ansi_t *);
         XCTAssertEqual(ansi.event, ANSI_EVENT_CSI);
         XCTAssertTrue(ansi.csi.dec_private);
 
-        if (i < (self.output.count /2)) {
+        if (i < (self.output.count / 2)) {
             XCTAssertEqual(ansi.csi.event, ANSI_CSI_DECSET);
         } else {
             XCTAssertEqual(ansi.csi.event, ANSI_CSI_DECRST);
@@ -287,7 +323,7 @@ static void test_callback(void *, ansi_t *);
         ANSI_OSC_SET_TITLE,
         ANSI_OSC_SET_TITLE,
         ANSI_OSC_HYPERLINK,
-        ANSI_OSC_CLIPBOARD
+        ANSI_OSC_CLIPBOARD,
     };
 
     for (NSUInteger i = 0; i < self.output.count; i++) {
@@ -313,7 +349,7 @@ static void test_callback(void *, ansi_t *);
     XCTAssertEqual(self.output.count, 1);
 
     ansi_t ansi;
-    
+
     [self.output[0] getValue:&ansi];
     XCTAssertEqual(ansi.event, ANSI_EVENT_BELL);
     free_reader(reader);

@@ -27,14 +27,14 @@ struct screen_t {
     int32_t rows;
     int32_t columns;
     ansi_sgr_t attributes;
-    screen_cursor_t cursor;
     bool auto_wrap;
     bool insert_mode;
     bool origin_mode;
     int32_t scroll_top;
     int32_t scroll_bottom;
-    bool saved_cursor_valid;
+    screen_cursor_t cursor;
     screen_cursor_t saved_cursor;
+    bool saved_cursor_valid;
 };
 
 static inline void cell_reset(screen_cell_t *cell) {
@@ -124,14 +124,14 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
     screen->rows = rows;
     screen->columns = columns;
     screen->attributes = DEFAULT_ATTRIBUTES;
-    cursor_reset(&screen->cursor);
     screen->auto_wrap = true;
     screen->insert_mode = false;
     screen->origin_mode = false;
     screen->scroll_top = 0;
     screen->scroll_bottom = rows - 1;
-    screen->saved_cursor_valid = false;
+    cursor_reset(&screen->cursor);
     cursor_reset(&screen->saved_cursor);
+    screen->saved_cursor_valid = false;
 
     return screen;
 }
@@ -209,6 +209,40 @@ void screen_set_attributes(screen_t *screen, const ansi_sgr_t *attributes) {
     screen->attributes = *attributes;
 }
 
+bool screen_auto_wrap(screen_t *screen) {
+    return screen->auto_wrap;
+}
+
+void screen_set_auto_wrap(screen_t *screen, bool enabled) {
+    screen->auto_wrap = enabled;
+}
+
+bool screen_insert_mode(screen_t *screen) {
+    return screen->insert_mode;
+}
+
+void screen_set_insert_mode(screen_t *screen, bool enabled) {
+    screen->insert_mode = enabled;
+}
+
+bool screen_origin_mode(screen_t *screen) {
+    return screen->origin_mode;
+}
+
+void screen_set_origin_mode(screen_t *screen, bool enabled) {
+    screen->origin_mode = enabled;
+
+    if (enabled) {
+        screen->cursor.row = screen->scroll_top;
+        screen->cursor.column = 0;
+    } else {
+        screen->cursor.row = 0;
+        screen->cursor.column = 0;
+    }
+
+    fix_cursor(screen);
+}
+
 screen_cursor_t *screen_cursor(screen_t *screen) {
     return &screen->cursor;
 }
@@ -223,8 +257,18 @@ void screen_move_cursor_absolute(screen_t *screen, int32_t row, int32_t column) 
     if (row > 0) row--;
     if (column > 0) column--;
 
-    screen->cursor.row = row;
+    int32_t top = screen->origin_mode ? screen->scroll_top : 0;
+    int32_t bottom = screen->origin_mode ? screen->scroll_bottom : screen->rows - 1;
+
+    if (row < 0) row = 0;
+    if (column < 0) column = 0;
+
+    screen->cursor.row = top + row;
     screen->cursor.column = column;
+
+    if (screen->cursor.row < top) screen->cursor.row = top;
+    if (screen->cursor.row > bottom) screen->cursor.row = bottom;
+
     fix_cursor(screen);
 }
 
@@ -291,8 +335,18 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
         }
     }
 
-    screen_set_cell(screen, screen->cursor.row, screen->cursor.column, codepoint, &screen->attributes);
-    screen->cursor.column++;
+    if (screen->insert_mode) {
+        for (int32_t j = screen->columns - 1; j > screen->cursor.column; j--) {
+            screen->grid[screen->cursor.row][j] = screen->grid[screen->cursor.row][j - 1];
+            screen->grid[screen->cursor.row][j].dirty = true;
+        }
+
+        screen_set_cell(screen, screen->cursor.row, screen->cursor.column, codepoint, &screen->attributes);
+        screen->cursor.column++;
+    } else {
+        screen_set_cell(screen, screen->cursor.row, screen->cursor.column, codepoint, &screen->attributes);
+        screen->cursor.column++;
+    }
 
     if (screen->cursor.column >= screen->columns) {
         if (screen->auto_wrap) {

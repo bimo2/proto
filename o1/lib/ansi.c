@@ -9,9 +9,9 @@
 
 #include <stdint.h>
 
-#define ANSI_BITWISE_MASK    0xFF000000u
+#define ANSI_BITWISE_MASK 0xFF000000u
 #define ANSI_BITWISE_INDEXED 0x01000000u
-#define ANSI_BITWISE_RGB     0x02000000u
+#define ANSI_BITWISE_RGB 0x02000000u
 
 uint32_t ansi_color_pack_indexed(int index) {
     return ANSI_BITWISE_INDEXED | ((uint32_t)(index) & 0xFFu);

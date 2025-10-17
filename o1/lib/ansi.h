@@ -74,8 +74,15 @@ typedef enum ansi_csi_event_t {
     ANSI_CSI_BRP_END,
 } ansi_csi_event_t;
 
+typedef enum ansi_mode_t {
+    ANSI_MODE_UNKNOWN = 0,
+    ANSI_MODE_INSERT = 4,
+} ansi_mode_t;
+
 typedef enum ansi_dec_mode_t {
     ANSI_DEC_MODE_UNKNOWN = 0,
+    ANSI_DEC_MODE_ORIGIN = 6,
+    ANSI_DEC_MODE_AUTO_WRAP = 7,
     ANSI_DEC_MODE_CURSOR_BLINK = 12,
     ANSI_DEC_MODE_CURSOR_VISIBLE = 25,
     ANSI_DEC_MODE_MOUSE_X10 = 1000,
@@ -113,6 +120,7 @@ typedef struct ansi_csi_t {
     char final_byte;
     ansi_csi_event_t event;
     ansi_sgr_t attributes;
+    ansi_mode_t mode;
     ansi_dec_mode_t dec_mode;
 } ansi_csi_t;
 

@@ -48,6 +48,18 @@ ansi_sgr_t *screen_attributes(screen_t *screen);
 
 void screen_set_attributes(screen_t *screen, const ansi_sgr_t *attributes);
 
+bool screen_auto_wrap(screen_t *screen);
+
+void screen_set_auto_wrap(screen_t *screen, bool enabled);
+
+bool screen_insert_mode(screen_t *screen);
+
+void screen_set_insert_mode(screen_t *screen, bool enabled);
+
+bool screen_origin_mode(screen_t *screen);
+
+void screen_set_origin_mode(screen_t *screen, bool enabled);
+
 screen_cursor_t *screen_cursor(screen_t *screen);
 
 void screen_set_cursor_position(screen_t *screen, int32_t row, int32_t column);

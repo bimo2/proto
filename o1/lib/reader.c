@@ -212,8 +212,21 @@ static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, 
     }
 }
 
+static inline ansi_mode_t csi_mode(int code) {
+    switch (code) {
+        case 4:
+            return ANSI_MODE_INSERT;
+        default:
+            return ANSI_MODE_UNKNOWN;
+    }
+}
+
 static inline ansi_dec_mode_t dec_mode(int code) {
     switch (code) {
+        case 6:
+            return ANSI_DEC_MODE_ORIGIN;
+        case 7:
+            return ANSI_DEC_MODE_AUTO_WRAP;
         case 12:
             return ANSI_DEC_MODE_CURSOR_BLINK;
         case 25:
@@ -405,11 +418,17 @@ static void send_csi(reader_t *reader, char final_byte) {
     }
 
     ansi.csi.event = event;
+    ansi.csi.mode = ANSI_MODE_UNKNOWN;
     ansi.csi.dec_mode = ANSI_DEC_MODE_UNKNOWN;
 
     if (event == ANSI_CSI_DECSET || event == ANSI_CSI_DECRST) {
         if (ansi.csi.parameters_count > 0 && ansi.csi.parameters[0] >= 0)
             ansi.csi.dec_mode = dec_mode(ansi.csi.parameters[0]);
+    }
+
+    if (event == ANSI_CSI_SM || event == ANSI_CSI_RM) {
+        if (ansi.csi.parameters_count > 0 && ansi.csi.parameters[0] >= 0)
+            ansi.csi.mode = csi_mode(ansi.csi.parameters[0]);
     }
 
     if (event == ANSI_CSI_SGR) {
