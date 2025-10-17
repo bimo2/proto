@@ -9,9 +9,9 @@
 #include "ansi.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/types.h>
 
 #define DEFAULT_ROWS 24
 #define DEFAULT_COLUMNS 80

@@ -11,8 +11,8 @@
 #include "ansi.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 typedef struct screen_cell_t {
     uint32_t codepoint;

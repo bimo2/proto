@@ -10,8 +10,8 @@
 
 #include "ansi.h"
 
+#include <stddef.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 typedef struct reader_t reader_t;
 typedef void (*reader_ansi_callback_t)(void *, ansi_t *);
