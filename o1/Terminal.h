@@ -16,6 +16,8 @@
 @property (nonatomic, copy) NSDictionary<NSString *, NSString *> *environment;
 @property (assign, readonly, getter=isRunning) BOOL running;
 @property (nonatomic, copy) void (^updateBlock)(screen_t *);
+@property (nonatomic, copy) void (^titleBlock)(const char *);
+@property (nonatomic, copy) void (^bellBlock)(void);
 @property (nonatomic, copy) void (^exitBlock)(int);
 
 - (BOOL)start:(NSError **)error;

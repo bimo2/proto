@@ -11,13 +11,32 @@
 #include "ansi.h"
 #include "screen.h"
 
-typedef struct screen_manager_t screen_manager_t;
+#include <stdint.h>
 
-screen_manager_t *init_screen_manager(screen_t *screen);
+typedef struct screen_manager_t screen_manager_t;
+typedef void (*screen_manager_response_callback_t)(void *, const char *);
+typedef void (*screen_manager_title_callback_t)(void *, const char *);
+typedef void (*screen_manager_bell_callback_t)(void *);
+
+screen_manager_t *init_screen_manager(void);
 
 void free_screen_manager(screen_manager_t *manager);
 
-void screen_manager_set_screen(screen_manager_t *manager, screen_t *screen);
+void screen_manager_reset(screen_manager_t *manager);
+
+screen_t *screen_manager_current_screen(screen_manager_t *manager);
+
+void screen_manager_set_grid(screen_manager_t *manager, int32_t rows, int32_t columns);
+
+const char *screen_manager_title(screen_manager_t *manager);
+
+void screen_manager_set_title(screen_manager_t *manager, const char *title);
+
+void screen_manager_set_title_callback(screen_manager_t *manager, screen_manager_title_callback_t callback, void *user_data);
+
+void screen_manager_set_response_callback(screen_manager_t *manager, screen_manager_response_callback_t callback, void *user_data);
+
+void screen_manager_set_bell_callback(screen_manager_t *manager, screen_manager_bell_callback_t callback, void *user_data);
 
 void screen_manager_update(screen_manager_t *manager, const ansi_t *ansi);
 

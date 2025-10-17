@@ -8,6 +8,8 @@
 #import "ViewController.h"
 #import "Terminal.h"
 
+#include "screen.h"
+
 @interface ViewController ()
 
 @property (strong) Terminal *terminal;
@@ -60,6 +62,14 @@
             }
 
             NSLog(@"update:\n%@", grid);
+        };
+
+        strongSelf.terminal.titleBlock = ^(const char *title) {
+            NSLog(@"title: %s", title);
+        };
+
+        strongSelf.terminal.bellBlock = ^() {
+            NSLog(@"bell");
         };
 
         strongSelf.terminal.exitBlock = ^(int status) {

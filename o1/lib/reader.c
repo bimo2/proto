@@ -223,6 +223,8 @@ static inline ansi_mode_t csi_mode(int code) {
 
 static inline ansi_dec_mode_t dec_mode(int code) {
     switch (code) {
+        case 1:
+            return ANSI_DEC_MODE_CURSOR_KEYS;
         case 6:
             return ANSI_DEC_MODE_ORIGIN;
         case 7:
@@ -241,6 +243,12 @@ static inline ansi_dec_mode_t dec_mode(int code) {
             return ANSI_DEC_MODE_FOCUS_REPORT;
         case 1006:
             return ANSI_DEC_MODE_MOUSE_SGR;
+        case 1047:
+            return ANSI_DEC_MODE_ALTERNATE_SCREEN;
+        case 1048:
+            return ANSI_DEC_MODE_SAVE_CURSOR;
+        case 1049:
+            return ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR;
         case 2004:
             return ANSI_DEC_MODE_BRACKETED_PASTE;
         default:
@@ -551,7 +559,6 @@ reader_t *init_reader(void) {
     reader_t *reader = (reader_t *)calloc(1, sizeof(reader_t));
 
     if (!reader) return NULL;
-
 
     reader->state = STATE_GROUND;
     reader->utf8_length = 0;

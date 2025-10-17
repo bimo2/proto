@@ -21,11 +21,13 @@
 
 static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 static void on_ansi_callback(void *, ansi_t *);
+static void on_title_callback(void *, const char *);
+static void on_response_callback(void *, const char *);
+static void on_bell_callback(void *);
 
 @interface Terminal () {
     session_t *session;
     reader_t *reader;
-    screen_t *screen;
     screen_manager_t *manager;
     dispatch_queue_t io_queue;
     dispatch_source_t read_source;
@@ -44,8 +46,7 @@ static void on_ansi_callback(void *, ansi_t *);
     if (self) {
         session = init_session();
         reader = init_reader();
-        screen = init_screen(-1, -1);
-        manager = init_screen_manager(screen);
+        manager = init_screen_manager();
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
         write_source_suspended = true;
         _file = @"/bin/zsh";
@@ -55,6 +56,9 @@ static void on_ansi_callback(void *, ansi_t *);
         __weak typeof(self) weakSelf = self;
 
         reader_set_ansi_callback(reader, on_ansi_callback, (__bridge void *)weakSelf);
+        screen_manager_set_response_callback(manager, on_response_callback, (__bridge void *)weakSelf);
+        screen_manager_set_title_callback(manager, on_title_callback, (__bridge void *)weakSelf);
+        screen_manager_set_bell_callback(manager, on_bell_callback, (__bridge void *)weakSelf);
     }
 
     return self;
@@ -63,13 +67,8 @@ static void on_ansi_callback(void *, ansi_t *);
 - (void)dealloc {
     [self stop];
     free_screen_manager(manager);
-    free_screen(screen);
     free_reader(reader);
     free_session(session);
-    manager = NULL;
-    screen = NULL;
-    reader = NULL;
-    session = NULL;
 }
 
 - (BOOL)isRunning {
@@ -294,10 +293,6 @@ static void on_ansi_callback(void *, ansi_t *);
     dispatch_resume(proc_source);
 }
 
-- (screen_t *)_screen {
-    return screen;
-}
-
 - (screen_manager_t *)_manager {
     return manager;
 }
@@ -309,14 +304,50 @@ static void on_ansi_callback(void *user_data, ansi_t *ansi) {
 
     if (!self) return;
 
-    __strong Terminal *strongSelf = self;
-    screen_manager_t *manager = [self _manager];
+    if (self.updateBlock) {
+        screen_manager_t *manager = [self _manager];
+        screen_manager_update(manager, ansi);
 
-    screen_manager_update(manager, ansi);
-
-    if (strongSelf.updateBlock) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            strongSelf.updateBlock([self _screen]);
+            screen_t *screen = screen_manager_current_screen(manager);
+
+            self.updateBlock(screen);
+        });
+    }
+}
+
+static void on_title_callback(void *user_data, const char *title) {
+    Terminal *self = (__bridge Terminal *)user_data;
+
+    if (!self) return;
+
+    if (self.titleBlock) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.titleBlock(title);
+        });
+    }
+}
+
+static void on_response_callback(void *user_data, const char *response) {
+    Terminal *self = (__bridge Terminal *)user_data;
+
+    if (!self) return;
+
+    if (response) {
+        NSData *data = [NSData dataWithBytes:response length:strlen(response)];
+
+        [self write:data];
+    }
+}
+
+static void on_bell_callback(void *user_data) {
+    Terminal *self = (__bridge Terminal *)user_data;
+
+    if (!self) return;
+
+    if (self.bellBlock) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.bellBlock();
         });
     }
 }
