@@ -248,7 +248,13 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     screen_save_cursor(manager->current);
 
                     break;
-                default:
+                case ANSI_DEC_MODE_MOUSE_X10:
+                case ANSI_DEC_MODE_MOUSE_NORMAL:
+                case ANSI_DEC_MODE_MOUSE_ALL:
+                case ANSI_DEC_MODE_FOCUS_REPORT:
+                case ANSI_DEC_MODE_MOUSE_SGR:
+                case ANSI_DEC_MODE_BRACKETED_PASTE:
+                case ANSI_DEC_MODE_UNKNOWN:
                     break;
             }
 
@@ -293,7 +299,13 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     screen_restore_cursor(manager->current);
 
                     break;
-                default:
+                case ANSI_DEC_MODE_MOUSE_X10:
+                case ANSI_DEC_MODE_MOUSE_NORMAL:
+                case ANSI_DEC_MODE_MOUSE_ALL:
+                case ANSI_DEC_MODE_FOCUS_REPORT:
+                case ANSI_DEC_MODE_MOUSE_SGR:
+                case ANSI_DEC_MODE_BRACKETED_PASTE:
+                case ANSI_DEC_MODE_UNKNOWN:
                     break;
             }
 
@@ -381,7 +393,9 @@ static inline void apply_osc(screen_manager_t *manager, const ansi_osc_t *osc) {
 
             break;
         }
-        default:
+        case ANSI_OSC_HYPERLINK:
+        case ANSI_OSC_CLIPBOARD:
+        case ANSI_OSC_KIND_UNKNOWN:
             break;
     }
 }
