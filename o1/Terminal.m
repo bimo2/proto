@@ -9,9 +9,12 @@
 
 #import <dispatch/dispatch.h>
 
+#include "ansi.h"
 #include "include.h"
 #include "session.h"
 #include "reader.h"
+#include "screen.h"
+#include "screen_manager.h"
 
 #include <crt_externs.h>
 #include <sys/wait.h>
@@ -22,6 +25,8 @@ static void on_ansi_callback(void *, ansi_t *);
 @interface Terminal () {
     session_t *session;
     reader_t *reader;
+    screen_t *screen;
+    screen_manager_t *manager;
     dispatch_queue_t io_queue;
     dispatch_source_t read_source;
     dispatch_source_t write_source;
@@ -39,6 +44,8 @@ static void on_ansi_callback(void *, ansi_t *);
     if (self) {
         session = init_session();
         reader = init_reader();
+        screen = init_screen(-1, -1);
+        manager = init_screen_manager(screen);
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
         write_source_suspended = true;
         _file = @"/bin/zsh";
@@ -55,8 +62,12 @@ static void on_ansi_callback(void *, ansi_t *);
 
 - (void)dealloc {
     [self stop];
+    free_screen_manager(manager);
+    free_screen(screen);
     free_reader(reader);
     free_session(session);
+    manager = NULL;
+    screen = NULL;
     reader = NULL;
     session = NULL;
 }
@@ -283,6 +294,14 @@ static void on_ansi_callback(void *, ansi_t *);
     dispatch_resume(proc_source);
 }
 
+- (screen_t *)_screen {
+    return screen;
+}
+
+- (screen_manager_t *)_manager {
+    return manager;
+}
+
 @end
 
 static void on_ansi_callback(void *user_data, ansi_t *ansi) {
@@ -291,10 +310,13 @@ static void on_ansi_callback(void *user_data, ansi_t *ansi) {
     if (!self) return;
 
     __strong Terminal *strongSelf = self;
+    screen_manager_t *manager = [self _manager];
 
-    if (strongSelf.readBlock) {
-        dispatch_sync(dispatch_get_main_queue(), ^{
-            strongSelf.readBlock(ansi);
+    screen_manager_update(manager, ansi);
+
+    if (strongSelf.updateBlock) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            strongSelf.updateBlock([self _screen]);
         });
     }
 }

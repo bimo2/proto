@@ -106,8 +106,8 @@ static inline void mark_dirty_range(screen_t *screen, int32_t start, int32_t end
 }
 
 screen_t *init_screen(int32_t rows, int32_t columns) {
-    if (rows <= 0) rows = DEFAULT_ROWS;
-    if (columns <= 0) columns = DEFAULT_COLUMNS;
+    if (rows < 1) rows = DEFAULT_ROWS;
+    if (columns < 1) columns = DEFAULT_COLUMNS;
 
     screen_t *screen = calloc(1, sizeof(screen_t));
 
@@ -204,9 +204,11 @@ ansi_sgr_t *screen_attributes(screen_t *screen) {
 }
 
 void screen_set_attributes(screen_t *screen, const ansi_sgr_t *attributes) {
-    if (!attributes) return;
-
-    screen->attributes = *attributes;
+    if (!attributes) {
+        screen->attributes = DEFAULT_ATTRIBUTES;
+    } else {
+        screen->attributes = *attributes;
+    }
 }
 
 bool screen_auto_wrap(screen_t *screen) {

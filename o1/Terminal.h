@@ -7,7 +7,7 @@
 
 #import <Foundation/Foundation.h>
 
-#include "ansi.h"
+#include "screen.h"
 
 @interface Terminal : NSObject
 
@@ -15,7 +15,7 @@
 @property (nonatomic, copy) NSArray<NSString *> *flags;
 @property (nonatomic, copy) NSDictionary<NSString *, NSString *> *environment;
 @property (assign, readonly, getter=isRunning) BOOL running;
-@property (nonatomic, copy) void (^readBlock)(ansi_t *);
+@property (nonatomic, copy) void (^updateBlock)(screen_t *);
 @property (nonatomic, copy) void (^exitBlock)(int);
 
 - (BOOL)start:(NSError **)error;

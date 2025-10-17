@@ -413,8 +413,6 @@ static void send_csi(reader_t *reader, char final_byte) {
             }
 
             break;
-        default:
-            break;
     }
 
     ansi.csi.event = event;
@@ -490,8 +488,6 @@ static void send_osc(reader_t *reader) {
         case 52:
             event = ANSI_OSC_CLIPBOARD;
 
-            break;
-        default:
             break;
     }
 

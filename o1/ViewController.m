@@ -29,58 +29,37 @@
         strongSelf.terminal = [[Terminal alloc] init];
         strongSelf.terminal.file = @"/bin/cat";
 
-        strongSelf.terminal.readBlock = ^(ansi_t *ansi) {
-            switch (ansi->event) {
-                case ANSI_EVENT_TEXT: {
-                    NSData *data = [NSData dataWithBytes:ansi->text.bytes length:ansi->text.length];
-                    NSString *string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        strongSelf.terminal.updateBlock = ^(screen_t *screen) {
+            int32_t rows = screen_rows(screen);
+            int32_t columns = screen_columns(screen);
+            screen_cursor_t *cursor = screen_cursor(screen);
+            NSMutableString *grid = [NSMutableString stringWithCapacity:rows * (columns + 1)];
 
-                    NSLog(@"text: \"%@\"", string ?: data);
+            for (int32_t row = 0; row < rows; row++) {
+                for (int32_t column = 0; column < columns; column++) {
+                    if (cursor->row == row && cursor->column == column) {
+                        [grid appendString:@"|"];
 
-                    break;
-                }
-                case ANSI_EVENT_CSI: {
-                    NSMutableString *parameters = [NSMutableString new];
-
-                    for (size_t i = 0; i < ansi->csi.parameters_count; i++) {
-                        if (i > 0) [parameters appendString:@";"];
-
-                        [parameters appendFormat:@"%d", ansi->csi.parameters[i]];
+                        continue;
                     }
 
-                    NSLog(@"csi: %d %@ %.*s %c", ansi->csi.dec_private, parameters, (int)ansi->csi.intermediates_count, ansi->csi.intermediates, ansi->csi.final_byte);
+                    screen_cell_t *cell = screen_cell(screen, row, column);
 
-                    break;
-                }
-                case ANSI_EVENT_OSC: {
-                    if (ansi->osc.payload == NULL) {
-                        NSLog(@"osc: %d", ansi->osc.code);
-
-                        break;
+                    if (cell) {
+                        if (cell->codepoint == 0) {
+                            [grid appendString:@" "];
+                        } else {
+                            [grid appendFormat:@"%C", (unichar)cell->codepoint];
+                        }
+                    } else {
+                        [grid appendString:@"?"];
                     }
-
-                    NSString *payload = [NSString stringWithUTF8String:ansi->osc.payload];
-
-                    NSLog(@"osc: %d %@", ansi->osc.code, payload);
-
-                    break;
                 }
-                case ANSI_EVENT_ESC:
-                    NSLog(@"esc: %d", ansi->esc.event);
 
-                    break;
-                case ANSI_EVENT_BELL:
-                    NSLog(@"bell");
-
-                    break;
-                case ANSI_EVENT_UNKNOWN: {
-                    NSData *data = [NSData dataWithBytes:ansi->unknown.bytes length:ansi->unknown.length];
-
-                    NSLog(@"unknown: %@", data);
-
-                    break;
-                }
+                [grid appendString:@"\n"];
             }
+
+            NSLog(@"update:\n%@", grid);
         };
 
         strongSelf.terminal.exitBlock = ^(int status) {
