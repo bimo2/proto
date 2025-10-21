@@ -108,4 +108,16 @@ void screen_insert_column(screen_t *screen, int32_t count);
 
 void screen_delete_column(screen_t *screen, int32_t count);
 
+void screen_set_scrollback_capacity(screen_t *screen, size_t capacity);
+
+screen_cell_t *screen_viewport_row(screen_t *screen, int32_t index, bool *mutable);
+
+int32_t screen_viewport_offset(screen_t *screen);
+
+void screen_set_viewport_offset(screen_t *screen, int32_t offset);
+
+void screen_viewport_scroll(screen_t *screen, int32_t delta);
+
+int32_t screen_stage_viewport_scroll(screen_t *screen);
+
 #endif // !SCREEN_H

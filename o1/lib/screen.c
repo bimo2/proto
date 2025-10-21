@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define DEFAULT_ROWS 24
 #define DEFAULT_COLUMNS 80
@@ -22,10 +23,24 @@ static const ansi_sgr_t DEFAULT_ATTRIBUTES = {
     .bg_color = ANSI_COLOR_RESET,
 };
 
+typedef struct {
+    screen_cell_t *cells;
+    size_t width;
+    bool soft_wrap;
+} line_t;
+
+typedef struct {
+    size_t capacity;
+    line_t *lines;
+    size_t size;
+    size_t head;
+} scrollback_t;
+
 struct screen_t {
     screen_cell_t **grid;
     int32_t rows;
     int32_t columns;
+    bool *soft_wrap;
     ansi_sgr_t attributes;
     bool auto_wrap;
     bool insert_mode;
@@ -35,9 +50,12 @@ struct screen_t {
     screen_cursor_t cursor;
     screen_cursor_t saved_cursor;
     bool saved_cursor_valid;
+    scrollback_t scrollback;
+    int32_t viewport_offset;
+    int32_t viewport_delta;
 };
 
-static inline void cell_reset(screen_cell_t *cell) {
+static inline void reset_cell(screen_cell_t *cell) {
     if (!cell) return;
 
     cell->codepoint = ' ';
@@ -45,7 +63,7 @@ static inline void cell_reset(screen_cell_t *cell) {
     cell->dirty = false;
 }
 
-static inline void cursor_reset(screen_cursor_t *cursor) {
+static inline void reset_cursor(screen_cursor_t *cursor) {
     if (!cursor) return;
 
     cursor->row = 0;
@@ -56,12 +74,12 @@ static inline void cursor_reset(screen_cursor_t *cursor) {
 }
 
 static screen_cell_t **init_grid(int32_t rows, int32_t columns) {
-    screen_cell_t **grid = calloc(rows, sizeof(screen_cell_t *));
+    screen_cell_t **grid = (screen_cell_t **)calloc(rows, sizeof(screen_cell_t *));
 
     if (!grid) return NULL;
 
     for (int32_t i = 0; i < rows; i++) {
-        grid[i] = calloc(columns, sizeof(screen_cell_t));
+        grid[i] = (screen_cell_t *)calloc(columns, sizeof(screen_cell_t));
 
         if (!grid[i]) {
             for (int32_t j = 0; j < i; j++) free(grid[j]);
@@ -71,7 +89,7 @@ static screen_cell_t **init_grid(int32_t rows, int32_t columns) {
             return NULL;
         }
 
-        for (int32_t j = 0; j < columns; j++) cell_reset(&grid[i][j]);
+        for (int32_t j = 0; j < columns; j++) reset_cell(&grid[i][j]);
     }
 
     return grid;
@@ -109,7 +127,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
     if (rows < 1) rows = DEFAULT_ROWS;
     if (columns < 1) columns = DEFAULT_COLUMNS;
 
-    screen_t *screen = calloc(1, sizeof(screen_t));
+    screen_t *screen = (screen_t *)calloc(1, sizeof(screen_t));
 
     if (!screen) return NULL;
 
@@ -123,15 +141,43 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
 
     screen->rows = rows;
     screen->columns = columns;
+    screen->soft_wrap = (bool *)calloc(rows, sizeof(bool));
+
+    if (!screen->soft_wrap) {
+        free(screen->grid);
+        free(screen);
+
+        return NULL;
+    }
+
     screen->attributes = DEFAULT_ATTRIBUTES;
     screen->auto_wrap = true;
     screen->insert_mode = false;
     screen->origin_mode = false;
     screen->scroll_top = 0;
     screen->scroll_bottom = rows - 1;
-    cursor_reset(&screen->cursor);
-    cursor_reset(&screen->saved_cursor);
+    reset_cursor(&screen->cursor);
+    reset_cursor(&screen->saved_cursor);
     screen->saved_cursor_valid = false;
+    screen->scrollback.capacity = 10000;
+    screen->scrollback.lines = NULL;
+
+    if (screen->scrollback.capacity > 0) {
+        screen->scrollback.lines = (line_t *)calloc(screen->scrollback.capacity, sizeof(line_t));
+
+        if (!screen->scrollback.lines) {
+            free(screen->soft_wrap);
+            free(screen->grid);
+            free(screen);
+
+            return NULL;
+        }
+    }
+
+    screen->scrollback.size = 0;
+    screen->scrollback.head = 0;
+    screen->viewport_offset = 0;
+    screen->viewport_delta = 0;
 
     return screen;
 }
@@ -139,6 +185,17 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
 void free_screen(screen_t *screen) {
     if (!screen) return;
 
+    if (screen->scrollback.lines) {
+        for (size_t i = 0; i < screen->scrollback.size; i++) {
+            size_t index = (screen->scrollback.head + i) % screen->scrollback.capacity;
+
+            if (screen->scrollback.lines[index].cells) free(screen->scrollback.lines[index].cells);
+        }
+
+        free(screen->scrollback.lines);
+    }
+
+    free(screen->soft_wrap);
     free_grid(screen->grid, screen->rows);
     free(screen);
 }
@@ -307,7 +364,10 @@ void screen_write_text(screen_t *screen, const uint8_t *text, size_t length) {
 void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
     switch (codepoint) {
         case '\n':
-            screen_newline(screen);
+            if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows) {
+                screen->soft_wrap[screen->cursor.row] = false;
+                screen_newline(screen);
+            }
 
             return;
         case '\r':
@@ -330,6 +390,9 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
 
     if (screen->cursor.column >= screen->columns) {
         if (screen->auto_wrap) {
+            if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows)
+                screen->soft_wrap[screen->cursor.row] = true;
+
             screen_newline(screen);
             screen->cursor.column = 0;
         } else {
@@ -359,6 +422,10 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
                 screen_scroll_up(screen, 1);
                 screen->cursor.row = screen->scroll_bottom;
             }
+
+            int32_t last = screen->cursor.row - 1;
+
+            if (last > -1 && last < screen->rows) screen->soft_wrap[last] = true;
         } else {
             screen->cursor.column = screen->columns - 1;
         }
@@ -386,7 +453,7 @@ void screen_delete_utf32(screen_t *screen) {
         screen->grid[screen->cursor.row][j].dirty = true;
     }
 
-    cell_reset(&screen->grid[screen->cursor.row][screen->columns - 1]);
+    reset_cell(&screen->grid[screen->cursor.row][screen->columns - 1]);
     screen->grid[screen->cursor.row][screen->columns - 1].dirty = true;
 }
 
@@ -402,13 +469,17 @@ void screen_backspace(screen_t *screen) {
 }
 
 void screen_newline(screen_t *screen) {
-    screen->cursor.column = 0;
+    int32_t last = screen->cursor.row;
+
     screen->cursor.row++;
+    screen->cursor.column = 0;
 
     if (screen->cursor.row > screen->scroll_bottom) {
         screen_scroll_up(screen, 1);
         screen->cursor.row = screen->scroll_bottom;
     }
+
+    if (last > -1 && last < screen->rows) screen->soft_wrap[last] = false;
 }
 
 void screen_carriage_return(screen_t *screen) {
@@ -423,7 +494,9 @@ void screen_tab(screen_t *screen) {
 
 void screen_clear(screen_t *screen) {
     for (int32_t i = 0; i < screen->rows; i++) {
-        for (int32_t j = 0; j < screen->columns; j++) cell_reset(&screen->grid[i][j]);
+        for (int32_t j = 0; j < screen->columns; j++) reset_cell(&screen->grid[i][j]);
+
+        screen->soft_wrap[i] = false;
     }
 
     mark_dirty_range(screen, 0, screen->rows - 1);
@@ -433,13 +506,13 @@ void screen_erase(screen_t *screen, int32_t mode) {
     switch (mode) {
         case 0:
             for (int32_t j = screen->cursor.column; j < screen->columns; j++) {
-                cell_reset(&screen->grid[screen->cursor.row][j]);
+                reset_cell(&screen->grid[screen->cursor.row][j]);
                 screen->grid[screen->cursor.row][j].dirty = true;
             }
 
             for (int32_t i = screen->cursor.row + 1; i < screen->rows; i++) {
                 for (int32_t j = 0; j < screen->columns; j++) {
-                    cell_reset(&screen->grid[i][j]);
+                    reset_cell(&screen->grid[i][j]);
                     screen->grid[i][j].dirty = true;
                 }
             }
@@ -448,13 +521,13 @@ void screen_erase(screen_t *screen, int32_t mode) {
         case 1:
             for (int32_t i = 0; i < screen->cursor.row; i++) {
                 for (int32_t j = 0; j < screen->columns; j++) {
-                    cell_reset(&screen->grid[i][j]);
+                    reset_cell(&screen->grid[i][j]);
                     screen->grid[i][j].dirty = true;
                 }
             }
 
             for (int32_t j = 0; j <= screen->cursor.column; j++) {
-                cell_reset(&screen->grid[screen->cursor.row][j]);
+                reset_cell(&screen->grid[screen->cursor.row][j]);
                 screen->grid[screen->cursor.row][j].dirty = true;
             }
 
@@ -472,22 +545,23 @@ void screen_erase_line(screen_t *screen, int32_t mode) {
     switch (mode) {
         case 0:
             for (int32_t j = screen->cursor.column; j < screen->columns; j++)
-                cell_reset(&screen->grid[screen->cursor.row][j]);
+                reset_cell(&screen->grid[screen->cursor.row][j]);
 
             break;
         case 1:
             for (int32_t j = 0; j <= screen->cursor.column; j++)
-                cell_reset(&screen->grid[screen->cursor.row][j]);
+                reset_cell(&screen->grid[screen->cursor.row][j]);
 
             break;
         case 2:
             for (int32_t j = 0; j < screen->columns; j++)
-                cell_reset(&screen->grid[screen->cursor.row][j]);
+                reset_cell(&screen->grid[screen->cursor.row][j]);
 
             break;
     }
 
     screen->grid[screen->cursor.row][0].dirty = true;
+    screen->soft_wrap[screen->cursor.row] = false;
 }
 
 void screen_set_scroll_area(screen_t *screen, int32_t top, int32_t bottom) {
@@ -504,18 +578,54 @@ void screen_set_scroll_area(screen_t *screen, int32_t top, int32_t bottom) {
 void screen_scroll_up(screen_t *screen, int32_t lines) {
     if (lines < 1) return;
 
+    if (screen->scroll_top == 0 && screen->scroll_bottom == screen->rows - 1) {
+        for (int32_t i = 0; i < lines; i++) {
+            if (screen->scrollback.lines) {
+                size_t index;
+
+                if (screen->scrollback.size < screen->scrollback.capacity) {
+                    index = (screen->scrollback.head + screen->scrollback.size) % screen->scrollback.capacity;
+                    screen->scrollback.size++;
+                } else {
+                    index = screen->scrollback.head;
+                    free(screen->scrollback.lines[index].cells);
+                    screen->scrollback.head = (screen->scrollback.head + 1) % screen->scrollback.capacity;
+                }
+
+                screen->scrollback.lines[index].cells = (screen_cell_t *)malloc((size_t)screen->columns * sizeof(screen_cell_t));
+
+                if (screen->scrollback.lines[index].cells)
+                    memcpy(screen->scrollback.lines[index].cells, screen->grid[i], (size_t)screen->columns * sizeof(screen_cell_t));
+
+                screen->scrollback.lines[index].width = screen->columns;
+                screen->scrollback.lines[index].soft_wrap = screen->soft_wrap[i];
+            }
+        }
+
+        if (screen->viewport_offset > 0) {
+            screen->viewport_offset += lines;
+
+            if (screen->viewport_offset > screen->scrollback.size)
+                screen->viewport_offset = (int32_t)screen->scrollback.size;
+        }
+    }
+
     for (int32_t i = screen->scroll_top; i <= screen->scroll_bottom - lines; i++) {
         for (int32_t j = 0; j < screen->columns; j++) {
             screen->grid[i][j] = screen->grid[i + lines][j];
             screen->grid[i][j].dirty = true;
         }
+
+        screen->soft_wrap[i] = screen->soft_wrap[i + lines];
     }
 
     for (int32_t i = screen->scroll_bottom - lines + 1; i <= screen->scroll_bottom; i++) {
         for (int32_t j = 0; j < screen->columns; j++) {
-            cell_reset(&screen->grid[i][j]);
+            reset_cell(&screen->grid[i][j]);
             screen->grid[i][j].dirty = true;
         }
+
+        screen->soft_wrap[i] = false;
     }
 }
 
@@ -527,13 +637,17 @@ void screen_scroll_down(screen_t *screen, int32_t lines) {
             screen->grid[i][j] = screen->grid[i - lines][j];
             screen->grid[i][j].dirty = true;
         }
+
+        screen->soft_wrap[i] = screen->soft_wrap[i - lines];
     }
 
     for (int32_t i = screen->scroll_top; i < screen->scroll_top + lines; i++) {
         for (int32_t j = 0; j < screen->columns; j++) {
-            cell_reset(&screen->grid[i][j]);
+            reset_cell(&screen->grid[i][j]);
             screen->grid[i][j].dirty = true;
         }
+
+        screen->soft_wrap[i] = false;
     }
 }
 
@@ -560,7 +674,7 @@ void screen_insert_column(screen_t *screen, int32_t count) {
         }
 
         for (int32_t j = screen->cursor.column; j < screen->cursor.column + count; j++) {
-            cell_reset(&screen->grid[i][j]);
+            reset_cell(&screen->grid[i][j]);
             screen->grid[i][j].dirty = true;
         }
     }
@@ -576,8 +690,122 @@ void screen_delete_column(screen_t *screen, int32_t count) {
         }
 
         for (int32_t j = screen->columns - count; j < screen->columns; j++) {
-            cell_reset(&screen->grid[i][j]);
+            reset_cell(&screen->grid[i][j]);
             screen->grid[i][j].dirty = true;
         }
     }
+}
+
+void screen_set_scrollback_capacity(screen_t *screen, size_t capacity) {
+    if (screen->scrollback.capacity == capacity) return;
+
+    line_t *lines = NULL;
+
+    if (capacity > 0) {
+        lines = (line_t *)calloc(capacity, sizeof(line_t));
+
+        if (!lines) return;
+    }
+
+    size_t keep = screen->scrollback.size;
+
+    if (keep > capacity) keep = capacity;
+
+    for (size_t i = 0; i < keep; i++) {
+        size_t index = (screen->scrollback.head + (screen->scrollback.size - keep) + i) % screen->scrollback.capacity;
+
+        if (screen->scrollback.lines) {
+            lines[i].width = screen->scrollback.lines[index].width;
+            lines[i].soft_wrap = screen->scrollback.lines[index].soft_wrap;
+
+            if (screen->scrollback.lines[index].cells && lines[i].width > 0) {
+                lines[i].cells = (screen_cell_t *)malloc(lines[i].width * sizeof(screen_cell_t));
+
+                if (lines[i].cells)
+                    memcpy(lines[i].cells, screen->scrollback.lines[index].cells, lines[i].width * sizeof(screen_cell_t));
+            }
+        } else {
+            lines[i].width = 0;
+            lines[i].soft_wrap = false;
+        }
+    }
+
+    if (screen->scrollback.lines) {
+        for (size_t i = 0; i < screen->scrollback.size; i++) {
+            size_t index = (screen->scrollback.head + i) % screen->scrollback.capacity;
+
+            if (screen->scrollback.lines[index].cells) free(screen->scrollback.lines[index].cells);
+        }
+
+        free(screen->scrollback.lines);
+    }
+
+    screen->scrollback.capacity = capacity;
+    screen->scrollback.lines = lines;
+    screen->scrollback.size = keep;
+    screen->scrollback.head = 0;
+
+    if (screen->viewport_offset > screen->scrollback.size)
+        screen->viewport_offset = (int32_t)screen->scrollback.size;
+}
+
+screen_cell_t *screen_viewport_row(screen_t *screen, int32_t index, bool *mutable) {
+    if (index < 0 || index >= screen->rows) return NULL;
+
+    size_t total = screen->scrollback.size + (size_t)screen->rows;
+    size_t start = total - (size_t)screen->rows - (size_t)screen->viewport_offset;
+
+    if (start < 0) start = 0;
+
+    size_t i = start + index;
+
+    if (i < screen->scrollback.size) {
+        if (mutable) *mutable = false;
+        if (!screen->scrollback.lines) return NULL;
+
+        size_t scrollback_index = (screen->scrollback.head + i) % screen->scrollback.capacity;
+
+        return screen->scrollback.lines[scrollback_index].cells;
+    }
+
+    size_t grid_index = i - screen->scrollback.size;
+
+    if (grid_index > -1 && grid_index < screen->rows) {
+        if (mutable) *mutable = true;
+
+        return screen->grid[(int32_t)grid_index];
+    }
+
+    return NULL;
+}
+
+int32_t screen_viewport_offset(screen_t *screen) {
+    return screen->viewport_offset;
+}
+
+void screen_set_viewport_offset(screen_t *screen, int32_t offset) {
+    if (offset < 0) offset = 0;
+    if (offset > (int32_t)screen->scrollback.size) offset = (int32_t)screen->scrollback.size;
+
+    int32_t last = screen->viewport_offset;
+
+    screen->viewport_offset = offset;
+
+    int32_t delta = screen->viewport_offset - last;
+
+    screen->viewport_delta += delta;
+}
+
+void screen_viewport_scroll(screen_t *screen, int32_t delta) {
+    int32_t offset = screen->viewport_offset + delta;
+
+    screen_set_viewport_offset(screen, offset);
+}
+
+int32_t screen_stage_viewport_scroll(screen_t *screen) {
+    int32_t delta = screen->viewport_delta;
+
+    screen->viewport_delta = 0;
+
+    return delta;
 }
