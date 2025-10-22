@@ -1121,7 +1121,7 @@ screen_cell_t *screen_viewport_row(screen_t *screen, int32_t index, bool *mutabl
 
     size_t grid_index = i - screen->scrollback.size;
 
-    if (grid_index > -1 && grid_index < screen->rows) {
+    if (grid_index < (size_t)screen->rows) {
         if (mutable) *mutable = true;
 
         return screen->grid[(int32_t)grid_index];

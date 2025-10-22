@@ -8,6 +8,7 @@
 #import "ViewController.h"
 #import "Terminal.h"
 
+#include "render.h"
 #include "screen.h"
 
 @interface ViewController ()
@@ -29,7 +30,41 @@
         if (!strongSelf) return;
 
         strongSelf.terminal = [[Terminal alloc] init];
-        strongSelf.terminal.file = @"/bin/cat";
+        strongSelf.terminal.file = @"/bin/zsh";
+
+        strongSelf.terminal.renderBlock = ^(const render_t *ops, size_t count) {
+            if (!ops || count == 0) return;
+
+            for (size_t i = 0; i < count; i++) {
+                const render_t *diff = &ops[i];
+
+                switch (diff->op) {
+                    case RENDER_OP_SPAN: {
+                        NSMutableString *text = [NSMutableString stringWithCapacity:diff->span.width];
+
+                        for (int32_t i = 0; i < diff->span.width; i++) {
+                            uint32_t codepoint = diff->span.cells[i].codepoint;
+
+                            if (codepoint == 0) codepoint = ' ';
+
+                            if (codepoint <= 0xFFFF) {
+                                [text appendFormat:@"%C", (unichar)codepoint];
+                            } else {
+                                [text appendString:@"?"];
+                            }
+                        }
+
+                        NSLog(@"render (span row = %d, column = %d width = %zu)\n\"%@\"", diff->span.row, diff->span.column, diff->span.width, text);
+
+                        break;
+                    }
+                    case RENDER_OP_SCROLL:
+                        NSLog(@"render: (scroll top = %d, bottom = %d, change = %d)", diff->scroll.top, diff->scroll.bottom, diff->scroll.delta);
+
+                        break;
+                }
+            }
+        };
 
         strongSelf.terminal.updateBlock = ^(screen_t *screen) {
             int32_t rows = screen_rows(screen);
@@ -86,7 +121,7 @@
 
         usleep(100 * 1000);
 
-        NSString *string = @"hello, world!";
+        NSString *string = @"ls -l\n";
         NSData *data = [string dataUsingEncoding:NSUTF8StringEncoding];
 
         [strongSelf.terminal write:data];

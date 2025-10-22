@@ -13,6 +13,7 @@
 #include "include.h"
 #include "session.h"
 #include "reader.h"
+#include "render.h"
 #include "screen.h"
 #include "screen_manager.h"
 
@@ -304,16 +305,24 @@ static void on_ansi_callback(void *user_data, ansi_t *ansi) {
 
     if (!self) return;
 
-    if (self.updateBlock) {
-        screen_manager_t *manager = [self _manager];
-        screen_manager_update(manager, ansi);
+    screen_manager_t *manager = [self _manager];
+    screen_manager_update(manager, ansi);
 
-        dispatch_async(dispatch_get_main_queue(), ^{
-            screen_t *screen = screen_manager_current_screen(manager);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        screen_t *screen = screen_manager_current_screen(manager);
 
-            self.updateBlock(screen);
-        });
-    }
+        if (self.renderBlock) {
+            render_t *ops = NULL;
+            size_t count = 0;
+
+            render_collect_ops(screen, &ops, &count);
+
+            if (count > 0) self.renderBlock(ops, count);
+            if (ops) render_clear_ops(ops, count);
+        }
+
+        if (self.updateBlock) self.updateBlock(screen);
+    });
 }
 
 static void on_title_callback(void *user_data, const char *title) {

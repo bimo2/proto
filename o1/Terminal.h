@@ -7,6 +7,7 @@
 
 #import <Foundation/Foundation.h>
 
+#include "render.h"
 #include "screen.h"
 
 @interface Terminal : NSObject
@@ -15,6 +16,7 @@
 @property (nonatomic, copy) NSArray<NSString *> *flags;
 @property (nonatomic, copy) NSDictionary<NSString *, NSString *> *environment;
 @property (assign, readonly, getter=isRunning) BOOL running;
+@property (nonatomic, copy) void (^renderBlock)(const render_t *, size_t);
 @property (nonatomic, copy) void (^updateBlock)(screen_t *);
 @property (nonatomic, copy) void (^titleBlock)(const char *);
 @property (nonatomic, copy) void (^bellBlock)(void);
