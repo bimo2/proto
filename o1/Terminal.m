@@ -10,9 +10,9 @@
 #import <dispatch/dispatch.h>
 
 #include "ansi.h"
+#include "ansi_reader.h"
 #include "include.h"
 #include "session.h"
-#include "reader.h"
 #include "render.h"
 #include "screen.h"
 #include "screen_manager.h"
@@ -28,7 +28,7 @@ static void on_bell_callback(void *);
 
 @interface Terminal () {
     session_t *session;
-    reader_t *reader;
+    ansi_reader_t *reader;
     screen_manager_t *manager;
     dispatch_queue_t io_queue;
     dispatch_source_t read_source;
@@ -46,7 +46,7 @@ static void on_bell_callback(void *);
 
     if (self) {
         session = init_session();
-        reader = init_reader();
+        reader = init_ansi_reader();
         manager = init_screen_manager();
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
         write_source_suspended = true;
@@ -56,7 +56,7 @@ static void on_bell_callback(void *);
 
         __weak typeof(self) weakSelf = self;
 
-        reader_set_ansi_callback(reader, on_ansi_callback, (__bridge void *)weakSelf);
+        ansi_reader_set_callback(reader, on_ansi_callback, (__bridge void *)weakSelf);
         screen_manager_set_response_callback(manager, on_response_callback, (__bridge void *)weakSelf);
         screen_manager_set_title_callback(manager, on_title_callback, (__bridge void *)weakSelf);
         screen_manager_set_bell_callback(manager, on_bell_callback, (__bridge void *)weakSelf);
@@ -68,7 +68,7 @@ static void on_bell_callback(void *);
 - (void)dealloc {
     [self stop];
     free_screen_manager(manager);
-    free_reader(reader);
+    free_ansi_reader(reader);
     free_session(session);
 }
 
@@ -168,7 +168,7 @@ static void on_bell_callback(void *);
             strongSelf->read_source = nil;
         }
 
-        reader_reset(strongSelf->reader);
+        ansi_reader_reset(strongSelf->reader);
         session_stop(strongSelf->session);
     });
 }
@@ -212,24 +212,16 @@ static void on_bell_callback(void *);
             ssize_t size = session_read(strongSelf->session, bytes, sizeof(bytes));
 
             if (size > 0) {
-                reader_feed(strongSelf->reader, bytes, (size_t)size);
+                ansi_reader_feed(strongSelf->reader, bytes, (size_t)size);
 
                 continue;
             }
 
-            if (size == 0) {
-                [strongSelf stop];
+            if (size < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) break;
 
-                break;
-            }
+            [strongSelf stop];
 
-            if (size < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) break;
-
-                [strongSelf stop];
-
-                break;
-            }
+            break;
         }
     });
 
@@ -315,7 +307,7 @@ static void on_ansi_callback(void *user_data, ansi_t *ansi) {
             render_t *ops = NULL;
             size_t count = 0;
 
-            render_collect_ops(screen, &ops, &count);
+            render_collect_ops(&ops, screen, &count);
 
             if (count > 0) self.renderBlock(ops, count);
             if (ops) render_clear_ops(ops, count);

@@ -13,10 +13,9 @@
 
 typedef struct buffer_t {
     size_t capacity;
+    uint8_t *bytes;
     size_t size;
     size_t head;
-    size_t tail;
-    uint8_t *bytes;
 } buffer_t;
 
 buffer_t *init_buffer(size_t capacity);

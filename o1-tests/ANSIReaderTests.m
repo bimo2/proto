@@ -1,5 +1,5 @@
 //
-//  ReaderTests.m
+//  ANSIReaderTests.m
 //  o1-tests
 //
 //  Created by grok-4 on 2025-10-14.
@@ -8,17 +8,17 @@
 #import <Foundation/Foundation.h>
 #import <XCTest/XCTest.h>
 
-#include "reader.h"
+#include "ansi_reader.h"
 
 static void test_callback(void *, ansi_t *);
 
-@interface ReaderTests : XCTestCase
+@interface ANSIReaderTests : XCTestCase
 
 @property (nonatomic, strong) NSMutableArray<NSValue *> *output;
 
 @end
 
-@implementation ReaderTests
+@implementation ANSIReaderTests
 
 - (void)setUp {
     [super setUp];
@@ -26,14 +26,14 @@ static void test_callback(void *, ansi_t *);
 }
 
 - (void)test_ansi_unknown {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input = "\x1b" "Z";
 
-    reader_feed(reader, (const uint8_t *)input, 2);
+    ansi_reader_feed(reader, (const uint8_t *)input, 2);
     XCTAssertEqual(self.output.count, 1);
 
     ansi_t ansi;
@@ -42,18 +42,18 @@ static void test_callback(void *, ansi_t *);
     XCTAssertEqual(ansi.event, ANSI_EVENT_UNKNOWN);
     XCTAssertEqual(ansi.unknown.length, 2);
     XCTAssertEqual(strncmp((const char *)ansi.unknown.bytes, "\x1b" "Z", 2), 0);
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 - (void)test_ansi_text {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input = "testing";
 
-    reader_feed(reader, (const uint8_t *)input, strlen(input));
+    ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 1);
 
     ansi_t ansi;
@@ -62,15 +62,15 @@ static void test_callback(void *, ansi_t *);
     XCTAssertEqual(ansi.event, ANSI_EVENT_TEXT);
     XCTAssertEqual(ansi.text.length, 7);
     XCTAssertEqual(strncmp((const char *)ansi.text.bytes, "testing", 7), 0);
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 
 - (void)test_ansi_esc {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
     "\x1b" "7"
@@ -80,7 +80,7 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "D"
     "\x1b" "M";
 
-    reader_feed(reader, (const uint8_t *)input, strlen(input));
+    ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 6);
 
     ansi_esc_event_t expected[] = {
@@ -100,14 +100,14 @@ static void test_callback(void *, ansi_t *);
         XCTAssertEqual(ansi.esc.event, expected[i]);
     }
 
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 - (void)test_ansi_csi {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
     "\x1b" "[q"
@@ -140,7 +140,7 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "[200~"
     "\x1b" "[201~";
 
-    reader_feed(reader, (const uint8_t *)input, strlen(input));
+    ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 29);
 
     for (NSUInteger i = 0; i < self.output.count; i++) {
@@ -151,14 +151,14 @@ static void test_callback(void *, ansi_t *);
         XCTAssertEqual(ansi.csi.event, (ansi_csi_event_t)i);
     }
 
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 - (void)test_ansi_sgr {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
     "\x1b" "[0m"
@@ -170,7 +170,7 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "[39m"
     "\x1b" "[49m";
 
-    reader_feed(reader, (const uint8_t *)input, strlen(input));
+    ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 8);
 
     ansi_sgr_t expected[] = {
@@ -195,20 +195,20 @@ static void test_callback(void *, ansi_t *);
         XCTAssertEqual(ansi.csi.attributes.bg_color, expected[i].bg_color);
     }
 
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 - (void)test_ansi_mode {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
     "\x1b" "[4h"
     "\x1b" "[4l";
 
-    reader_feed(reader, (const uint8_t *)input, strlen(input));
+    ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 2);
 
     ansi_t ansi;
@@ -223,14 +223,14 @@ static void test_callback(void *, ansi_t *);
     XCTAssertEqual(ansi.csi.event, ANSI_CSI_RM);
     XCTAssertFalse(ansi.csi.dec_private);
     XCTAssertEqual(ansi.csi.mode, ANSI_MODE_INSERT);
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 - (void)test_ansi_dec {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
     "\x1b" "[?6h"
@@ -256,7 +256,7 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "[?2004l"
     "\x1b" "[?999l";
 
-    reader_feed(reader, (const uint8_t *)input, strlen(input));
+    ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 22);
 
     ansi_dec_mode_t expected[] = {
@@ -299,14 +299,14 @@ static void test_callback(void *, ansi_t *);
         XCTAssertEqual(ansi.csi.dec_mode, expected[i]);
     }
 
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 - (void)test_ansi_osc {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
     "\x1b" "]999;unknown\x07"
@@ -315,7 +315,7 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "]8;;https://apple.com\x07"
     "\x1b" "]52;c;YmFzZTY0Cg==\x07";
 
-    reader_feed(reader, (const uint8_t *)input, strlen(input));
+    ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 5);
 
     ansi_osc_event_t expected[] = {
@@ -334,41 +334,41 @@ static void test_callback(void *, ansi_t *);
         XCTAssertEqual(ansi.osc.event, expected[i]);
     }
 
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 - (void)test_ansi_bell {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input = "\x07";
 
-    reader_feed(reader, (const uint8_t *)input, 1);
+    ansi_reader_feed(reader, (const uint8_t *)input, 1);
     XCTAssertEqual(self.output.count, 1);
 
     ansi_t ansi;
 
     [self.output[0] getValue:&ansi];
     XCTAssertEqual(ansi.event, ANSI_EVENT_BELL);
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 - (void)test_utf8_incomplete {
-    reader_t *reader = init_reader();
+    ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
-    reader_set_ansi_callback(reader, test_callback, (__bridge void *)weakSelf);
+    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const uint8_t partial[] = {0xE2};
 
-    reader_feed(reader, partial, 1);
+    ansi_reader_feed(reader, partial, 1);
     XCTAssertEqual(self.output.count, 0);
 
     const uint8_t rest[] = {0x82, 0xAC, '1', 0x07};
 
-    reader_feed(reader, rest, 4);
+    ansi_reader_feed(reader, rest, 4);
     XCTAssertEqual(self.output.count, 3);
 
     ansi_t ansi;
@@ -383,18 +383,18 @@ static void test_callback(void *, ansi_t *);
     XCTAssertEqual(strncmp((const char *)ansi.text.bytes, "1", 1), 0);
     [self.output[2] getValue:&ansi];
     XCTAssertEqual(ansi.event, ANSI_EVENT_BELL);
-    free_reader(reader);
+    free_ansi_reader(reader);
 }
 
 @end
 
 static void test_callback(void *user_data, ansi_t *ansi) {
-    ReaderTests *self = (__bridge ReaderTests *)user_data;
+    ANSIReaderTests *self = (__bridge ANSIReaderTests *)user_data;
 
     if (!self) return;
 
     NSValue *value = [NSValue value:ansi withObjCType:@encode(ansi_t)];
-    __strong ReaderTests *strongSelf = self;
+    __strong ANSIReaderTests *strongSelf = self;
 
     [strongSelf.output addObject:value];
 }

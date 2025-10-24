@@ -6,6 +6,7 @@
 //
 
 #include "screen.h"
+
 #include "ansi.h"
 
 #include <stdbool.h>
@@ -14,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_ROWS 24
+#define DEFAULT_ROWS 20
 #define DEFAULT_COLUMNS 80
 
 static const ansi_sgr_t DEFAULT_ATTRIBUTES = {
@@ -120,7 +121,7 @@ static inline void fix_cursor(screen_t *screen) {
     if (screen->cursor.column >= screen->columns) screen->cursor.column = screen->columns - 1;
 }
 
-static inline void mark_dirty_range(screen_t *screen, int32_t start, int32_t end) {
+static inline void needs_layout(screen_t *screen, int32_t start, int32_t end) {
     if (start < 0) start = 0;
     if (end >= screen->rows) end = screen->rows - 1;
 
@@ -130,20 +131,20 @@ static inline void mark_dirty_range(screen_t *screen, int32_t start, int32_t end
 }
 
 static void add_staging_cells(staging_line_t *line, const screen_cell_t *cells, size_t count) {
-    if (!cells || count == 0) return;
+    if (!cells || count < 1) return;
 
     size_t need = line->width + count;
 
     if (need > line->capacity) {
-        size_t next = (line->capacity == 0) ? need : (line->capacity * 2);
+        size_t next = line->capacity < 1 ? need : line->capacity * 2;
 
         if (next < need) next = need;
 
-        screen_cell_t *new_cells = (screen_cell_t *)realloc(line->cells, next * sizeof(screen_cell_t));
+        screen_cell_t *id = (screen_cell_t *)realloc(line->cells, next * sizeof(screen_cell_t));
 
-        if (!new_cells) return;
+        if (!id) return;
 
-        line->cells = new_cells;
+        line->cells = id;
         line->capacity = next;
     }
 
@@ -155,12 +156,12 @@ static void add_staging_line(staging_line_t **lines, size_t *count, size_t *capa
     if (!count || !capacity || !line) return;
 
     if (*count == *capacity) {
-        size_t next = (*capacity == 0) ? 128 : (*capacity * 2);
-        staging_line_t *new_lines = (staging_line_t *)realloc(*lines, next * sizeof(staging_line_t));
+        size_t next = *capacity < 1 ? 128 : *capacity * 2;
+        staging_line_t *id = (staging_line_t *)realloc(*lines, next * sizeof(staging_line_t));
 
-        if (!new_lines) return;
+        if (!id) return;
 
-        *lines = new_lines;
+        *lines = id;
         *capacity = next;
     }
 
@@ -171,19 +172,19 @@ static void commit_staging_cells(line_t **lines, size_t *count, size_t *capacity
     if (!count || !capacity) return;
 
     if (*count == *capacity) {
-        size_t next = (*capacity == 0) ? 256 : (*capacity * 2);
-        line_t *new_lines = (line_t *)realloc(*lines, next * sizeof(line_t));
+        size_t next = *capacity < 1 ? 256 : *capacity * 2;
+        line_t *id = (line_t *)realloc(*lines, next * sizeof(line_t));
 
-        if (!new_lines) return;
+        if (!id) return;
 
-        *lines = new_lines;
+        *lines = id;
         *capacity = next;
     }
 
     screen_cell_t *copy = (screen_cell_t *)calloc((size_t)columns, sizeof(screen_cell_t));
 
     if (copy && cells && width > 0) {
-        size_t length = (width < (size_t)columns) ? width : (size_t)columns;
+        size_t length = width < (size_t)columns ? width : (size_t)columns;
 
         memcpy(copy, cells, length * sizeof(screen_cell_t));
     }
@@ -279,7 +280,8 @@ int32_t screen_columns(screen_t *screen) {
 }
 
 void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
-    if (rows < 1 || columns < 1) return;
+    if (rows < 1) rows = DEFAULT_ROWS;
+    if (columns < 1) columns = DEFAULT_COLUMNS;
     if (screen->rows == rows && screen->columns == columns) return;
 
     screen_cell_t **grid = init_grid(rows, columns);
@@ -338,20 +340,6 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
             if (screen->cursor.row >= 0) screen->cursor.row += (int32_t)take;
             if (screen->cursor.row >= rows) screen->cursor.row = rows - 1;
             if (screen->cursor.column >= columns) screen->cursor.column = columns - 1;
-
-            free(screen->soft_wrap);
-            free_grid(screen->grid, screen->rows);
-            screen->grid = grid;
-            screen->rows = rows;
-            screen->columns = columns;
-            screen->soft_wrap = soft_wrap;
-
-            if (screen->viewport_offset > screen->scrollback.size)
-                screen->viewport_offset = (int32_t)screen->scrollback.size;
-
-            mark_dirty_range(screen, 0, rows - 1);
-
-            return;
         } else {
             int32_t drop = screen->rows - rows;
 
@@ -398,23 +386,28 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
             }
 
             if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
-            if (screen->cursor.row >= drop) screen->cursor.row -= drop; else screen->cursor.row = 0;
+
+            if (screen->cursor.row >= drop) {
+                screen->cursor.row -= drop;
+            } else {
+                screen->cursor.row = 0;
+            }
+
             if (screen->cursor.column >= columns) screen->cursor.column = columns - 1;
-
-            free(screen->soft_wrap);
-            free_grid(screen->grid, screen->rows);
-            screen->grid = grid;
-            screen->rows = rows;
-            screen->columns = columns;
-            screen->soft_wrap = soft_wrap;
-
-            if (screen->viewport_offset > screen->scrollback.size)
-                screen->viewport_offset = (int32_t)screen->scrollback.size;
-
-            mark_dirty_range(screen, 0, rows - 1);
-
-            return;
         }
+
+        free(screen->soft_wrap);
+        free_grid(screen->grid, screen->rows);
+        screen->grid = grid;
+        screen->rows = rows;
+        screen->columns = columns;
+        screen->soft_wrap = soft_wrap;
+
+        if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
+
+        needs_layout(screen, 0, rows - 1);
+
+        return;
     }
 
     staging_line_t current = {
@@ -445,11 +438,11 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     }
 
     for (int32_t i = 0; i < screen->rows; i++) {
-        size_t used = (size_t)screen->columns;
+        int32_t used = screen->columns;
 
         while (used > 0 && screen->grid[i][used - 1].codepoint == ' ') used--;
 
-        if (used > 0) add_staging_cells(&current, screen->grid[i], used);
+        if (used > 0) add_staging_cells(&current, screen->grid[i], (size_t)used);
 
         if (!screen->soft_wrap[i]) {
             add_staging_line(&staging, &staging_count, &staging_capacity, &current);
@@ -475,7 +468,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
         while (line->width > 0 && line->cells[line->width - 1].codepoint == ' ') line->width--;
 
-        if (line->width == 0) {
+        if (line->width < 1) {
             commit_staging_cells(&reflow, &reflow_count, &reflow_capacity, NULL, 0, false, columns);
 
             continue;
@@ -486,7 +479,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         while (start < line->width) {
             size_t todo = line->width - start;
             size_t take = todo < (size_t)columns ? todo : (size_t)columns;
-            bool soft_wrap = (start + take) < line->width;
+            bool soft_wrap = start + take < line->width;
 
             commit_staging_cells(&reflow, &reflow_count, &reflow_capacity, line->cells + start, take, soft_wrap, columns);
             start += take;
@@ -507,15 +500,14 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         screen->scrollback.head = 0;
     }
 
-    size_t take = (reflow_count < (size_t)rows) ? reflow_count : (size_t)rows;
+    size_t take = reflow_count < (size_t)rows ? reflow_count : (size_t)rows;
     size_t start = reflow_count - take;
 
     for (size_t i = 0; i < take; i++) {
         size_t reflow_index = start + i;
         size_t grid_index = (size_t)rows - take + i;
 
-        if (reflow[reflow_index].cells)
-            memcpy(grid[grid_index], reflow[reflow_index].cells, (size_t)columns * sizeof(screen_cell_t));
+        if (reflow[reflow_index].cells) memcpy(grid[grid_index], reflow[reflow_index].cells, (size_t)columns * sizeof(screen_cell_t));
 
         soft_wrap[grid_index] = reflow[reflow_index].soft_wrap;
     }
@@ -565,10 +557,9 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     screen->columns = columns;
     screen->soft_wrap = soft_wrap;
 
-    if (screen->viewport_offset > screen->scrollback.size)
-        screen->viewport_offset = (int32_t)screen->scrollback.size;
+    if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 
-    mark_dirty_range(screen, 0, rows - 1);
+    needs_layout(screen, 0, rows - 1);
 
     return;
 }
@@ -689,7 +680,7 @@ void screen_restore_cursor(screen_t *screen) {
 }
 
 void screen_write_text(screen_t *screen, const uint8_t *text, size_t length) {
-    if (!text || length == 0) return;
+    if (!text || length < 1) return;
 
     for (size_t i = 0; i < length; i++) {
         uint32_t codepoint = text[i];
@@ -703,7 +694,7 @@ void screen_write_text(screen_t *screen, const uint8_t *text, size_t length) {
 void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
     switch (codepoint) {
         case '\n':
-            if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows) {
+            if (screen->cursor.row > -1 && screen->cursor.row < screen->rows) {
                 screen->soft_wrap[screen->cursor.row] = false;
                 screen_newline(screen);
             }
@@ -729,8 +720,7 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
 
     if (screen->cursor.column >= screen->columns) {
         if (screen->auto_wrap) {
-            if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows)
-                screen->soft_wrap[screen->cursor.row] = true;
+            if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows) screen->soft_wrap[screen->cursor.row] = true;
 
             screen_newline(screen);
             screen->cursor.column = 0;
@@ -828,7 +818,7 @@ void screen_carriage_return(screen_t *screen) {
 void screen_tab(screen_t *screen) {
     int32_t stop = ((screen->cursor.column / 8) + 1) * 8;
 
-    screen->cursor.column = (stop < screen->columns) ? stop : screen->columns - 1;
+    screen->cursor.column = stop < screen->columns ? stop : screen->columns - 1;
 }
 
 void screen_clear(screen_t *screen) {
@@ -838,7 +828,7 @@ void screen_clear(screen_t *screen) {
         screen->soft_wrap[i] = false;
     }
 
-    mark_dirty_range(screen, 0, screen->rows - 1);
+    needs_layout(screen, 0, screen->rows - 1);
 }
 
 void screen_erase(screen_t *screen, int32_t mode) {
@@ -883,18 +873,15 @@ void screen_erase_line(screen_t *screen, int32_t mode) {
 
     switch (mode) {
         case 0:
-            for (int32_t j = screen->cursor.column; j < screen->columns; j++)
-                reset_cell(&screen->grid[screen->cursor.row][j]);
+            for (int32_t j = screen->cursor.column; j < screen->columns; j++) reset_cell(&screen->grid[screen->cursor.row][j]);
 
             break;
         case 1:
-            for (int32_t j = 0; j <= screen->cursor.column; j++)
-                reset_cell(&screen->grid[screen->cursor.row][j]);
+            for (int32_t j = 0; j <= screen->cursor.column; j++) reset_cell(&screen->grid[screen->cursor.row][j]);
 
             break;
         case 2:
-            for (int32_t j = 0; j < screen->columns; j++)
-                reset_cell(&screen->grid[screen->cursor.row][j]);
+            for (int32_t j = 0; j < screen->columns; j++) reset_cell(&screen->grid[screen->cursor.row][j]);
 
             break;
     }
@@ -949,8 +936,7 @@ void screen_scroll_up(screen_t *screen, int32_t lines) {
         if (screen->viewport_offset > 0) {
             screen->viewport_offset += lines;
 
-            if (screen->viewport_offset > screen->scrollback.size)
-                screen->viewport_offset = (int32_t)screen->scrollback.size;
+            if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
         }
     }
 
@@ -1041,7 +1027,7 @@ void screen_delete_column(screen_t *screen, int32_t count) {
 }
 
 void screen_set_scrollback_capacity(screen_t *screen, size_t capacity) {
-    if (screen->scrollback.capacity == capacity) return;
+    if (screen->scrollback.capacity == capacity || capacity > INT32_MAX) return;
 
     line_t *lines = NULL;
 
@@ -1056,7 +1042,7 @@ void screen_set_scrollback_capacity(screen_t *screen, size_t capacity) {
     if (keep > capacity) keep = capacity;
 
     for (size_t i = 0; i < keep; i++) {
-        size_t index = (screen->scrollback.head + (screen->scrollback.size - keep) + i) % screen->scrollback.capacity;
+        size_t index = (screen->scrollback.head + screen->scrollback.size - keep + i) % screen->scrollback.capacity;
 
         if (screen->scrollback.lines) {
             lines[i].width = screen->scrollback.lines[index].width;
@@ -1096,35 +1082,34 @@ void screen_set_scrollback_capacity(screen_t *screen, size_t capacity) {
     screen->scrollback.size = keep;
     screen->scrollback.head = 0;
 
-    if (screen->viewport_offset > screen->scrollback.size)
-        screen->viewport_offset = (int32_t)screen->scrollback.size;
+    if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 }
 
 screen_cell_t *screen_viewport_row(screen_t *screen, int32_t index, bool *mutable) {
     if (index < 0 || index >= screen->rows) return NULL;
 
-    size_t total = screen->scrollback.size + (size_t)screen->rows;
-    size_t start = total - (size_t)screen->rows - (size_t)screen->viewport_offset;
+    int32_t total = (int32_t)screen->scrollback.size + screen->rows;
+    int32_t start = total - screen->rows - screen->viewport_offset;
 
     if (start < 0) start = 0;
 
-    size_t i = start + index;
+    int32_t i = start + index;
 
-    if (i < screen->scrollback.size) {
+    if ((size_t)i < screen->scrollback.size) {
         if (mutable) *mutable = false;
         if (!screen->scrollback.lines) return NULL;
 
-        size_t scrollback_index = (screen->scrollback.head + i) % screen->scrollback.capacity;
+        size_t scrollback_index = (screen->scrollback.head + (size_t)i) % screen->scrollback.capacity;
 
         return screen->scrollback.lines[scrollback_index].cells;
     }
 
-    size_t grid_index = i - screen->scrollback.size;
+    int32_t grid_index = i - (int32_t)screen->scrollback.size;
 
-    if (grid_index < (size_t)screen->rows) {
+    if (grid_index < screen->rows) {
         if (mutable) *mutable = true;
 
-        return screen->grid[(int32_t)grid_index];
+        return screen->grid[grid_index];
     }
 
     return NULL;
@@ -1141,16 +1126,11 @@ void screen_set_viewport_offset(screen_t *screen, int32_t offset) {
     int32_t last = screen->viewport_offset;
 
     screen->viewport_offset = offset;
-
-    int32_t delta = screen->viewport_offset - last;
-
-    screen->viewport_delta += delta;
+    screen->viewport_delta += screen->viewport_offset - last;
 }
 
 void screen_viewport_scroll(screen_t *screen, int32_t delta) {
-    int32_t offset = screen->viewport_offset + delta;
-
-    screen_set_viewport_offset(screen, offset);
+    screen_set_viewport_offset(screen, screen->viewport_offset + delta);
 }
 
 int32_t screen_stage_viewport_scroll(screen_t *screen) {

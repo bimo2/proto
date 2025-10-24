@@ -6,6 +6,7 @@
 //
 
 #import "ViewController.h"
+
 #import "Terminal.h"
 
 #include "render.h"
@@ -33,8 +34,6 @@
         strongSelf.terminal.file = @"/bin/zsh";
 
         strongSelf.terminal.renderBlock = ^(const render_t *ops, size_t count) {
-            if (!ops || count == 0) return;
-
             for (size_t i = 0; i < count; i++) {
                 const render_t *diff = &ops[i];
 

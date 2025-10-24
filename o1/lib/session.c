@@ -6,6 +6,7 @@
 //
 
 #include "session.h"
+
 #include "buffer.h"
 #include "include.h"
 
@@ -38,7 +39,7 @@ struct session_t {
 };
 
 session_t *init_session(void) {
-    session_t *session = calloc(1, sizeof(session_t));
+    session_t *session = (session_t *)calloc(1, sizeof(session_t));
 
     if (!session) return NULL;
 
@@ -149,11 +150,11 @@ ssize_t session_read(session_t *session, uint8_t *data, size_t length) {
 
 ssize_t session_write(session_t *session, const uint8_t *data, size_t length, size_t *overwrite) {
     if (session->fd < 0) return -1;
-    if (length == 0) return 0;
+    if (!data || length < 1) return 0;
 
     ssize_t total = 0;
 
-    if (session->pending->size == 0) {
+    if (session->pending->size < 1) {
         total = write(session->fd, data, length);
 
         if (total < 0) {
@@ -179,7 +180,7 @@ ssize_t session_write(session_t *session, const uint8_t *data, size_t length, si
 
 ssize_t session_flush_write(session_t *session) {
     if (session->fd < 0) return -1;
-    if (session->pending->size == 0) return 0;
+    if (session->pending->size < 1) return 0;
 
     const uint8_t *segment_a;
     const uint8_t *segment_b;

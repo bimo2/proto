@@ -6,6 +6,7 @@
 //
 
 #include "screen_manager.h"
+
 #include "ansi.h"
 #include "screen.h"
 
@@ -32,7 +33,7 @@ struct screen_manager_t {
 };
 
 static inline void apply_text(screen_manager_t *manager, const uint8_t *text, size_t length) {
-    if (!text || length == 0) return;
+    if (!text || length < 1) return;
 
     for (size_t i = 0; i < length; i++) screen_write_utf32(manager->current, text[i]);
 
@@ -40,7 +41,7 @@ static inline void apply_text(screen_manager_t *manager, const uint8_t *text, si
 }
 
 static inline void apply_esc(screen_manager_t *manager, const ansi_esc_t *esc) {
-    if (!esc) return;
+    if (!esc || !manager->current) return;
 
     switch (esc->event) {
         case ANSI_ESC_DEC_SAVE_CURSOR:
@@ -79,11 +80,11 @@ static inline void apply_esc(screen_manager_t *manager, const ansi_esc_t *esc) {
 static inline int csi_parameter(const ansi_csi_t *csi, size_t index, int fallback) {
     if (index >= csi->parameters_count) return fallback;
 
-    return (csi->parameters[index] < 0) ? fallback : csi->parameters[index];
+    return csi->parameters[index] < 0 ? fallback : csi->parameters[index];
 }
 
 static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
-    if (!csi) return;
+    if (!csi || !manager->current) return;
 
     switch (csi->event) {
         case ANSI_CSI_CUU: {
@@ -234,11 +235,8 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     break;
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN:
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR: {
-                    if (!manager->alternate)
-                        manager->alternate = init_screen(screen_rows(manager->main), screen_columns(manager->main));
-
-                    if (csi->dec_mode == ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR)
-                        screen_save_cursor(manager->main);
+                    if (!manager->alternate) manager->alternate = init_screen(screen_rows(manager->main), screen_columns(manager->main));
+                    if (csi->dec_mode == ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR) screen_save_cursor(manager->main);
 
                     manager->current = manager->alternate;
 
@@ -285,12 +283,10 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN:
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR: {
                     if (manager->current == manager->alternate) {
-                        if (manager->alternate) screen_clear(manager->alternate);
-
+                        screen_clear(manager->alternate);
                         manager->current = manager->main;
 
-                        if (csi->dec_mode == ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR)
-                            screen_restore_cursor(manager->main);
+                        if (csi->dec_mode == ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR) screen_restore_cursor(manager->main);
                     }
 
                     break;
@@ -326,10 +322,10 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     case 6: {
                         screen_cursor_t *cursor = screen_cursor(manager->current);
                         int row = cursor->row + 1;
-                        int col = cursor->column + 1;
+                        int column = cursor->column + 1;
                         char buffer[32];
 
-                        snprintf(buffer, sizeof(buffer), "\x1b[%d;%dR", row, col);
+                        snprintf(buffer, sizeof(buffer), "\x1b[%d;%dR", row, column);
                         manager->on_response(manager->response_user_data, buffer);
 
                         break;
@@ -342,8 +338,7 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
             break;
         }
         case ANSI_CSI_DA: {
-            if (manager->on_response)
-                manager->on_response(manager->response_user_data, "\x1b[?1;2c");
+            if (manager->on_response) manager->on_response(manager->response_user_data, "\x1b[?1;2c");
 
             break;
         }
@@ -351,8 +346,7 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
             int value = csi_parameter(csi, 0, 1);
 
             if (manager->last_codepoint != 0) {
-                for (int i = 0; i < value; i++)
-                    screen_write_utf32(manager->current, manager->last_codepoint);
+                for (int i = 0; i < value; i++) screen_write_utf32(manager->current, manager->last_codepoint);
             }
 
             break;
@@ -382,9 +376,7 @@ static inline void apply_osc(screen_manager_t *manager, const ansi_osc_t *osc) {
 
                 if (copy) {
                     memcpy(copy, osc->payload, length + 1);
-
-                    if (manager->title) free(manager->title);
-
+                    free(manager->title);
                     manager->title = copy;
                 }
 
@@ -440,19 +432,12 @@ void free_screen_manager(screen_manager_t *manager) {
 
 void screen_manager_reset(screen_manager_t *manager) {
     manager->current = manager->main;
-
-    if (manager->alternate) {
-        free_screen(manager->alternate);
-        manager->alternate = NULL;
-    }
-
+    free_screen(manager->alternate);
+    manager->alternate = NULL;
     manager->cursor_keys_mode = false;
     manager->last_codepoint = 0;
-
-    if (manager->title) {
-        free(manager->title);
-        manager->title = NULL;
-    }
+    free(manager->title);
+    manager->title = NULL;
 }
 
 screen_t *screen_manager_current_screen(screen_manager_t *manager) {
@@ -470,10 +455,8 @@ const char *screen_manager_title(screen_manager_t *manager) {
 
 void screen_manager_set_title(screen_manager_t *manager, const char *title) {
     if (!title) {
-        if (manager->title) {
-            free(manager->title);
-            manager->title = NULL;
-        }
+        free(manager->title);
+        manager->title = NULL;
 
         return;
     }
@@ -484,9 +467,7 @@ void screen_manager_set_title(screen_manager_t *manager, const char *title) {
     if (!copy) return;
 
     memcpy(copy, title, length + 1);
-
-    if (manager->title) free(manager->title);
-
+    free(manager->title);
     manager->title = copy;
 }
 

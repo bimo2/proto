@@ -6,6 +6,7 @@
 //
 
 #include "render.h"
+
 #include "screen.h"
 
 #include <stdbool.h>
@@ -16,12 +17,12 @@
 
 static void add_render_op(render_t **ops, size_t *count, size_t *capacity, const render_t *diff) {
     if (*count == *capacity) {
-        size_t next = (*capacity == 0) ? 128 : (*capacity * 2);
-        render_t *new_ops = realloc(*ops, next * sizeof(render_t));
+        size_t next = *capacity < 1 ? 128 : *capacity * 2;
+        render_t *id = (render_t *)realloc(*ops, next * sizeof(render_t));
 
-        if (!new_ops) return;
+        if (!id) return;
 
-        *ops = new_ops;
+        *ops = id;
         *capacity = next;
     }
 
@@ -29,7 +30,7 @@ static void add_render_op(render_t **ops, size_t *count, size_t *capacity, const
 }
 
 static inline const screen_cell_t *retain_cells(const screen_cell_t *cells, size_t count) {
-    if (!cells || count < 1) return cells;
+    if (count < 1) return cells;
 
     screen_cell_t *copy = (screen_cell_t *)malloc(count * sizeof(screen_cell_t));
 
@@ -40,8 +41,8 @@ static inline const screen_cell_t *retain_cells(const screen_cell_t *cells, size
     return copy;
 }
 
-void render_collect_ops(screen_t *screen, render_t **ops, size_t *count) {
-    if (!screen) return;
+void render_collect_ops(render_t **ops, screen_t *screen, size_t *count) {
+    if (!screen || !count) return;
 
     *ops = NULL;
     *count = 0;
@@ -73,15 +74,14 @@ void render_collect_ops(screen_t *screen, render_t **ops, size_t *count) {
         if (!cells) continue;
 
         int32_t start = -1;
-        render_t last_diff;
-        bool has_last = false;
+        render_t last = { .op = 0 };
 
         for (int32_t j = 0; j < columns; j++) {
             bool dirty = mutable ? cells[j].dirty : false;
 
             if (dirty) {
                 if (start < 0) start = j;
-            } else if (start >= 0) {
+            } else if (start > -1) {
                 int32_t width = j - start;
                 const screen_cell_t *span_cells = retain_cells(cells + start, width);
 
@@ -97,24 +97,23 @@ void render_collect_ops(screen_t *screen, render_t **ops, size_t *count) {
                     .span = span,
                 };
 
-                if (has_last && last_diff.op == RENDER_OP_SPAN && last_diff.span.row == i && diff.span.column <= last_diff.span.column + last_diff.span.width + 1) {
-                    size_t merge_width = ((size_t)diff.span.column + diff.span.width) - (size_t)last_diff.span.column;
+                if (last.op == RENDER_OP_SPAN && last.span.row == i && diff.span.column <= last.span.column + last.span.width + 1) {
+                    size_t merge_width = (size_t)diff.span.column + diff.span.width - (size_t)last.span.column;
 
-                    last_diff.span.width = merge_width;
-                    free((void *)last_diff.span.cells);
-                    last_diff.span.cells = retain_cells(cells + last_diff.span.column, merge_width);
-                    *ops[*count - 1] = last_diff;
+                    last.span.width = merge_width;
+                    free((void *)last.span.cells);
+                    last.span.cells = retain_cells(cells + last.span.column, merge_width);
+                    (*ops)[*count - 1] = last;
                 } else {
                     add_render_op(ops, count, &capacity, &diff);
-                    last_diff = diff;
-                    has_last = true;
+                    last = diff;
                 }
 
                 start = -1;
             }
         }
 
-        if (start >= 0) {
+        if (start > -1) {
             size_t width = (size_t)columns - (size_t)start;
             const screen_cell_t *span_cells = retain_cells(cells + start, width);
 

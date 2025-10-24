@@ -1,11 +1,11 @@
 //
-//  reader.c
+//  ansi_reader.c
 //  o1
 //
 //  Created by gpt-5-high on 2025-10-12.
 //
 
-#include "reader.h"
+#include "ansi_reader.h"
 #include "ansi.h"
 #include "include.h"
 
@@ -23,7 +23,7 @@ typedef enum {
     STATE_OSC_MAYBE_ST,
 } state_t;
 
-struct reader_t {
+struct ansi_reader_t {
     state_t state;
     uint8_t utf8[4];
     size_t utf8_length;
@@ -37,7 +37,7 @@ struct reader_t {
     char *osc_buffer;
     size_t osc_length;
     int osc_code;
-    reader_ansi_callback_t on_ansi;
+    ansi_reader_callback_t on_ansi;
     void *user_data;
 };
 
@@ -52,7 +52,7 @@ static inline void sgr_reset_attributes(ansi_sgr_t *attributes) {
 static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, size_t count) {
     if (!attributes) return;
 
-    if (count == 0) {
+    if (count < 1) {
         sgr_reset_attributes(attributes);
 
         return;
@@ -159,19 +159,19 @@ static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, 
                 break;
             default: {
                 if ((p >= 30 && p <= 37) || (p >= 90 && p <= 97)) {
-                    int base = (p >= 90) ? 90 : 30;
-                    int index = (p - base) + ((base == 90) ? 8 : 0);
+                    int base = p >= 90 ? 90 : 30;
+                    int index = p - base + (base == 90 ? 8 : 0);
 
                     attributes->fg_color = ansi_color_pack_indexed(index);
                     i++;
                 } else if ((p >= 40 && p <= 47) || (p >= 100 && p <= 107)) {
-                    int base = (p >= 100) ? 100 : 40;
-                    int index = (p - base) + ((base == 100) ? 8 : 0);
+                    int base = p >= 100 ? 100 : 40;
+                    int index = p - base + (base == 100 ? 8 : 0);
 
                     attributes->bg_color = ansi_color_pack_indexed(index);
                     i++;
                 } else if (p == 38 || p == 48) {
-                    bool foregound = (p == 38);
+                    bool foregound = p == 38;
 
                     if (i + 1 < count && parameters[i + 1] == 5 && i + 2 < count) {
                         int index = parameters[i + 2];
@@ -256,8 +256,8 @@ static inline ansi_dec_mode_t dec_mode(int code) {
     }
 }
 
-static void send_unknown(reader_t *reader, const uint8_t *start, size_t length) {
-    if (!reader->on_ansi || length == 0) return;
+static void send_unknown(ansi_reader_t *reader, const uint8_t *start, size_t length) {
+    if (!reader->on_ansi || length < 1) return;
 
     ansi_t ansi;
 
@@ -267,8 +267,8 @@ static void send_unknown(reader_t *reader, const uint8_t *start, size_t length) 
     reader->on_ansi(reader->user_data, &ansi);
 }
 
-static void send_text(reader_t *reader, const uint8_t *start, size_t length) {
-    if (!reader->on_ansi || length == 0) return;
+static void send_text(ansi_reader_t *reader, const uint8_t *start, size_t length) {
+    if (!reader->on_ansi || length < 1) return;
 
     ansi_t ansi;
 
@@ -278,7 +278,7 @@ static void send_text(reader_t *reader, const uint8_t *start, size_t length) {
     reader->on_ansi(reader->user_data, &ansi);
 }
 
-static void send_esc(reader_t *reader, ansi_esc_event_t event) {
+static void send_esc(ansi_reader_t *reader, ansi_esc_event_t event) {
     if (!reader->on_ansi) return;
 
     ansi_t ansi;
@@ -288,7 +288,7 @@ static void send_esc(reader_t *reader, ansi_esc_event_t event) {
     reader->on_ansi(reader->user_data, &ansi);
 }
 
-static inline void reset_csi(reader_t *reader) {
+static inline void reset_csi(ansi_reader_t *reader) {
     reader->csi_dec_private = false;
     reader->csi_parameters_count = 0;
     reader->csi_current = -1;
@@ -298,12 +298,11 @@ static inline void reset_csi(reader_t *reader) {
     reader->csi_intermediates_count = 0;
 }
 
-static void send_csi(reader_t *reader, char final_byte) {
+static void send_csi(ansi_reader_t *reader, char final_byte) {
     if (!reader->on_ansi) return;
 
     if (reader->csi_current != -1) {
-        if (reader->csi_parameters_count < ANSI_MAX_PARAMETERS)
-            reader->csi_parameters[reader->csi_parameters_count++] = reader->csi_current;
+        if (reader->csi_parameters_count < ANSI_MAX_PARAMETERS) reader->csi_parameters[reader->csi_parameters_count++] = reader->csi_current;
 
         reader->csi_current = -1;
     }
@@ -315,13 +314,11 @@ static void send_csi(reader_t *reader, char final_byte) {
     ansi.csi.final_byte = final_byte;
     ansi.csi.parameters_count = reader->csi_parameters_count;
 
-    for (size_t i = 0; i < reader->csi_parameters_count && i < ANSI_MAX_PARAMETERS; i++)
-        ansi.csi.parameters[i] = reader->csi_parameters[i];
+    for (size_t i = 0; i < reader->csi_parameters_count && i < ANSI_MAX_PARAMETERS; i++) ansi.csi.parameters[i] = reader->csi_parameters[i];
 
     ansi.csi.intermediates_count = reader->csi_intermediates_count;
 
-    for (size_t j = 0; j < reader->csi_intermediates_count && j < 5; j++)
-        ansi.csi.intermediates[j] = reader->csi_intermediates[j];
+    for (size_t j = 0; j < reader->csi_intermediates_count && j < 5; j++) ansi.csi.intermediates[j] = reader->csi_intermediates[j];
 
     sgr_reset_attributes(&ansi.csi.attributes);
 
@@ -413,7 +410,7 @@ static void send_csi(reader_t *reader, char final_byte) {
 
             break;
         case '~':
-            if (reader->csi_parameters_count >= 1) {
+            if (reader->csi_parameters_count > 0) {
                 int v = reader->csi_parameters[0];
 
                 if (v == 200) event = ANSI_CSI_BRP_START;
@@ -428,13 +425,11 @@ static void send_csi(reader_t *reader, char final_byte) {
     ansi.csi.dec_mode = ANSI_DEC_MODE_UNKNOWN;
 
     if (event == ANSI_CSI_DECSET || event == ANSI_CSI_DECRST) {
-        if (ansi.csi.parameters_count > 0 && ansi.csi.parameters[0] >= 0)
-            ansi.csi.dec_mode = dec_mode(ansi.csi.parameters[0]);
+        if (ansi.csi.parameters_count > 0 && ansi.csi.parameters[0] > -1) ansi.csi.dec_mode = dec_mode(ansi.csi.parameters[0]);
     }
 
     if (event == ANSI_CSI_SM || event == ANSI_CSI_RM) {
-        if (ansi.csi.parameters_count > 0 && ansi.csi.parameters[0] >= 0)
-            ansi.csi.mode = csi_mode(ansi.csi.parameters[0]);
+        if (ansi.csi.parameters_count > 0 && ansi.csi.parameters[0] > -1) ansi.csi.mode = csi_mode(ansi.csi.parameters[0]);
     }
 
     if (event == ANSI_CSI_SGR) {
@@ -448,17 +443,17 @@ static void send_csi(reader_t *reader, char final_byte) {
     reader->on_ansi(reader->user_data, &ansi);
 }
 
-static inline void reset_osc(reader_t *reader) {
+static inline void reset_osc(ansi_reader_t *reader) {
     reader->osc_length = 0;
     reader->osc_code = -1;
 
-    if (reader->osc_buffer && reader->osc_capacity > 0) reader->osc_buffer[0] = '\0';
+    if (reader->osc_capacity > 0) reader->osc_buffer[0] = '\0';
 }
 
-static void send_osc(reader_t *reader) {
+static void send_osc(ansi_reader_t *reader) {
     if (!reader->on_ansi || !reader->osc_buffer) return;
 
-    size_t term = (reader->osc_length < reader->osc_capacity) ? reader->osc_length : (reader->osc_capacity - 1);
+    size_t term = reader->osc_length < reader->osc_capacity ? reader->osc_length : (reader->osc_capacity - 1);
 
     reader->osc_buffer[term] = '\0';
 
@@ -503,7 +498,7 @@ static void send_osc(reader_t *reader) {
     reader->on_ansi(reader->user_data, &ansi);
 }
 
-static void send_bell(reader_t *reader) {
+static void send_bell(ansi_reader_t *reader) {
     if (!reader->on_ansi) return;
 
     ansi_t ansi;
@@ -512,7 +507,7 @@ static void send_bell(reader_t *reader) {
     reader->on_ansi(reader->user_data, &ansi);
 }
 
-static inline size_t utf8_expected_length(uint8_t lead) {
+static inline int utf8_expected_length(uint8_t lead) {
     if (lead <= 0x7F) return 1;
     if (lead >= 0xC2 && lead <= 0xDF) return 2;
     if (lead >= 0xE0 && lead <= 0xEF) return 3;
@@ -526,18 +521,17 @@ static inline bool utf8_incomplete(uint8_t byte) {
 }
 
 static size_t utf8_incomplete_length(const uint8_t *bytes, size_t length) {
-    if (length == 0) return 0;
+    if (length < 1) return 0;
 
     size_t continuation = 0;
 
-    while (continuation < 3 && length > continuation && utf8_incomplete(bytes[length - 1 - continuation]))
-        continuation++;
+    while (continuation < 3 && length > continuation && utf8_incomplete(bytes[length - 1 - continuation])) continuation++;
 
     if (continuation == 0) {
         uint8_t last = bytes[length - 1];
         size_t expected = utf8_expected_length(last);
 
-        return (expected > 1) ? 1 : 0;
+        return expected > 1 ? 1 : 0;
     }
 
     if (length > continuation) {
@@ -549,14 +543,14 @@ static size_t utf8_incomplete_length(const uint8_t *bytes, size_t length) {
 
         size_t have = length - lead_index;
 
-        return (have < expected) ? have : 0;
+        return have < expected ? have : 0;
     }
 
     return continuation;
 }
 
-reader_t *init_reader(void) {
-    reader_t *reader = (reader_t *)calloc(1, sizeof(reader_t));
+ansi_reader_t *init_ansi_reader(void) {
+    ansi_reader_t *reader = (ansi_reader_t *)calloc(1, sizeof(ansi_reader_t));
 
     if (!reader) return NULL;
 
@@ -579,22 +573,22 @@ reader_t *init_reader(void) {
     return reader;
 }
 
-void free_reader(reader_t *reader) {
+void free_ansi_reader(ansi_reader_t *reader) {
     if (!reader) return;
-    if (reader->osc_buffer) free(reader->osc_buffer);
 
+    free(reader->osc_buffer);
     free(reader);
 }
 
-void reader_reset(reader_t *reader) {
+void ansi_reader_reset(ansi_reader_t *reader) {
     reader->state = STATE_GROUND;
     reader->utf8_length = 0;
     reset_csi(reader);
     reset_osc(reader);
 }
 
-void reader_set_osc_capacity(reader_t *reader, size_t capacity) {
-    if (capacity == 0) return;
+void ansi_reader_set_osc_capacity(ansi_reader_t *reader, size_t capacity) {
+    if (capacity < 1) return;
 
     char *buffer = (char *)realloc(reader->osc_buffer, capacity);
 
@@ -606,13 +600,13 @@ void reader_set_osc_capacity(reader_t *reader, size_t capacity) {
     if (reader->osc_length >= reader->osc_capacity) reader->osc_length = reader->osc_capacity - 1;
 }
 
-void reader_set_ansi_callback(reader_t *reader, reader_ansi_callback_t on_ansi, void *user_data) {
+void ansi_reader_set_callback(ansi_reader_t *reader, ansi_reader_callback_t on_ansi, void *user_data) {
     reader->on_ansi = on_ansi;
     reader->user_data = user_data;
 }
 
-void reader_feed(reader_t *reader, const uint8_t *bytes, size_t length) {
-    if (!bytes || length == 0) return;
+void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length) {
+    if (!bytes || length < 1) return;
 
     const uint8_t *start = bytes;
     size_t i = 0;
@@ -627,8 +621,7 @@ void reader_feed(reader_t *reader, const uint8_t *bytes, size_t length) {
             size_t need = expected - reader->utf8_length;
             size_t j = 0;
 
-            while (j < length && j < need && utf8_incomplete(bytes[j]))
-                reader->utf8[reader->utf8_length++] = bytes[j++];
+            while (j < length && j < need && utf8_incomplete(bytes[j])) reader->utf8[reader->utf8_length++] = bytes[j++];
 
             if (reader->utf8_length == expected) {
                 send_text(reader, reader->utf8, expected);
@@ -778,9 +771,7 @@ void reader_feed(reader_t *reader, const uint8_t *bytes, size_t length) {
             case STATE_CSI: {
                 if (byte == '?' || byte == '>' || byte == '<' || byte == '!' || byte == ' ') {
                     if (byte == '?') reader->csi_dec_private = true;
-
-                    if (reader->csi_intermediates_count < 5)
-                        reader->csi_intermediates[reader->csi_intermediates_count++] = (char)byte;
+                    if (reader->csi_intermediates_count < 5) reader->csi_intermediates[reader->csi_intermediates_count++] = (char)byte;
 
                     i++;
 
@@ -791,9 +782,7 @@ void reader_feed(reader_t *reader, const uint8_t *bytes, size_t length) {
                     int digit = (int)(byte - '0');
 
                     if (reader->csi_current < 0) reader->csi_current = 0;
-
-                    if (reader->csi_current < 1000000)
-                        reader->csi_current = reader->csi_current * 10 + digit;
+                    if (reader->csi_current < 1000000) reader->csi_current = reader->csi_current * 10 + digit;
 
                     i++;
 
@@ -801,8 +790,7 @@ void reader_feed(reader_t *reader, const uint8_t *bytes, size_t length) {
                 }
 
                 if (byte == ';' || byte == ':') {
-                    if (reader->csi_parameters_count < ANSI_MAX_PARAMETERS)
-                        reader->csi_parameters[reader->csi_parameters_count++] = (reader->csi_current >= 0) ? reader->csi_current : -1;
+                    if (reader->csi_parameters_count < ANSI_MAX_PARAMETERS) reader->csi_parameters[reader->csi_parameters_count++] = reader->csi_current > -1 ? reader->csi_current : -1;
 
                     reader->csi_current = -1;
                     i++;
@@ -863,8 +851,7 @@ void reader_feed(reader_t *reader, const uint8_t *bytes, size_t length) {
                     continue;
                 }
 
-                if (reader->osc_length + 1 < reader->osc_capacity)
-                    reader->osc_buffer[reader->osc_length++] = 0x1B;
+                if (reader->osc_length + 1 < reader->osc_capacity) reader->osc_buffer[reader->osc_length++] = 0x1B;
 
                 reader->state = STATE_OSC;
 
@@ -881,10 +868,10 @@ void reader_feed(reader_t *reader, const uint8_t *bytes, size_t length) {
 
         if (withhold > 0) {
             size_t offset = text_length - withhold;
-            size_t copy = withhold < sizeof(reader->utf8) ? withhold : sizeof(reader->utf8);
+            size_t utf8_length = withhold < sizeof(reader->utf8) ? withhold : sizeof(reader->utf8);
 
-            memcpy(reader->utf8, start + offset, copy);
-            reader->utf8_length = copy;
+            memcpy(reader->utf8, start + offset, utf8_length);
+            reader->utf8_length = utf8_length;
         }
     }
 }

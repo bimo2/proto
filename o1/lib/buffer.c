@@ -17,23 +17,23 @@ static inline size_t min(size_t a, size_t b) {
 }
 
 buffer_t *init_buffer(size_t capacity) {
-    if (capacity == 0) return NULL;
+    if (capacity < 1) return NULL;
 
-    buffer_t *buffer = calloc(1, sizeof(buffer_t));
+    buffer_t *buffer = (buffer_t *)calloc(1, sizeof(buffer_t));
 
     if (!buffer) return NULL;
 
     buffer->capacity = capacity;
-    buffer->size = 0;
-    buffer->head = 0;
-    buffer->tail = 0;
-    buffer->bytes = malloc(capacity);
+    buffer->bytes = (uint8_t *)malloc(capacity);
 
     if (!buffer->bytes) {
         free(buffer);
 
         return NULL;
     }
+
+    buffer->size = 0;
+    buffer->head = 0;
 
     return buffer;
 }
@@ -48,11 +48,10 @@ void free_buffer(buffer_t *buffer) {
 void buffer_reset(buffer_t *buffer) {
     buffer->size = 0;
     buffer->head = 0;
-    buffer->tail = 0;
 }
 
 int buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite) {
-    if (capacity == 0) return -1;
+    if (capacity < 1) return -1;
     if (overwrite) *overwrite = 0;
     if (buffer->capacity == capacity) return 0;
 
@@ -77,17 +76,16 @@ int buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite) {
     }
 
     buffer->capacity = capacity;
-    buffer->size = size;
-    buffer->head = 0;
-    buffer->tail = (capacity == 0) ? 0 : (size % capacity);
     free(buffer->bytes);
     buffer->bytes = bytes;
+    buffer->size = size;
+    buffer->head = 0;
 
     return 0;
 }
 
 void buffer_segment(const buffer_t *buffer, const uint8_t **segment_a, size_t *length_a, const uint8_t **segment_b, size_t *length_b) {
-    if (buffer->size == 0) {
+    if (buffer->size < 1) {
         if (segment_a) *segment_a = NULL;
         if (length_a) *length_a = 0;
         if (segment_b) *segment_b = NULL;
@@ -113,7 +111,7 @@ void buffer_segment(const buffer_t *buffer, const uint8_t **segment_a, size_t *l
 }
 
 void buffer_shift(buffer_t *buffer, size_t length) {
-    if (length == 0) return;
+    if (length < 1) return;
 
     if (length >= buffer->size) {
         buffer_reset(buffer);
@@ -126,7 +124,7 @@ void buffer_shift(buffer_t *buffer, size_t length) {
 }
 
 size_t buffer_read(const buffer_t *buffer, uint8_t *source, size_t length) {
-    if (!source || buffer->size == 0 || length == 0) return 0;
+    if (!source || buffer->size < 1 || length < 1) return 0;
 
     size_t size = min(length, buffer->size);
     size_t size_a = min(size, buffer->capacity - buffer->head);
@@ -141,14 +139,14 @@ size_t buffer_read(const buffer_t *buffer, uint8_t *source, size_t length) {
 }
 
 size_t buffer_write(buffer_t *buffer, const uint8_t *source, size_t length, size_t *overwrite) {
-    if (!source || buffer->capacity == 0 || length == 0) {
+    if (!source || buffer->capacity < 1 || length < 1) {
         if (overwrite) *overwrite = 0;
 
         return 0;
     }
 
-    size_t size = (length > buffer->capacity) ? buffer->capacity : length;
-    size_t drop = (buffer->size + size > buffer->capacity) ? (buffer->size + size - buffer->capacity) : 0;
+    size_t size = length > buffer->capacity ? buffer->capacity : length;
+    size_t drop = buffer->size + size > buffer->capacity ? buffer->size + size - buffer->capacity : 0;
 
     if (drop > 0) {
         buffer->head = (buffer->head + drop) % buffer->capacity;
@@ -157,16 +155,15 @@ size_t buffer_write(buffer_t *buffer, const uint8_t *source, size_t length, size
 
     if (overwrite) *overwrite = drop;
 
-    size_t start = buffer->tail;
-    size_t size_a = (size > buffer->capacity - start) ? (buffer->capacity - start) : size;
+    size_t start = (buffer->head + buffer->size) % buffer->capacity;
+    size_t size_a = size > buffer->capacity - start ? buffer->capacity - start : size;
 
-    memcpy(buffer->bytes + start, source + (length - size), size_a);
+    memcpy(buffer->bytes + start, source + length - size, size_a);
 
     size_t size_b = size - size_a;
 
-    if (size_b > 0) memcpy(buffer->bytes, source + (length - size) + size_a, size_b);
+    if (size_b > 0) memcpy(buffer->bytes, source + length - size + size_a, size_b);
 
-    buffer->tail = (start + size) % buffer->capacity;
     buffer->size += size;
 
     return size;

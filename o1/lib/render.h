@@ -39,7 +39,7 @@ typedef struct render_t {
     };
 } render_t;
 
-void render_collect_ops(screen_t *screen, render_t **ops, size_t *count);
+void render_collect_ops(render_t **ops, screen_t *screen, size_t *count);
 
 void render_clear_ops(render_t *ops, size_t count);
 
