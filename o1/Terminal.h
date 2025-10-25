@@ -28,4 +28,6 @@
 
 - (void)write:(NSData *)data;
 
+- (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns;
+
 @end

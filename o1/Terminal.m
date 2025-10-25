@@ -18,6 +18,7 @@
 #include "screen_manager.h"
 
 #include <crt_externs.h>
+#include <math.h>
 #include <sys/wait.h>
 
 static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
@@ -174,7 +175,7 @@ static void on_bell_callback(void *);
 }
 
 - (void)write:(NSData *)data {
-    if (!self.running) return;
+    if (!self.running || data.length < 1) return;
 
     __weak typeof(self) weakSelf = self;
 
@@ -189,6 +190,24 @@ static void on_bell_callback(void *);
             dispatch_resume(strongSelf->write_source);
             strongSelf->write_source_suspended = false;
         }
+    });
+}
+
+- (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns {
+    if (!self.running) return;
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_async(io_queue, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        uint32_t width = (uint32_t)lround(size.width);
+        uint32_t height = (uint32_t)lround(size.height);
+
+        screen_manager_set_grid(strongSelf->manager, (uint32_t)rows, (uint32_t)columns);
+        session_update_window(strongSelf->session, (uint32_t)rows, (uint32_t)columns, width, height);
     });
 }
 

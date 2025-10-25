@@ -9,6 +9,7 @@
 
 #include "buffer.h"
 #include "include.h"
+#include "screen.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -100,7 +101,15 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     tio.c_cc[VMIN] = 1;
     tio.c_cc[VTIME] = 0;
 
-    pid_t pid = forkpty(&master_fd, NULL, &tio, NULL);
+    struct winsize ws;
+
+    memset(&ws, 0, sizeof(ws));
+    ws.ws_row = screen_default_rows;
+    ws.ws_col = screen_default_columns;
+    ws.ws_xpixel = screen_default_width;
+    ws.ws_ypixel = screen_default_height;
+
+    pid_t pid = forkpty(&master_fd, NULL, &tio, &ws);
 
     if (pid < 0) {
         perror("forkpty");
@@ -224,4 +233,20 @@ ssize_t session_flush_write(session_t *session) {
     }
 
     return total;
+}
+
+void session_update_window(session_t *session, uint32_t rows, uint32_t columns, uint32_t width, uint32_t height) {
+    if (session->fd < 0) return;
+
+    struct winsize ws;
+
+    memset(&ws, 0, sizeof(ws));
+    ws.ws_row = rows;
+    ws.ws_col = columns;
+    ws.ws_xpixel = width;
+    ws.ws_ypixel = height;
+
+    if (ioctl(session->fd, TIOCSWINSZ, &ws) == -1) perror("ioctl");
+
+    return;
 }

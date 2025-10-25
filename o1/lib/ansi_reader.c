@@ -240,7 +240,7 @@ static inline ansi_dec_mode_t dec_mode(int code) {
         case 1003:
             return ANSI_DEC_MODE_MOUSE_ALL;
         case 1004:
-            return ANSI_DEC_MODE_FOCUS_REPORT;
+            return ANSI_DEC_MODE_FOCUS_REPORTING;
         case 1006:
             return ANSI_DEC_MODE_MOUSE_SGR;
         case 1047:

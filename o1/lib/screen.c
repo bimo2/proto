@@ -15,14 +15,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_ROWS 20
-#define DEFAULT_COLUMNS 80
-
-static const ansi_sgr_t DEFAULT_ATTRIBUTES = {
+static const ansi_sgr_t default_attributes = {
     .flags = ANSI_SGR_FLAG_NONE,
     .fg_color = ANSI_COLOR_RESET,
     .bg_color = ANSI_COLOR_RESET,
 };
+
+uint32_t screen_default_rows = 24;
+uint32_t screen_default_columns = 80;
+uint32_t screen_default_width = 0;
+uint32_t screen_default_height = 0;
 
 typedef struct {
     screen_cell_t *cells;
@@ -66,7 +68,7 @@ static inline void reset_cell(screen_cell_t *cell) {
     if (!cell) return;
 
     cell->codepoint = ' ';
-    cell->attributes = DEFAULT_ATTRIBUTES;
+    cell->attributes = default_attributes;
     cell->dirty = false;
 }
 
@@ -77,7 +79,7 @@ static inline void reset_cursor(screen_cursor_t *cursor) {
     cursor->column = 0;
     cursor->visible = true;
     cursor->blink = false;
-    cursor->attributes = DEFAULT_ATTRIBUTES;
+    cursor->attributes = default_attributes;
 }
 
 static screen_cell_t **init_grid(int32_t rows, int32_t columns) {
@@ -195,8 +197,8 @@ static void commit_staging_cells(line_t **lines, size_t *count, size_t *capacity
 }
 
 screen_t *init_screen(int32_t rows, int32_t columns) {
-    if (rows < 1) rows = DEFAULT_ROWS;
-    if (columns < 1) columns = DEFAULT_COLUMNS;
+    if (rows < 1) rows = screen_default_rows;
+    if (columns < 1) columns = screen_default_columns;
 
     screen_t *screen = (screen_t *)calloc(1, sizeof(screen_t));
 
@@ -221,7 +223,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
         return NULL;
     }
 
-    screen->attributes = DEFAULT_ATTRIBUTES;
+    screen->attributes = default_attributes;
     screen->auto_wrap = true;
     screen->insert_mode = false;
     screen->origin_mode = false;
@@ -280,8 +282,8 @@ int32_t screen_columns(screen_t *screen) {
 }
 
 void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
-    if (rows < 1) rows = DEFAULT_ROWS;
-    if (columns < 1) columns = DEFAULT_COLUMNS;
+    if (rows < 1) rows = screen_default_rows;
+    if (columns < 1) columns = screen_default_columns;
     if (screen->rows == rows && screen->columns == columns) return;
 
     screen_cell_t **grid = init_grid(rows, columns);
@@ -592,7 +594,7 @@ ansi_sgr_t *screen_attributes(screen_t *screen) {
 
 void screen_set_attributes(screen_t *screen, const ansi_sgr_t *attributes) {
     if (!attributes) {
-        screen->attributes = DEFAULT_ATTRIBUTES;
+        screen->attributes = default_attributes;
     } else {
         screen->attributes = *attributes;
     }

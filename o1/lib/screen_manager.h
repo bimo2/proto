@@ -11,12 +11,20 @@
 #include "ansi.h"
 #include "screen.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef struct screen_manager_t screen_manager_t;
 typedef void (*screen_manager_response_callback_t)(void *, const char *);
 typedef void (*screen_manager_title_callback_t)(void *, const char *);
 typedef void (*screen_manager_bell_callback_t)(void *);
+
+typedef enum screen_manager_mouse_mode_t {
+    SCREEN_MANAGER_MOUSE_NONE = 0,
+    SCREEN_MANAGER_MOUSE_X10,
+    SCREEN_MANAGER_MOUSE_NORMAL,
+    SCREEN_MANAGER_MOUSE_ALL,
+} screen_manager_mouse_mode_t;
 
 screen_manager_t *init_screen_manager(void);
 
@@ -39,5 +47,15 @@ void screen_manager_set_response_callback(screen_manager_t *manager, screen_mana
 void screen_manager_set_bell_callback(screen_manager_t *manager, screen_manager_bell_callback_t callback, void *user_data);
 
 void screen_manager_update(screen_manager_t *manager, const ansi_t *ansi);
+
+bool screen_manager_bracketed_paste(screen_manager_t *manager);
+
+bool screen_manager_cursor_keys(screen_manager_t *manager);
+
+screen_manager_mouse_mode_t screen_manager_mouse_mode(screen_manager_t *manager);
+
+bool screen_manager_mouse_sgr(screen_manager_t *manager);
+
+bool screen_manager_focus_reporting(screen_manager_t *manager);
 
 #endif // !SCREEN_MANAGER_H

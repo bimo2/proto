@@ -21,7 +21,11 @@ struct screen_manager_t {
     screen_t *main;
     screen_t *alternate;
     screen_t *current;
-    bool cursor_keys_mode;
+    bool bracketed_paste;
+    bool cursor_keys;
+    screen_manager_mouse_mode_t mouse_mode;
+    bool mouse_sgr;
+    bool focus_reporting;
     uint32_t last_codepoint;
     char *title;
     screen_manager_title_callback_t on_title;
@@ -214,7 +218,7 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
         case ANSI_CSI_DECSET: {
             switch (csi->dec_mode) {
                 case ANSI_DEC_MODE_CURSOR_KEYS:
-                    manager->cursor_keys_mode = true;
+                    manager->cursor_keys = true;
 
                     break;
                 case ANSI_DEC_MODE_ORIGIN:
@@ -233,6 +237,26 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     screen_cursor(manager->current)->visible = true;
 
                     break;
+                case ANSI_DEC_MODE_MOUSE_X10:
+                    manager->mouse_mode = SCREEN_MANAGER_MOUSE_X10;
+
+                    break;
+                case ANSI_DEC_MODE_MOUSE_NORMAL:
+                    manager->mouse_mode = SCREEN_MANAGER_MOUSE_NORMAL;
+
+                    break;
+                case ANSI_DEC_MODE_MOUSE_ALL:
+                    manager->mouse_mode = SCREEN_MANAGER_MOUSE_ALL;
+
+                    break;
+                case ANSI_DEC_MODE_FOCUS_REPORTING:
+                    manager->focus_reporting = true;
+
+                    break;
+                case ANSI_DEC_MODE_MOUSE_SGR:
+                    manager->mouse_sgr = true;
+
+                    break;
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN:
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR: {
                     if (!manager->alternate) manager->alternate = init_screen(screen_rows(manager->main), screen_columns(manager->main));
@@ -246,12 +270,10 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     screen_save_cursor(manager->current);
 
                     break;
-                case ANSI_DEC_MODE_MOUSE_X10:
-                case ANSI_DEC_MODE_MOUSE_NORMAL:
-                case ANSI_DEC_MODE_MOUSE_ALL:
-                case ANSI_DEC_MODE_FOCUS_REPORT:
-                case ANSI_DEC_MODE_MOUSE_SGR:
                 case ANSI_DEC_MODE_BRACKETED_PASTE:
+                    manager->bracketed_paste = true;
+
+                    break;
                 case ANSI_DEC_MODE_UNKNOWN:
                     break;
             }
@@ -261,7 +283,7 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
         case ANSI_CSI_DECRST: {
             switch (csi->dec_mode) {
                 case ANSI_DEC_MODE_CURSOR_KEYS:
-                    manager->cursor_keys_mode = false;
+                    manager->cursor_keys = false;
 
                     break;
                 case ANSI_DEC_MODE_ORIGIN:
@@ -280,6 +302,20 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     screen_cursor(manager->current)->visible = false;
 
                     break;
+                case ANSI_DEC_MODE_MOUSE_X10:
+                case ANSI_DEC_MODE_MOUSE_NORMAL:
+                case ANSI_DEC_MODE_MOUSE_ALL:
+                    manager->mouse_mode = SCREEN_MANAGER_MOUSE_NONE;
+
+                    break;
+                case ANSI_DEC_MODE_FOCUS_REPORTING:
+                    manager->focus_reporting = false;
+
+                    break;
+                case ANSI_DEC_MODE_MOUSE_SGR:
+                    manager->mouse_sgr = false;
+
+                    break;
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN:
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR: {
                     if (manager->current == manager->alternate) {
@@ -295,12 +331,10 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     screen_restore_cursor(manager->current);
 
                     break;
-                case ANSI_DEC_MODE_MOUSE_X10:
-                case ANSI_DEC_MODE_MOUSE_NORMAL:
-                case ANSI_DEC_MODE_MOUSE_ALL:
-                case ANSI_DEC_MODE_FOCUS_REPORT:
-                case ANSI_DEC_MODE_MOUSE_SGR:
                 case ANSI_DEC_MODE_BRACKETED_PASTE:
+                    manager->bracketed_paste = false;
+
+                    break;
                 case ANSI_DEC_MODE_UNKNOWN:
                     break;
             }
@@ -408,7 +442,11 @@ screen_manager_t *init_screen_manager(void) {
     manager->main = main;
     manager->alternate = NULL;
     manager->current = main;
-    manager->cursor_keys_mode = false;
+    manager->bracketed_paste = false;
+    manager->cursor_keys = false;
+    manager->mouse_mode = SCREEN_MANAGER_MOUSE_NONE;
+    manager->mouse_sgr = false;
+    manager->focus_reporting = false;
     manager->last_codepoint = 0;
     manager->title = NULL;
     manager->on_title = NULL;
@@ -434,7 +472,11 @@ void screen_manager_reset(screen_manager_t *manager) {
     manager->current = manager->main;
     free_screen(manager->alternate);
     manager->alternate = NULL;
-    manager->cursor_keys_mode = false;
+    manager->bracketed_paste = false;
+    manager->cursor_keys = false;
+    manager->mouse_mode = SCREEN_MANAGER_MOUSE_NONE;
+    manager->mouse_sgr = false;
+    manager->focus_reporting = false;
     manager->last_codepoint = 0;
     free(manager->title);
     manager->title = NULL;
@@ -513,4 +555,24 @@ void screen_manager_update(screen_manager_t *manager, const ansi_t *ansi) {
         case ANSI_EVENT_UNKNOWN:
             break;
     }
+}
+
+bool screen_manager_bracketed_paste(screen_manager_t *manager) {
+    return manager->bracketed_paste;
+}
+
+bool screen_manager_cursor_keys(screen_manager_t *manager) {
+    return manager->cursor_keys;
+}
+
+screen_manager_mouse_mode_t screen_manager_mouse_mode(screen_manager_t *manager) {
+    return manager->mouse_mode;
+}
+
+bool screen_manager_mouse_sgr(screen_manager_t *manager) {
+    return manager->mouse_sgr;
+}
+
+bool screen_manager_focus_reporting(screen_manager_t *manager) {
+    return manager->focus_reporting;
 }
