@@ -18,6 +18,7 @@ typedef struct screen_manager_t screen_manager_t;
 typedef void (*screen_manager_response_callback_t)(void *, const char *);
 typedef void (*screen_manager_title_callback_t)(void *, const char *);
 typedef void (*screen_manager_bell_callback_t)(void *);
+typedef void (*screen_manager_mouse_callback_t)(void *, bool);
 
 typedef enum screen_manager_mouse_mode_t {
     SCREEN_MANAGER_MOUSE_NONE = 0,
@@ -45,6 +46,8 @@ void screen_manager_set_title_callback(screen_manager_t *manager, screen_manager
 void screen_manager_set_response_callback(screen_manager_t *manager, screen_manager_response_callback_t callback, void *user_data);
 
 void screen_manager_set_bell_callback(screen_manager_t *manager, screen_manager_bell_callback_t callback, void *user_data);
+
+void screen_manager_set_mouse_callback(screen_manager_t *manager, screen_manager_mouse_callback_t callback, void *user_data);
 
 void screen_manager_update(screen_manager_t *manager, const ansi_t *ansi);
 

@@ -14,6 +14,10 @@
 
 #define ANSI_MAX_PARAMETERS 16
 #define ANSI_COLOR_RESET 0xFFFFFFFFu
+#define ANSI_BRACKETED_PASTE_START "\x1b[200~"
+#define ANSI_BRACKETED_PASTE_END "\x1b[201~"
+#define ANSI_FOCUS_IN "\x1b[I"
+#define ANSI_FOCUS_OUT "\x1b[O"
 
 typedef enum ansi_event_t {
     ANSI_EVENT_UNKNOWN = 0,

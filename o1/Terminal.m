@@ -19,6 +19,7 @@
 
 #include <crt_externs.h>
 #include <math.h>
+#include <string.h>
 #include <sys/wait.h>
 
 static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
@@ -26,6 +27,7 @@ static void on_ansi_callback(void *, ansi_t *);
 static void on_title_callback(void *, const char *);
 static void on_response_callback(void *, const char *);
 static void on_bell_callback(void *);
+static void on_mouse_callback(void *, bool);
 
 @interface Terminal () {
     session_t *session;
@@ -61,6 +63,7 @@ static void on_bell_callback(void *);
         screen_manager_set_response_callback(manager, on_response_callback, (__bridge void *)weakSelf);
         screen_manager_set_title_callback(manager, on_title_callback, (__bridge void *)weakSelf);
         screen_manager_set_bell_callback(manager, on_bell_callback, (__bridge void *)weakSelf);
+        screen_manager_set_mouse_callback(manager, on_mouse_callback, (__bridge void *)weakSelf);
     }
 
     return self;
@@ -191,6 +194,34 @@ static void on_bell_callback(void *);
             strongSelf->write_source_suspended = false;
         }
     });
+}
+
+- (void)paste:(NSData *)data {
+    if (data.length < 1) return;
+
+    if (!screen_manager_bracketed_paste(manager)) {
+        [self write:data];
+
+        return;
+    }
+
+    static unsigned long start_length = strlen(ANSI_BRACKETED_PASTE_START);
+    static unsigned long end_length = strlen(ANSI_BRACKETED_PASTE_END);
+    NSMutableData *payload = [NSMutableData dataWithCapacity:(start_length + data.length + end_length)];
+
+    [payload appendBytes:ANSI_BRACKETED_PASTE_START length:start_length];
+    [payload appendData:data];
+    [payload appendBytes:ANSI_BRACKETED_PASTE_END length:end_length];
+    [self write:payload];
+}
+
+- (void)focus:(BOOL)isFocused {
+    if (!screen_manager_focus_reporting(manager)) return;
+
+    const char *sequence = isFocused ? ANSI_FOCUS_IN : ANSI_FOCUS_OUT;
+    NSData *data = [NSData dataWithBytes:sequence length:strlen(sequence)];
+
+    [self write:data];
 }
 
 - (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns {
@@ -368,6 +399,18 @@ static void on_bell_callback(void *user_data) {
     if (self.bellBlock) {
         dispatch_async(dispatch_get_main_queue(), ^{
             self.bellBlock();
+        });
+    }
+}
+
+static void on_mouse_callback(void *user_data, bool enable) {
+    Terminal *self = (__bridge Terminal *)user_data;
+
+    if (!self) return;
+
+    if (self.mouseBlock) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.mouseBlock(enable);
         });
     }
 }

@@ -20,6 +20,7 @@
 @property (nonatomic, copy) void (^updateBlock)(screen_t *);
 @property (nonatomic, copy) void (^titleBlock)(const char *);
 @property (nonatomic, copy) void (^bellBlock)(void);
+@property (nonatomic, copy) void (^mouseBlock)(bool);
 @property (nonatomic, copy) void (^exitBlock)(int);
 
 - (BOOL)start:(NSError **)error;
@@ -27,6 +28,10 @@
 - (void)stop;
 
 - (void)write:(NSData *)data;
+
+- (void)paste:(NSData *)data;
+
+- (void)focus:(BOOL)isFocused;
 
 - (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns;
 

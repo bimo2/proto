@@ -34,6 +34,8 @@ struct screen_manager_t {
     void *response_user_data;
     screen_manager_bell_callback_t on_bell;
     void *bell_user_data;
+    screen_manager_mouse_callback_t on_mouse;
+    void *mouse_user_data;
 };
 
 static inline void apply_text(screen_manager_t *manager, const uint8_t *text, size_t length) {
@@ -248,6 +250,8 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                 case ANSI_DEC_MODE_MOUSE_ALL:
                     manager->mouse_mode = SCREEN_MANAGER_MOUSE_ALL;
 
+                    if (manager->on_mouse) manager->on_mouse(manager->mouse_user_data, true);
+
                     break;
                 case ANSI_DEC_MODE_FOCUS_REPORTING:
                     manager->focus_reporting = true;
@@ -304,8 +308,13 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
                     break;
                 case ANSI_DEC_MODE_MOUSE_X10:
                 case ANSI_DEC_MODE_MOUSE_NORMAL:
+                    manager->mouse_mode = SCREEN_MANAGER_MOUSE_NONE;
+
+                    break;
                 case ANSI_DEC_MODE_MOUSE_ALL:
                     manager->mouse_mode = SCREEN_MANAGER_MOUSE_NONE;
+
+                    if (manager->on_mouse) manager->on_mouse(manager->mouse_user_data, false);
 
                     break;
                 case ANSI_DEC_MODE_FOCUS_REPORTING:
@@ -526,6 +535,11 @@ void screen_manager_set_response_callback(screen_manager_t *manager, screen_mana
 void screen_manager_set_bell_callback(screen_manager_t *manager, screen_manager_bell_callback_t callback, void *user_data) {
     manager->on_bell = callback;
     manager->bell_user_data = user_data;
+}
+
+void screen_manager_set_mouse_callback(screen_manager_t *manager, screen_manager_mouse_callback_t callback, void *user_data) {
+    manager->on_mouse = callback;
+    manager->mouse_user_data = user_data;
 }
 
 void screen_manager_update(screen_manager_t *manager, const ansi_t *ansi) {
