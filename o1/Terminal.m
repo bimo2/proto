@@ -242,6 +242,67 @@ static void on_mouse_callback(void *, bool);
     });
 }
 
+- (void)mouse:(TerminalMouseButton)button event:(TerminalMouseEvent)event flags:(TerminalMouseModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column {
+    screen_manager_mouse_mode_t mode = screen_manager_mouse_mode(manager);
+
+    if (mode == SCREEN_MANAGER_MOUSE_NONE) return;
+
+    bool sgr = screen_manager_mouse_sgr(manager);
+    uint32_t x = MAX(1, (uint32_t)column);
+    uint32_t y = MAX(1, (uint32_t)row);
+    uint8_t bytes[64];
+    size_t length = 0;
+    ansi_mouse_t base;
+
+    switch (button) {
+        case TerminalMouseButtonLeft:
+            base = ANSI_MOUSE_LEFT;
+
+            break;
+        case TerminalMouseButtonMiddle:
+            base = ANSI_MOUSE_MIDDLE;
+
+            break;
+        case TerminalMouseButtonRight:
+            base = ANSI_MOUSE_RIGHT;
+
+            break;
+        case TerminalMouseButtonWheelUp:
+            base = ANSI_MOUSE_WHEEL_UP;
+
+            break;
+        case TerminalMouseButtonWheelDown:
+            base = ANSI_MOUSE_WHEEL_DOWN;
+
+            break;
+        default:
+            base = ANSI_MOUSE_RELEASE;
+
+            break;
+    }
+
+    switch (mode) {
+        case SCREEN_MANAGER_MOUSE_X10:
+            length = ansi_mouse_x10(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, 64);
+
+            break;
+        case SCREEN_MANAGER_MOUSE_NORMAL:
+            length = ansi_mouse_normal(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, 64);
+
+            break;
+        default:
+            length = ansi_mouse_all(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, 64);
+
+            break;
+    }
+
+    if (length < 1) return;
+
+    NSData *data = [NSData dataWithBytes:bytes length:length];
+
+    [self write:data];
+}
+
 - (void)setupReadSource {
     int fd = session_fd(session);
 

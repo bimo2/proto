@@ -167,10 +167,38 @@ typedef enum ansi_color_t {
     ANSI_COLOR_RGB,
 } ansi_color_t;
 
+typedef enum ansi_mouse_t {
+    ANSI_MOUSE_LEFT = 0,
+    ANSI_MOUSE_MIDDLE = 1,
+    ANSI_MOUSE_RIGHT = 2,
+    ANSI_MOUSE_RELEASE = 3,
+    ANSI_MOUSE_WHEEL_UP = 64,
+    ANSI_MOUSE_WHEEL_DOWN = 65,
+} ansi_mouse_t;
+
+typedef enum ansi_mouse_event_t {
+    ANSI_MOUSE_EVENT_UP = 0,
+    ANSI_MOUSE_EVENT_DOWN,
+    ANSI_MOUSE_EVENT_DRAG,
+    ANSI_MOUSE_EVENT_MOVE,
+} ansi_mouse_event_t;
+
+typedef enum ansi_mouse_modifier_flag_t {
+    ANSI_MOUSE_MODIFIER_FLAG_SHIFT = 1u << 0,
+    ANSI_MOUSE_MODIFIER_FLAG_OPTION = 1u << 1,
+    ANSI_MOUSE_MODIFIER_FLAG_CONTROL = 1u << 2,
+} ansi_mouse_modifier_t;
+
 uint32_t ansi_color_pack_indexed(int index);
 
 uint32_t ansi_color_pack_rgb(uint8_t red, uint8_t green, uint8_t blue);
 
 ansi_color_t ansi_color_unpack(uint32_t color, int *index, uint8_t *red, uint8_t *green, uint8_t *blue);
+
+size_t ansi_mouse_x10(ansi_mouse_t base, ansi_mouse_event_t event, uint16_t flags, uint32_t x, uint32_t y, bool sgr, uint8_t *data, size_t length);
+
+size_t ansi_mouse_normal(ansi_mouse_t base, ansi_mouse_event_t event, uint16_t flags, uint32_t x, uint32_t y, bool sgr, uint8_t *data, size_t length);
+
+size_t ansi_mouse_all(ansi_mouse_t base, ansi_mouse_event_t event, uint16_t flags, uint32_t x, uint32_t y, bool sgr, uint8_t *data, size_t length);
 
 #endif // !ANSI_H
