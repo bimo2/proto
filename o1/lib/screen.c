@@ -45,6 +45,12 @@ typedef struct {
     size_t head;
 } scrollback_t;
 
+typedef struct {
+    size_t capacity;
+    char **table;
+    size_t size;
+} link_table_t;
+
 struct screen_t {
     screen_cell_t **grid;
     int32_t rows;
@@ -52,6 +58,8 @@ struct screen_t {
     bool *soft_wrap;
     bool *tab_stops;
     ansi_sgr_t attributes;
+    uint32_t link_id;
+    link_table_t links;
     bool auto_wrap;
     bool insert_mode;
     bool origin_mode;
@@ -74,6 +82,7 @@ static inline void reset_cell(screen_cell_t *cell) {
 
     cell->codepoint = ' ';
     cell->attributes = default_attributes;
+    cell->link_id = 0;
     cell->dirty = false;
 }
 
@@ -222,7 +231,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
     screen->soft_wrap = (bool *)calloc(rows, sizeof(bool));
 
     if (!screen->soft_wrap) {
-        free(screen->grid);
+        free_grid(screen->grid, rows);
         free(screen);
 
         return NULL;
@@ -232,13 +241,27 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
 
     if (!screen->tab_stops) {
         free(screen->soft_wrap);
-        free(screen->grid);
+        free_grid(screen->grid, rows);
         free(screen);
 
         return NULL;
     }
 
     screen->attributes = default_attributes;
+    screen->link_id = 0;
+    screen->links.capacity = 8;
+    screen->links.table = (char **)calloc(screen->links.capacity, sizeof(char *));
+
+    if (!screen->links.table) {
+        free(screen->tab_stops);
+        free(screen->soft_wrap);
+        free_grid(screen->grid, rows);
+        free(screen);
+
+        return NULL;
+    }
+
+    screen->links.size = 1;
     screen->auto_wrap = true;
     screen->insert_mode = false;
     screen->origin_mode = false;
@@ -254,8 +277,10 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
         screen->scrollback.lines = (line_t *)calloc(screen->scrollback.capacity, sizeof(line_t));
 
         if (!screen->scrollback.lines) {
+            free(screen->links.table);
+            free(screen->tab_stops);
             free(screen->soft_wrap);
-            free(screen->grid);
+            free_grid(screen->grid, rows);
             free(screen);
 
             return NULL;
@@ -283,6 +308,12 @@ void free_screen(screen_t *screen) {
         }
 
         free(screen->scrollback.lines);
+    }
+
+    if (screen->links.table) {
+        for (size_t i = 1; i < screen->links.size; i++) free(screen->links.table[i]);
+
+        free(screen->links.table);
     }
 
     free(screen->tab_stops);
@@ -618,6 +649,7 @@ void screen_set_cell(screen_t *screen, int32_t row, int32_t column, uint32_t cod
         cell->attributes = screen->attributes;
     }
 
+    cell->link_id = screen->link_id;
     cell->dirty = true;
 }
 
@@ -631,6 +663,67 @@ void screen_set_attributes(screen_t *screen, const ansi_sgr_t *attributes) {
     } else {
         screen->attributes = *attributes;
     }
+}
+
+uint32_t screen_link_id(screen_t *screen) {
+    return screen->link_id;
+}
+
+const char *screen_link_url(screen_t *screen, uint32_t link_id) {
+    if (link_id == 0) return NULL;
+    if ((size_t)link_id >= screen->links.size) return NULL;
+
+    return screen->links.table[link_id];
+}
+
+void screen_set_link(screen_t *screen, const char *url) {
+    if (!url || url[0] == '\0') {
+        screen->link_id = 0;
+
+        return;
+    }
+
+    for (size_t i = 1; i < screen->links.size; i++) {
+        if (screen->links.table[i] && strcmp(screen->links.table[i], url) == 0) {
+            screen->link_id = (uint32_t)i;
+
+            return;
+        }
+    }
+
+    if (screen->links.size == screen->links.capacity) {
+        size_t next = screen->links.capacity < 1 ? 8 : screen->links.capacity * 2;
+        char **id = (char **)realloc(screen->links.table, next * sizeof(char *));
+
+        if (!id) {
+            screen->link_id = 0;
+
+            return;
+        }
+
+        for (size_t i = screen->links.capacity; i < next; i++) id[i] = NULL;
+
+        screen->links.table = id;
+        screen->links.capacity = next;
+    }
+
+    char *copy = (char *)malloc(strlen(url) + 1);
+
+    if (!copy) {
+        screen->link_id = 0;
+
+        return;
+    }
+
+    memcpy(copy, url, strlen(url) + 1);
+    uint32_t index = (uint32_t)screen->links.size;
+    screen->links.table[index] = copy;
+    screen->links.size++;
+    screen->link_id = index;
+}
+
+void screen_clear_link(screen_t *screen) {
+    screen->link_id = 0;
 }
 
 bool screen_auto_wrap(screen_t *screen) {

@@ -22,6 +22,7 @@ extern uint32_t screen_default_height;
 typedef struct screen_cell_t {
     uint32_t codepoint;
     ansi_sgr_t attributes;
+    uint32_t link_id;
     bool dirty;
 } screen_cell_t;
 
@@ -52,6 +53,14 @@ void screen_set_cell(screen_t *screen, int32_t row, int32_t column, uint32_t cod
 ansi_sgr_t *screen_attributes(screen_t *screen);
 
 void screen_set_attributes(screen_t *screen, const ansi_sgr_t *attributes);
+
+uint32_t screen_link_id(screen_t *screen);
+
+const char *screen_link_url(screen_t *screen, uint32_t link_id);
+
+void screen_set_link(screen_t *screen, const char *url);
+
+void screen_clear_link(screen_t *screen);
 
 bool screen_auto_wrap(screen_t *screen);
 

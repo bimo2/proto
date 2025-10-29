@@ -422,22 +422,39 @@ static inline void apply_osc(screen_manager_t *manager, const ansi_osc_t *osc) {
 
     switch (osc->event) {
         case ANSI_OSC_SET_TITLE: {
-            if (osc->payload) {
-                size_t length = strlen(osc->payload);
-                char *copy = (char *)malloc(length + 1);
+            if (!osc->payload) break;
 
-                if (copy) {
-                    memcpy(copy, osc->payload, length + 1);
-                    free(manager->title);
-                    manager->title = copy;
-                }
+            size_t length = strlen(osc->payload);
+            char *copy = (char *)malloc(length + 1);
 
-                if (manager->on_title) manager->on_title(manager->title_user_data, osc->payload);
+            if (copy) {
+                memcpy(copy, osc->payload, length + 1);
+                free(manager->title);
+                manager->title = copy;
+            }
+
+            if (manager->on_title) manager->on_title(manager->title_user_data, osc->payload);
+
+            break;
+        }
+        case ANSI_OSC_HYPERLINK: {
+            if (!osc->payload) {
+                screen_clear_link(manager->current);
+
+                break;
+            }
+
+            const char *semi = strchr(osc->payload, ';');
+            const char *uri = semi ? semi + 1 : NULL;
+
+            if (uri && uri[0] != '\0') {
+                screen_set_link(manager->current, uri);
+            } else {
+                screen_clear_link(manager->current);
             }
 
             break;
         }
-        case ANSI_OSC_HYPERLINK:
         case ANSI_OSC_CLIPBOARD:
         case ANSI_OSC_KIND_UNKNOWN:
             break;
