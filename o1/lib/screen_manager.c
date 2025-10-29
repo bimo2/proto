@@ -59,7 +59,7 @@ static inline void apply_esc(screen_manager_t *manager, const ansi_esc_t *esc) {
 
             break;
         case ANSI_ESC_TAB_SET:
-            screen_tab(manager->current);
+            screen_set_tab_stop(manager->current);
 
             break;
         case ANSI_ESC_IND:
@@ -78,6 +78,7 @@ static inline void apply_esc(screen_manager_t *manager, const ansi_esc_t *esc) {
             screen_set_origin_mode(manager->current, false);
             screen_set_cursor_position(manager->current, 0, 0);
             screen_set_scroll_area(manager->current, 1, screen_rows(manager->current));
+            screen_reset_tab_stops(manager->current);
 
             break;
     }
@@ -394,13 +395,21 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
 
             break;
         }
-        case ANSI_CSI_TBC:
-            // TODO
+        case ANSI_CSI_TBC: {
+            int mode = csi_parameter(csi, 0, 0);
+
+            screen_clear_tab_stops(manager->current, mode);
+
+            break;
+        }
+        case ANSI_CSI_FCS_IN:
+        case ANSI_CSI_FCS_OUT:
+            // do nothing
 
             break;
         case ANSI_CSI_BRP_START:
         case ANSI_CSI_BRP_END:
-            // TODO
+            // do nothing
 
             break;
         case ANSI_CSI_KIND_UNKNOWN:

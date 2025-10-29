@@ -74,6 +74,8 @@ typedef enum ansi_csi_event_t {
     ANSI_CSI_DA,
     ANSI_CSI_REP,
     ANSI_CSI_TBC,
+    ANSI_CSI_FCS_IN,
+    ANSI_CSI_FCS_OUT,
     ANSI_CSI_BRP_START,
     ANSI_CSI_BRP_END,
 } ansi_csi_event_t;

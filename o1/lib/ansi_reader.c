@@ -357,6 +357,14 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
             event = ANSI_CSI_CUP;
 
             break;
+        case 'I':
+            event = ANSI_CSI_FCS_IN;
+
+            break;
+        case 'O':
+            event = ANSI_CSI_FCS_OUT;
+
+            break;
         case 'f':
             event = ANSI_CSI_HVP;
 

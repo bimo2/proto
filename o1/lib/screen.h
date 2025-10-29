@@ -93,6 +93,12 @@ void screen_carriage_return(screen_t *screen);
 
 void screen_tab(screen_t *screen);
 
+void screen_set_tab_stop(screen_t *screen);
+
+void screen_reset_tab_stops(screen_t *screen);
+
+void screen_clear_tab_stops(screen_t *screen, int32_t mode);
+
 void screen_clear(screen_t *screen);
 
 void screen_erase(screen_t *screen, int32_t mode);
