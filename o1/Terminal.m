@@ -383,9 +383,17 @@ static void on_mouse_callback(void *, bool);
 
         waitpid(pid, &status, WNOHANG);
 
+        int code = status;
+
+        if (WIFEXITED(status)) {
+            code = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            code = 128 + WTERMSIG(status);
+        }
+
         if (strongSelf.exitBlock) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                strongSelf.exitBlock(status);
+                strongSelf.exitBlock(code);
             });
         }
 

@@ -21,12 +21,16 @@
     __weak typeof(terminal) weakTerminal = terminal;
 
     terminal.exitBlock = ^(int status) {
+        XCTAssertEqual(status, 1);
+
         [expectation fulfill];
         XCTAssertFalse(weakTerminal.isRunning);
     };
 
     [terminal start:nil];
     XCTAssertTrue(terminal.isRunning);
+
+    sleep(1);
     [terminal stop];
     [self waitForExpectations:@[expectation] timeout:1.0];
 }
