@@ -78,7 +78,7 @@ bool session_running(session_t *session) {
     return session->running;
 }
 
-char *session_process(session_t *session) {
+const char *session_process(session_t *session) {
     static _Thread_local char buffer[PROC_PIDPATHINFO_MAXSIZE];
 
     if (proc_pidpath(session->pid, buffer, sizeof(buffer)) < 1) {
@@ -163,7 +163,7 @@ ssize_t session_write(session_t *session, const uint8_t *data, size_t length, si
 
     ssize_t total = 0;
 
-    if (session->pending->size < 1) {
+    if (buffer_size(session->pending) < 1) {
         total = write(session->fd, data, length);
 
         if (total < 0) {
@@ -189,7 +189,7 @@ ssize_t session_write(session_t *session, const uint8_t *data, size_t length, si
 
 ssize_t session_flush_write(session_t *session) {
     if (session->fd < 0) return -1;
-    if (session->pending->size < 1) return 0;
+    if (buffer_size(session->pending) < 1) return 0;
 
     const uint8_t *segment_a;
     const uint8_t *segment_b;

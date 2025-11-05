@@ -25,7 +25,7 @@ static inline int mouse_modifier_bits(uint16_t flags) {
 }
 
 static size_t mouse_data(ansi_mouse_t base, ansi_mouse_event_t event, uint16_t flags, uint32_t x, uint32_t y, uint8_t *data, size_t length) {
-    if (length < 6) return 0;
+    if (!data || length < 6) return 0;
 
     int mods = mouse_modifier_bits(flags);
     uint8_t cb = 0;
@@ -70,6 +70,8 @@ static size_t mouse_data(ansi_mouse_t base, ansi_mouse_event_t event, uint16_t f
 }
 
 static size_t mouse_data_sgr(ansi_mouse_t base, ansi_mouse_event_t event, uint16_t flags, uint32_t x, uint32_t y, uint8_t *data, size_t length) {
+    if (!data) return 0;
+
     int mods = mouse_modifier_bits(flags);
     int b = base | mods;
     char end = 'M';
@@ -82,6 +84,7 @@ static size_t mouse_data_sgr(ansi_mouse_t base, ansi_mouse_event_t event, uint16
 
             break;
         case ANSI_MOUSE_EVENT_UP:
+            b = 3 | mods;
             end = 'm';
 
             break;

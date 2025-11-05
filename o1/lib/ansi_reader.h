@@ -22,7 +22,7 @@ void free_ansi_reader(ansi_reader_t *reader);
 
 void ansi_reader_reset(ansi_reader_t *reader);
 
-void ansi_reader_set_osc_capacity(ansi_reader_t *reader, size_t capacity);
+int ansi_reader_set_osc_capacity(ansi_reader_t *reader, size_t capacity);
 
 void ansi_reader_set_callback(ansi_reader_t *reader, ansi_reader_callback_t callback, void *user_data);
 

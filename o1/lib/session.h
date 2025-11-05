@@ -24,7 +24,7 @@ int session_fd(session_t *session);
 
 bool session_running(session_t *session);
 
-char *session_process(session_t *session);
+const char *session_process(session_t *session);
 
 void session_start(session_t *session, const char *file, char *const argv[], char *const envp[]);
 

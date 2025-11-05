@@ -283,15 +283,15 @@ static void on_mouse_callback(void *, bool);
 
     switch (mode) {
         case SCREEN_MANAGER_MOUSE_X10:
-            length = ansi_mouse_x10(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, 64);
+            length = ansi_mouse_x10(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, sizeof(bytes));
 
             break;
         case SCREEN_MANAGER_MOUSE_NORMAL:
-            length = ansi_mouse_normal(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, 64);
+            length = ansi_mouse_normal(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, sizeof(bytes));
 
             break;
         default:
-            length = ansi_mouse_all(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, 64);
+            length = ansi_mouse_all(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, sizeof(bytes));
 
             break;
     }

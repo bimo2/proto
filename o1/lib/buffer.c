@@ -12,6 +12,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct buffer_t {
+    size_t capacity;
+    uint8_t *bytes;
+    size_t size;
+    size_t head;
+};
+
 static inline size_t min(size_t a, size_t b) {
     return a < b ? a : b;
 }
@@ -50,6 +57,10 @@ void buffer_reset(buffer_t *buffer) {
     buffer->head = 0;
 }
 
+size_t buffer_capacity(buffer_t *buffer) {
+    return buffer->capacity;
+}
+
 int buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite) {
     if (capacity < 1) return -1;
     if (overwrite) *overwrite = 0;
@@ -82,6 +93,10 @@ int buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite) {
     buffer->head = 0;
 
     return 0;
+}
+
+size_t buffer_size(buffer_t *buffer) {
+    return buffer->size;
 }
 
 void buffer_segment(const buffer_t *buffer, const uint8_t **segment_a, size_t *length_a, const uint8_t **segment_b, size_t *length_b) {
@@ -145,7 +160,7 @@ size_t buffer_write(buffer_t *buffer, const uint8_t *source, size_t length, size
         return 0;
     }
 
-    size_t size = length > buffer->capacity ? buffer->capacity : length;
+    size_t size = min(length, buffer->capacity);
     size_t drop = buffer->size + size > buffer->capacity ? buffer->size + size - buffer->capacity : 0;
 
     if (drop > 0) {
@@ -153,10 +168,14 @@ size_t buffer_write(buffer_t *buffer, const uint8_t *source, size_t length, size
         buffer->size -= drop;
     }
 
-    if (overwrite) *overwrite = drop;
+    if (overwrite) {
+        size_t source_drop = length > size ? length - size : 0;
+
+        *overwrite = drop + source_drop;
+    }
 
     size_t start = (buffer->head + buffer->size) % buffer->capacity;
-    size_t size_a = size > buffer->capacity - start ? buffer->capacity - start : size;
+    size_t size_a = min(size, buffer->capacity - start);
 
     memcpy(buffer->bytes + start, source + length - size, size_a);
 

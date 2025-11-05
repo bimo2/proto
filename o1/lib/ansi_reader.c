@@ -595,17 +595,19 @@ void ansi_reader_reset(ansi_reader_t *reader) {
     reset_osc(reader);
 }
 
-void ansi_reader_set_osc_capacity(ansi_reader_t *reader, size_t capacity) {
-    if (capacity < 1) return;
+int ansi_reader_set_osc_capacity(ansi_reader_t *reader, size_t capacity) {
+    if (capacity < 1) return -1;
 
     char *buffer = (char *)realloc(reader->osc_buffer, capacity);
 
-    if (!buffer) return;
+    if (!buffer) return -1;
 
     reader->osc_buffer = buffer;
     reader->osc_capacity = capacity;
 
     if (reader->osc_length >= reader->osc_capacity) reader->osc_length = reader->osc_capacity - 1;
+
+    return 0;
 }
 
 void ansi_reader_set_callback(ansi_reader_t *reader, ansi_reader_callback_t on_ansi, void *user_data) {
