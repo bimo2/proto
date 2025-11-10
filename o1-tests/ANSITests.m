@@ -78,38 +78,31 @@
 
 - (void)test_mouse_allSGR {
     uint8_t bytes[64];
+    size_t length;
 
-    {
-        size_t length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DOWN, 0, 10, 20, true, bytes, sizeof(bytes));
-        uint8_t expected[] = "\x1b[<0;10;20M";
+    uint8_t down[] = "\x1b[<0;10;20M";
 
-        XCTAssertEqual(length, sizeof(expected) - 1);
-        XCTAssertEqual(memcmp(bytes, expected, sizeof(expected) - 1), 0);
-    }
+    length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DOWN, 0, 10, 20, true, bytes, sizeof(bytes));
+    XCTAssertEqual(length, sizeof(down) - 1);
+    XCTAssertEqual(memcmp(bytes, down, sizeof(down) - 1), 0);
 
-    {
-        size_t length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_UP, 0, 10, 20, true, bytes, sizeof(bytes));
-        uint8_t expected[] = "\x1b[<3;10;20m";
+    uint8_t up[] = "\x1b[<3;10;20m";
 
-        XCTAssertEqual(length, sizeof(expected) - 1);
-        XCTAssertEqual(memcmp(bytes, expected, sizeof(expected) - 1), 0);
-    }
+    length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_UP, 0, 10, 20, true, bytes, sizeof(bytes));
+    XCTAssertEqual(length, sizeof(up) - 1);
+    XCTAssertEqual(memcmp(bytes, up, sizeof(up) - 1), 0);
 
-    {
-        size_t length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DOWN, ANSI_MOUSE_MODIFIER_FLAG_OPTION, 10, 20, true, bytes, sizeof(bytes));
-        uint8_t expected[] = "\x1b[<8;10;20M";
+    uint8_t flag[] = "\x1b[<8;10;20M";
 
-        XCTAssertEqual(length, sizeof(expected) - 1);
-        XCTAssertEqual(memcmp(bytes, expected, sizeof(expected) - 1), 0);
-    }
+    length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DOWN, ANSI_MOUSE_MODIFIER_FLAG_OPTION, 10, 20, true, bytes, sizeof(bytes));
+    XCTAssertEqual(length, sizeof(flag) - 1);
+    XCTAssertEqual(memcmp(bytes, flag, sizeof(flag) - 1), 0);
 
-    {
-        size_t length = ansi_mouse_all(ANSI_MOUSE_WHEEL_UP, ANSI_MOUSE_EVENT_DOWN, 0, 10, 20, true, bytes, sizeof(bytes));
-        uint8_t expected[] = "\x1b[<64;10;20M";
+    uint8_t wheel[] = "\x1b[<64;10;20M";
 
-        XCTAssertEqual(length, sizeof(expected) - 1);
-        XCTAssertEqual(memcmp(bytes, expected, sizeof(expected) - 1), 0);
-    }
+    length = ansi_mouse_all(ANSI_MOUSE_WHEEL_UP, ANSI_MOUSE_EVENT_DOWN, 0, 10, 20, true, bytes, sizeof(bytes));
+    XCTAssertEqual(length, sizeof(wheel) - 1);
+    XCTAssertEqual(memcmp(bytes, wheel, sizeof(wheel) - 1), 0);
 
     size_t zero = ansi_mouse_all(ANSI_MOUSE_WHEEL_UP, ANSI_MOUSE_EVENT_UP, 0, 10, 20, true, bytes, sizeof(bytes));
 
