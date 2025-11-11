@@ -76,10 +76,9 @@
     XCTAssertEqual(zero, 0);
 }
 
-- (void)test_mouse_allSGR {
+- (void)test_mouse_all {
     uint8_t bytes[64];
     size_t length;
-
     uint8_t down[] = "\x1b[<0;10;20M";
 
     length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DOWN, 0, 10, 20, true, bytes, sizeof(bytes));

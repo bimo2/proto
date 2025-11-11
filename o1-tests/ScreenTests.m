@@ -1,0 +1,232 @@
+//
+//  ScreenTests.m
+//  o1-tests
+//
+//  Created by grok-4 on 2025-11-09.
+//
+
+#import <Foundation/Foundation.h>
+#import <XCTest/XCTest.h>
+
+#include "screen.h"
+#include <string.h>
+
+@interface ScreenTests : XCTestCase
+
+@end
+
+@implementation ScreenTests
+
+- (void)test_grid_cursor {
+    screen_t *screen = init_screen(5, 5);
+
+    screen_set_cursor_position(screen, -999, 999);
+    XCTAssertEqual(screen_cursor(screen)->row, 0);
+    XCTAssertEqual(screen_cursor(screen)->column, 4);
+
+    screen_set_cursor_position(screen, 999, -999);
+    XCTAssertEqual(screen_cursor(screen)->row, 4);
+    XCTAssertEqual(screen_cursor(screen)->column, 0);
+
+    screen_set_cursor_position(screen, 0, 0);
+    screen_move_cursor_relative(screen, 999, 999);
+    XCTAssertEqual(screen_cursor(screen)->row, 4);
+    XCTAssertEqual(screen_cursor(screen)->column, 4);
+
+    screen_set_cursor_position(screen, 0, 0);
+    screen_move_cursor_relative(screen, -999, -999);
+    XCTAssertEqual(screen_cursor(screen)->row, 0);
+    XCTAssertEqual(screen_cursor(screen)->column, 0);
+
+    free_screen(screen);
+}
+
+- (void)test_grid_dirty {
+    screen_t *screen = init_screen(5, 5);
+
+    XCTAssertFalse(screen_cell(screen, 0, 0)->dirty);
+
+    screen_write_utf32(screen, 'X');
+    XCTAssertTrue(screen_cell(screen, 0, 0)->dirty);
+    XCTAssertFalse(screen_cell(screen, 0, 1)->dirty);
+
+    screen_scroll_up(screen, 1);
+
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            XCTAssertTrue(screen_cell(screen, i, j)->dirty);
+
+            screen_cell(screen, i, j)->dirty = false;
+        }
+    }
+
+    screen_set_grid(screen, 10, 10);
+
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            XCTAssertTrue(screen_cell(screen, i, j)->dirty);
+
+            screen_cell(screen, i, j)->dirty = false;
+        }
+    }
+
+    screen_erase_line(screen, 2);
+    XCTAssertTrue(screen_cell(screen, 0, 0)->dirty);
+    XCTAssertFalse(screen_cell(screen, 1, 0)->dirty);
+
+    free_screen(screen);
+}
+
+- (void)test_grid_hyperlink {
+    screen_t *screen = init_screen(5, 5);
+    const char *url = "https://apple.com";
+    const char *text = "test";
+    size_t length = (size_t)strlen(text);
+
+    screen_set_link(screen, url);
+    screen_write_text(screen, (const uint8_t *)text, length);
+    screen_clear_link(screen);
+    screen_write_utf32(screen, '?');
+
+    for (int32_t j = 0; j < (int32_t)length; j++) {
+        screen_cell_t *cell = screen_cell(screen, 0, j);
+
+        XCTAssertEqual(strcmp(screen_link_url(screen, cell->link_id), url), 0);
+    }
+
+    screen_cell_t *cell = screen_cell(screen, 0, (int32_t)length);
+
+    XCTAssertEqual(cell->link_id, 0);
+    XCTAssertEqual(screen_link_url(screen, cell->link_id), NULL);
+
+    free_screen(screen);
+}
+
+- (void)test_grid_layout {
+    screen_t *screen = init_screen(5, 5);
+
+    for (int i = 0; i < 6; i++) screen_write_utf32(screen, 'A');
+
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 'A');
+    XCTAssertEqual(screen_cell(screen, 1, 0)->codepoint, 'A');
+    XCTAssertEqual(screen_cell(screen, 1, 1)->codepoint, ' ');
+
+    screen_set_grid(screen, 5, 10);
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 'A');
+    XCTAssertEqual(screen_cell(screen, 0, 5)->codepoint, 'A');
+    XCTAssertEqual(screen_cell(screen, 0, 6)->codepoint, ' ');
+
+    screen_set_grid(screen, 5, 5);
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 'A');
+    XCTAssertEqual(screen_cell(screen, 1, 0)->codepoint, 'A');
+    XCTAssertEqual(screen_cell(screen, 1, 1)->codepoint, ' ');
+
+    screen_set_scrollback_capacity(screen, 5);
+
+    for (int k = 1; k < 6; k++) {
+        screen_write_utf32(screen, '\n');
+
+        for (int i = 0; i < 6; i++) screen_write_utf32(screen, 'A' + k);
+    }
+
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 'D');
+    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, ' ');
+    XCTAssertEqual(screen_cell(screen, 1, 0)->codepoint, 'E');
+    XCTAssertEqual(screen_cell(screen, 2, 0)->codepoint, 'E');
+    XCTAssertEqual(screen_cell(screen, 2, 1)->codepoint, ' ');
+    XCTAssertEqual(screen_cell(screen, 3, 0)->codepoint, 'F');
+    XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 'F');
+    XCTAssertEqual(screen_cell(screen, 4, 1)->codepoint, ' ');
+
+    screen_set_grid(screen, 10, 10);
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 'B');
+    XCTAssertEqual(screen_cell(screen, 0, 5)->codepoint, 'B');
+    XCTAssertEqual(screen_cell(screen, 0, 6)->codepoint, ' ');
+    XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 'F');
+    XCTAssertEqual(screen_cell(screen, 4, 5)->codepoint, 'F');
+    XCTAssertEqual(screen_cell(screen, 4, 6)->codepoint, ' ');
+    XCTAssertEqual(screen_cell(screen, 5, 0)->codepoint, ' ');
+
+    screen_set_grid(screen, 5, 5);
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 'D');
+    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, ' ');
+    XCTAssertEqual(screen_cell(screen, 1, 0)->codepoint, 'E');
+    XCTAssertEqual(screen_cell(screen, 2, 0)->codepoint, 'E');
+    XCTAssertEqual(screen_cell(screen, 2, 1)->codepoint, ' ');
+    XCTAssertEqual(screen_cell(screen, 3, 0)->codepoint, 'F');
+    XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 'F');
+    XCTAssertEqual(screen_cell(screen, 4, 1)->codepoint, ' ');
+
+    free_screen(screen);
+}
+
+- (void)test_scrollback_push {
+    screen_t *screen = init_screen(5, 5);
+
+    screen_set_scrollback_capacity(screen, 2);
+
+    for (int k = 0; k < 4; k++) {
+        screen_set_cell(screen, 0, 0, 'A' + k, NULL);
+        screen_scroll_up(screen, 1);
+    }
+
+    screen_set_viewport_offset(screen, 2);
+    XCTAssertEqual(screen_viewport_row(screen, 0, NULL)[0].codepoint, 'C');
+    XCTAssertEqual(screen_viewport_row(screen, 1, NULL)[0].codepoint, 'D');
+
+    screen_set_viewport_offset(screen, 0);
+    screen_set_cursor_position(screen, 0, 0);
+
+    for (int k = 0; k < 6; k++) screen_write_utf32(screen, 'A' + k);
+
+    screen_scroll_up(screen, 1);
+    screen_set_viewport_offset(screen, 1);
+
+    bool mutable;
+    screen_cell_t *cells;
+
+    cells = screen_viewport_row(screen, 0, &mutable);
+    XCTAssertEqual(cells[0].codepoint, 'A');
+    XCTAssertFalse(mutable);
+
+    cells = screen_viewport_row(screen, 1, &mutable);
+    XCTAssertEqual(cells[0].codepoint, 'F');
+    XCTAssertTrue(mutable);
+
+    free_screen(screen);
+}
+
+- (void)test_scrollback_capacity {
+    screen_t *screen = init_screen(5, 5);
+
+    for (int k = 0; k < 5; k++) {
+        screen_set_cell(screen, 0, 0, 'A' + k, NULL);
+        screen_scroll_up(screen, 1);
+    }
+
+    screen_set_viewport_offset(screen, 5);
+    screen_set_scrollback_capacity(screen, 2);
+    XCTAssertEqual(screen_viewport_offset(screen), 2);
+    XCTAssertEqual(screen_viewport_row(screen, 0, NULL)[0].codepoint, 'D');
+    XCTAssertEqual(screen_viewport_row(screen, 1, NULL)[0].codepoint, 'E');
+
+    free_screen(screen);
+}
+
+- (void)test_viewport_scroll {
+    screen_t *screen = init_screen(5, 5);
+
+    screen_set_scrollback_capacity(screen, 5);
+    screen_scroll_up(screen, 3);
+    screen_viewport_scroll(screen, 1);
+    XCTAssertEqual(screen_viewport_offset(screen), 1);
+    XCTAssertEqual(screen_stage_viewport_scroll(screen), 1);
+
+    screen_viewport_scroll(screen, 999);
+    XCTAssertEqual(screen_viewport_offset(screen), 3);
+    XCTAssertEqual(screen_stage_viewport_scroll(screen), 2);
+
+    free_screen(screen);
+}
+
+@end

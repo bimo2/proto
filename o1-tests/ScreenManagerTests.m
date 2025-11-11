@@ -391,7 +391,7 @@ static void test_mouse_callback(void *, bool);
     free_screen_manager(manager);
 }
 
-- (void)test_update_modes {
+- (void)test_update_mode {
     screen_manager_t *manager = init_screen_manager();
     screen_t *screen = screen_manager_current_screen(manager);
     __weak typeof(self) weakSelf = self;
@@ -558,9 +558,8 @@ static void test_mouse_callback(void *, bool);
     free_screen_manager(manager);
 }
 
-- (void)test_update_osc {
+- (void)test_update_title {
     screen_manager_t *manager = init_screen_manager();
-    screen_t *screen = screen_manager_current_screen(manager);
     __weak typeof(self) weakSelf = self;
 
     screen_manager_set_title_callback(manager, test_title_callback, (__bridge void *)weakSelf);
@@ -576,6 +575,13 @@ static void test_mouse_callback(void *, bool);
     screen_manager_update(manager, &title);
     XCTAssertEqual(strcmp(screen_manager_title(manager), "o1"), 0);
     XCTAssertEqualObjects(self.title, @"o1");
+
+    free_screen_manager(manager);
+}
+
+- (void)test_update_hyperlink {
+    screen_manager_t *manager = init_screen_manager();
+    screen_t *screen = screen_manager_current_screen(manager);
 
     ansi_t hyperlink = {
         .event = ANSI_EVENT_OSC,

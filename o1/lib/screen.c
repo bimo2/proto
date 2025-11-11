@@ -197,12 +197,16 @@ static void commit_staging_cells(line_t **lines, size_t *count, size_t *capacity
         *capacity = next;
     }
 
-    screen_cell_t *copy = (screen_cell_t *)calloc((size_t)columns, sizeof(screen_cell_t));
+    screen_cell_t *copy = (screen_cell_t *)malloc((size_t)columns * sizeof(screen_cell_t));
 
-    if (copy && cells && width > 0) {
-        size_t length = min(width, (size_t)columns);
+    if (copy) {
+        for (size_t j = 0; j < (size_t)columns; j++) reset_cell(&copy[j]);
 
-        memcpy(copy, cells, length * sizeof(screen_cell_t));
+        if (cells && width > 0) {
+            size_t length = min(width, (size_t)columns);
+
+            memcpy(copy, cells, length * sizeof(screen_cell_t));
+        }
     }
 
     (*lines)[*count].cells = copy;
@@ -564,12 +568,46 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         screen->scrollback.head = 0;
     }
 
+    if (screen->scrollback.size < 1) {
+        while (reflow_count > 0) {
+            line_t *line = &reflow[reflow_count - 1];
+            bool empty = true;
+
+            if (line->cells) {
+                for (int32_t j = 0; j < columns; j++) {
+                    if (line->cells[j].codepoint != ' ') {
+                        empty = false;
+
+                        break;
+                    }
+                }
+            }
+
+            if (empty) {
+                if (line->cells) free(line->cells);
+
+                line->cells = NULL;
+                line->width = 0;
+                line->soft_wrap = false;
+                reflow_count--;
+            } else {
+                break;
+            }
+        }
+    }
+
     size_t take = min(reflow_count, (size_t)rows);
     size_t start = reflow_count - take;
 
     for (size_t i = 0; i < take; i++) {
         size_t reflow_index = start + i;
-        size_t grid_index = (size_t)rows - take + i;
+        size_t grid_index;
+
+        if (screen->scrollback.size < 1 && reflow_count < (size_t)rows) {
+            grid_index = i;
+        } else {
+            grid_index = (size_t)rows - take + i;
+        }
 
         if (reflow[reflow_index].cells) memcpy(grid[grid_index], reflow[reflow_index].cells, (size_t)columns * sizeof(screen_cell_t));
 

@@ -254,7 +254,7 @@ static void test_callback(void *, ansi_t *);
     free_ansi_reader(reader);
 }
 
-- (void)test_callback_decMode {
+- (void)test_callback_dec {
     ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 
