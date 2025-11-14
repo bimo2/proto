@@ -7,6 +7,7 @@
 
 #include "render.h"
 
+#include "include.h"
 #include "screen.h"
 
 #include <stdbool.h>
@@ -20,7 +21,11 @@ static void add_render_op(render_t **ops, size_t *count, size_t *capacity, const
         size_t next = *capacity < 1 ? 128 : *capacity * 2;
         render_t *id = (render_t *)realloc(*ops, next * sizeof(render_t));
 
-        if (!id) return;
+        if (!id) {
+            log_error("realloc failed: %zu", next * sizeof(render_t));
+
+            return;
+        }
 
         *ops = id;
         *capacity = next;
@@ -34,7 +39,11 @@ static inline const screen_cell_t *retain_cells(const screen_cell_t *cells, size
 
     screen_cell_t *copy = (screen_cell_t *)malloc(count * sizeof(screen_cell_t));
 
-    if (!copy) return NULL;
+    if (!copy) {
+        log_error("malloc failed: %zu", count * sizeof(screen_cell_t));
+
+        return NULL;
+    }
 
     memcpy(copy, cells, count * sizeof(screen_cell_t));
 

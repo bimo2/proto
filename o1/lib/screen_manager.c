@@ -8,6 +8,7 @@
 #include "screen_manager.h"
 
 #include "ansi.h"
+#include "include.h"
 #include "screen.h"
 
 #include <stdbool.h>
@@ -431,6 +432,8 @@ static inline void apply_osc(screen_manager_t *manager, const ansi_osc_t *osc) {
                 memcpy(copy, osc->payload, length + 1);
                 free(manager->title);
                 manager->title = copy;
+            } else {
+                log_error("malloc failed: %zu", length + 1);
             }
 
             if (manager->on_title) manager->on_title(manager->title_user_data, osc->payload);
@@ -464,7 +467,11 @@ static inline void apply_osc(screen_manager_t *manager, const ansi_osc_t *osc) {
 screen_manager_t *init_screen_manager(void) {
     screen_manager_t *manager = (screen_manager_t *)calloc(1, sizeof(screen_manager_t));
 
-    if (!manager) return NULL;
+    if (!manager) {
+        log_error("malloc failed: %zu", sizeof(screen_manager_t));
+
+        return NULL;
+    }
 
     screen_t *main = init_screen(-1, -1);
 
@@ -541,7 +548,11 @@ void screen_manager_set_title(screen_manager_t *manager, const char *title) {
     size_t length = strlen(title);
     char *copy = (char *)malloc(length + 1);
 
-    if (!copy) return;
+    if (!copy) {
+        log_error("malloc failed: %zu", length + 1);
+
+        return;
+    }
 
     memcpy(copy, title, length + 1);
     free(manager->title);

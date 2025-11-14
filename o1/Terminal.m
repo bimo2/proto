@@ -7,8 +7,6 @@
 
 #import "Terminal.h"
 
-#import <dispatch/dispatch.h>
-
 #include "ansi.h"
 #include "ansi_reader.h"
 #include "include.h"
@@ -18,6 +16,8 @@
 #include "screen_manager.h"
 
 #include <crt_externs.h>
+#include <dispatch/dispatch.h>
+#include <errno.h>
 #include <math.h>
 #include <string.h>
 #include <sys/wait.h>

@@ -560,7 +560,11 @@ static size_t utf8_incomplete_length(const uint8_t *bytes, size_t length) {
 ansi_reader_t *init_ansi_reader(void) {
     ansi_reader_t *reader = (ansi_reader_t *)calloc(1, sizeof(ansi_reader_t));
 
-    if (!reader) return NULL;
+    if (!reader) {
+        log_error("malloc failed: %zu", sizeof(ansi_reader_t));
+
+        return NULL;
+    }
 
     reader->state = STATE_GROUND;
     reader->utf8_length = 0;
@@ -569,6 +573,7 @@ ansi_reader_t *init_ansi_reader(void) {
     reader->osc_buffer = (char *)malloc(reader->osc_capacity);
 
     if (!reader->osc_buffer) {
+        log_error("malloc failed: %zu", reader->osc_capacity);
         free(reader);
 
         return NULL;
@@ -595,19 +600,21 @@ void ansi_reader_reset(ansi_reader_t *reader) {
     reset_osc(reader);
 }
 
-int ansi_reader_set_osc_capacity(ansi_reader_t *reader, size_t capacity) {
-    if (capacity < 1) return -1;
+void ansi_reader_set_osc_capacity(ansi_reader_t *reader, size_t capacity) {
+    if (capacity < 1) return;
 
     char *buffer = (char *)realloc(reader->osc_buffer, capacity);
 
-    if (!buffer) return -1;
+    if (!buffer) {
+        log_error("realloc failed: %zu", capacity);
+
+        return;
+    }
 
     reader->osc_buffer = buffer;
     reader->osc_capacity = capacity;
 
     if (reader->osc_length >= reader->osc_capacity) reader->osc_length = reader->osc_capacity - 1;
-
-    return 0;
 }
 
 void ansi_reader_set_callback(ansi_reader_t *reader, ansi_reader_callback_t on_ansi, void *user_data) {

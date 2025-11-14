@@ -7,6 +7,8 @@
 
 #include "buffer.h"
 
+#include "include.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -28,12 +30,17 @@ buffer_t *init_buffer(size_t capacity) {
 
     buffer_t *buffer = (buffer_t *)calloc(1, sizeof(buffer_t));
 
-    if (!buffer) return NULL;
+    if (!buffer) {
+        log_error("malloc failed: %zu", sizeof(buffer_t));
+
+        return NULL;
+    }
 
     buffer->capacity = capacity;
     buffer->bytes = (uint8_t *)malloc(capacity);
 
     if (!buffer->bytes) {
+        log_error("malloc failed: %zu", capacity);
         free(buffer);
 
         return NULL;
@@ -61,14 +68,18 @@ size_t buffer_capacity(buffer_t *buffer) {
     return buffer->capacity;
 }
 
-int buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite) {
-    if (capacity < 1) return -1;
+void buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite) {
+    if (capacity < 1) return;
     if (overwrite) *overwrite = 0;
-    if (buffer->capacity == capacity) return 0;
+    if (buffer->capacity == capacity) return;
 
     uint8_t *bytes = (uint8_t *)malloc(capacity);
 
-    if (!bytes) return -1;
+    if (!bytes) {
+        log_error("malloc failed: %zu", capacity);
+
+        return;
+    }
 
     size_t size = min(buffer->size, capacity);
 
@@ -91,8 +102,6 @@ int buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite) {
     buffer->bytes = bytes;
     buffer->size = size;
     buffer->head = 0;
-
-    return 0;
 }
 
 size_t buffer_size(buffer_t *buffer) {

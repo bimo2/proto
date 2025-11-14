@@ -8,6 +8,7 @@
 #include "screen.h"
 
 #include "ansi.h"
+#include "include.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -97,14 +98,20 @@ static inline void reset_cursor(screen_cursor_t *cursor) {
 }
 
 static screen_cell_t **init_grid(int32_t rows, int32_t columns) {
-    screen_cell_t **grid = (screen_cell_t **)calloc(rows, sizeof(screen_cell_t *));
+    screen_cell_t **grid = (screen_cell_t **)calloc((size_t)rows, sizeof(screen_cell_t *));
 
-    if (!grid) return NULL;
+    if (!grid) {
+        log_error("malloc failed: %zu", (size_t)rows * sizeof(screen_cell_t));
+
+        return NULL;
+    }
 
     for (int32_t i = 0; i < rows; i++) {
-        grid[i] = (screen_cell_t *)calloc(columns, sizeof(screen_cell_t));
+        grid[i] = (screen_cell_t *)calloc((size_t)columns, sizeof(screen_cell_t));
 
         if (!grid[i]) {
+            log_error("malloc failed: %zu", (size_t)columns * sizeof(screen_cell_t));
+
             for (int32_t j = 0; j < i; j++) free(grid[j]);
 
             free(grid);
@@ -158,7 +165,11 @@ static void add_staging_cells(staging_line_t *line, const screen_cell_t *cells, 
 
         screen_cell_t *id = (screen_cell_t *)realloc(line->cells, next * sizeof(screen_cell_t));
 
-        if (!id) return;
+        if (!id) {
+            log_error("realloc failed: %zu", next * sizeof(screen_cell_t));
+
+            return;
+        }
 
         line->cells = id;
         line->capacity = next;
@@ -175,7 +186,11 @@ static void add_staging_line(staging_line_t **lines, size_t *count, size_t *capa
         size_t next = *capacity < 1 ? 128 : *capacity * 2;
         staging_line_t *id = (staging_line_t *)realloc(*lines, next * sizeof(staging_line_t));
 
-        if (!id) return;
+        if (!id) {
+            log_error("realloc failed: %zu", next * sizeof(staging_line_t));
+
+            return;
+        }
 
         *lines = id;
         *capacity = next;
@@ -191,7 +206,11 @@ static void commit_staging_cells(line_t **lines, size_t *count, size_t *capacity
         size_t next = *capacity < 1 ? 256 : *capacity * 2;
         line_t *id = (line_t *)realloc(*lines, next * sizeof(line_t));
 
-        if (!id) return;
+        if (!id) {
+            log_error("realloc failed: %zu", next * sizeof(line_t));
+
+            return;
+        }
 
         *lines = id;
         *capacity = next;
@@ -199,14 +218,18 @@ static void commit_staging_cells(line_t **lines, size_t *count, size_t *capacity
 
     screen_cell_t *copy = (screen_cell_t *)malloc((size_t)columns * sizeof(screen_cell_t));
 
-    if (copy) {
-        for (size_t j = 0; j < (size_t)columns; j++) reset_cell(&copy[j]);
+    if (!copy) {
+        log_error("malloc failed: %zu", (size_t)columns * sizeof(screen_cell_t));
 
-        if (cells && width > 0) {
-            size_t length = min(width, (size_t)columns);
+        return;
+    }
 
-            memcpy(copy, cells, length * sizeof(screen_cell_t));
-        }
+    for (size_t j = 0; j < (size_t)columns; j++) reset_cell(&copy[j]);
+
+    if (cells && width > 0) {
+        size_t length = min(width, (size_t)columns);
+
+        memcpy(copy, cells, length * sizeof(screen_cell_t));
     }
 
     (*lines)[*count].cells = copy;
@@ -220,7 +243,11 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
 
     screen_t *screen = (screen_t *)calloc(1, sizeof(screen_t));
 
-    if (!screen) return NULL;
+    if (!screen) {
+        log_error("malloc failed: %zu", sizeof(screen_t));
+
+        return NULL;
+    }
 
     screen->grid = init_grid(rows, columns);
 
@@ -232,9 +259,10 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
 
     screen->rows = rows;
     screen->columns = columns;
-    screen->soft_wrap = (bool *)calloc(rows, sizeof(bool));
+    screen->soft_wrap = (bool *)calloc((size_t)rows, sizeof(bool));
 
     if (!screen->soft_wrap) {
+        log_error("malloc failed: %zu", (size_t)rows * sizeof(bool));
         free_grid(screen->grid, rows);
         free(screen);
 
@@ -244,6 +272,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
     screen->tab_stops = (bool *)calloc((size_t)columns, sizeof(bool));
 
     if (!screen->tab_stops) {
+        log_error("malloc failed: %zu", (size_t)columns * sizeof(bool));
         free(screen->soft_wrap);
         free_grid(screen->grid, rows);
         free(screen);
@@ -257,6 +286,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
     screen->links.table = (char **)calloc(screen->links.capacity, sizeof(char *));
 
     if (!screen->links.table) {
+        log_error("malloc failed: %zu", screen->links.capacity * sizeof(char *));
         free(screen->tab_stops);
         free(screen->soft_wrap);
         free_grid(screen->grid, rows);
@@ -281,6 +311,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
         screen->scrollback.lines = (line_t *)calloc(screen->scrollback.capacity, sizeof(line_t));
 
         if (!screen->scrollback.lines) {
+            log_error("malloc failed: %zu", screen->scrollback.capacity * sizeof(line_t));
             free(screen->links.table);
             free(screen->tab_stops);
             free(screen->soft_wrap);
@@ -346,6 +377,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     bool *soft_wrap = (bool *)calloc((size_t)rows, sizeof(bool));
 
     if (!soft_wrap) {
+        log_error("malloc failed: %zu", (size_t)rows * sizeof(bool));
         free_grid(grid, rows);
 
         return;
@@ -428,6 +460,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
                         screen->scrollback.lines[index].width = (size_t)screen->columns;
                         screen->scrollback.lines[index].soft_wrap = screen->soft_wrap[i];
                     } else {
+                        log_error("malloc failed: %zu", (size_t)screen->columns * sizeof(screen_cell_t));
                         screen->scrollback.lines[index].cells = NULL;
                         screen->scrollback.lines[index].width = 0;
                         screen->scrollback.lines[index].soft_wrap = false;
@@ -468,6 +501,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     bool *tab_stops = (bool *)calloc((size_t)columns, sizeof(bool));
 
     if (!tab_stops) {
+        log_error("malloc failed: %zu", (size_t)columns * sizeof(bool));
         free(soft_wrap);
         free_grid(grid, rows);
 
@@ -623,7 +657,10 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         if (!screen->scrollback.lines) {
             screen->scrollback.lines = (line_t *)calloc(screen->scrollback.capacity, sizeof(line_t));
 
-            if (!screen->scrollback.lines) keep = 0;
+            if (!screen->scrollback.lines) {
+                log_error("malloc failed: %zu", screen->scrollback.capacity * sizeof(line_t));
+                keep = 0;
+            }
         }
 
         for (size_t i = left - keep; i < left; i++) {
@@ -734,6 +771,7 @@ void screen_set_link(screen_t *screen, const char *url) {
         char **id = (char **)realloc(screen->links.table, next * sizeof(char *));
 
         if (!id) {
+            log_error("realloc failed: %zu", next * sizeof(char *));
             screen->link_id = 0;
 
             return;
@@ -748,6 +786,7 @@ void screen_set_link(screen_t *screen, const char *url) {
     char *copy = (char *)malloc(strlen(url) + 1);
 
     if (!copy) {
+        log_error("malloc failed: %zu", strlen(url) + 1);
         screen->link_id = 0;
 
         return;
@@ -1124,6 +1163,7 @@ void screen_scroll_up(screen_t *screen, int32_t lines) {
                     screen->scrollback.lines[index].width = (size_t)screen->columns;
                     screen->scrollback.lines[index].soft_wrap = screen->soft_wrap[i];
                 } else {
+                    log_error("malloc failed: %zu", (size_t)screen->columns * sizeof(screen_cell_t));
                     screen->scrollback.lines[index].cells = NULL;
                     screen->scrollback.lines[index].width = 0;
                     screen->scrollback.lines[index].soft_wrap = false;
@@ -1232,7 +1272,11 @@ void screen_set_scrollback_capacity(screen_t *screen, size_t capacity) {
     if (capacity > 0) {
         lines = (line_t *)calloc(capacity, sizeof(line_t));
 
-        if (!lines) return;
+        if (!lines) {
+            log_error("malloc failed: %zu", capacity * sizeof(line_t));
+
+            return;
+        }
     }
 
     size_t keep = screen->scrollback.size;
@@ -1250,6 +1294,8 @@ void screen_set_scrollback_capacity(screen_t *screen, size_t capacity) {
                 lines[i].cells = (screen_cell_t *)malloc(lines[i].width * sizeof(screen_cell_t));
 
                 if (!lines[i].cells) {
+                    log_error("malloc failed: %zu", lines[i].width * sizeof(screen_cell_t));
+
                     for (size_t j = 0; j < i; j++) free(lines[j].cells);
 
                     free(lines);

@@ -42,7 +42,11 @@ struct session_t {
 session_t *init_session(void) {
     session_t *session = (session_t *)calloc(1, sizeof(session_t));
 
-    if (!session) return NULL;
+    if (!session) {
+        log_error("malloc failed: %zu", sizeof(session_t));
+
+        return NULL;
+    }
 
     session->pid = -1;
     session->fd = -1;
@@ -82,7 +86,7 @@ const char *session_process(session_t *session) {
     static _Thread_local char buffer[PROC_PIDPATHINFO_MAXSIZE];
 
     if (proc_pidpath(session->pid, buffer, sizeof(buffer)) < 1) {
-        perror("proc_pidpath");
+        log_error("proc_pidpath error: %d", errno);
         buffer[0] = '\0';
     }
 
@@ -112,14 +116,14 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     pid_t pid = forkpty(&master_fd, NULL, &tio, &ws);
 
     if (pid < 0) {
-        perror("forkpty");
+        log_error("forkpty error: %d", errno);
 
         return;
     }
 
     if (pid == 0) {
         execve(file, argv, envp);
-        perror("execve");
+        log_error("execve error: %d", errno);
         _exit(127);
     }
 
@@ -170,7 +174,7 @@ ssize_t session_write(session_t *session, const uint8_t *data, size_t length, si
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 total = 0;
             } else {
-                perror("write");
+                log_error("write error: %d", errno);
 
                 return total;
             }
@@ -222,7 +226,7 @@ ssize_t session_flush_write(session_t *session) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 total = 0;
             } else {
-                perror("writev");
+                log_error("writev error: %d", errno);
                 buffer_reset(session->pending);
 
                 return total;
@@ -246,7 +250,7 @@ void session_update_window(session_t *session, uint32_t rows, uint32_t columns, 
     ws.ws_xpixel = width;
     ws.ws_ypixel = height;
 
-    if (ioctl(session->fd, TIOCSWINSZ, &ws) == -1) perror("ioctl");
+    if (ioctl(session->fd, TIOCSWINSZ, &ws) == -1) log_error("ioctl error: %d", errno);
 
     return;
 }

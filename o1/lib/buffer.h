@@ -21,7 +21,7 @@ void buffer_reset(buffer_t *buffer);
 
 size_t buffer_capacity(buffer_t *buffer);
 
-int buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite);
+void buffer_set_capacity(buffer_t *buffer, size_t capacity, size_t *overwrite);
 
 size_t buffer_size(buffer_t *buffer);
 
