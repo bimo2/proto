@@ -22,6 +22,7 @@ extern uint32_t screen_default_height;
 typedef struct screen_cell_t {
     uint32_t codepoint;
     ansi_sgr_t attributes;
+    uint8_t width;
     uint32_t link_id;
     bool dirty;
 } screen_cell_t;

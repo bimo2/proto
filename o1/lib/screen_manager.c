@@ -10,6 +10,7 @@
 #include "ansi.h"
 #include "include.h"
 #include "screen.h"
+#include "unicode.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -42,9 +43,21 @@ struct screen_manager_t {
 static inline void apply_text(screen_manager_t *manager, const uint8_t *text, size_t length) {
     if (!text || length < 1) return;
 
-    for (size_t i = 0; i < length; i++) screen_write_utf32(manager->current, text[i]);
+    size_t i = 0;
+    uint32_t last = 0;
 
-    manager->last_codepoint = text[length - 1];
+    while (i < length) {
+        uint32_t codepoint = 0;
+        size_t used = unicode_decode_utf8(text + i, length - i, &codepoint);
+
+        if (used < 1) break;
+
+        screen_write_utf32(manager->current, codepoint);
+        last = codepoint;
+        i += used;
+    }
+
+    manager->last_codepoint = last;
 }
 
 static inline void apply_esc(screen_manager_t *manager, const ansi_esc_t *esc) {
