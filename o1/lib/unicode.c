@@ -19,16 +19,20 @@ static inline bool zero_width(uint32_t codepoint) {
     if (in(codepoint, 0x0300, 0x036F)) return true;
     if (in(codepoint, 0x1AB0, 0x1AFF)) return true;
     if (in(codepoint, 0x1DC0, 0x1DFF)) return true;
+    if (codepoint == 0x200D) return true;
     if (in(codepoint, 0x20D0, 0x20FF)) return true;
+    if (codepoint == 0xFE0E) return true;
+    if (codepoint == 0xFE0F) return true;
     if (in(codepoint, 0xFE20, 0xFE2F)) return true;
     if (in(codepoint, 0xE0100, 0xE01EF)) return true;
-    if (codepoint == 0x200D || codepoint == 0xFE0E || codepoint == 0xFE0F) return true;
 
     return false;
 }
 
 static inline bool wide_east_asian(uint32_t codepoint) {
     if (in(codepoint, 0x1100, 0x115F)) return true;
+    if (codepoint == 0x2329) return true;
+    if (codepoint == 0x232A) return true;
     if (in(codepoint, 0x2E80, 0x2FFB)) return true;
     if (in(codepoint, 0x3040, 0x30FF)) return true;
     if (in(codepoint, 0x3100, 0x312F)) return true;
@@ -44,7 +48,6 @@ static inline bool wide_east_asian(uint32_t codepoint) {
     if (in(codepoint, 0xFE30, 0xFE6B)) return true;
     if (in(codepoint, 0xFF01, 0xFF60)) return true;
     if (in(codepoint, 0xFFE0, 0xFFE6)) return true;
-    if (codepoint == 0x2329 || codepoint == 0x232A) return true;
 
     return false;
 }

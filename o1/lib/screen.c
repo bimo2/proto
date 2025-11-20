@@ -1051,8 +1051,6 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
         }
 
         screen->cursor.column += 2;
-
-        if (wide_wrap) screen->cursor.column = 0;
     }
 
     if (!wide_wrap && screen->cursor.column >= screen->columns) {
@@ -1141,17 +1139,53 @@ void screen_delete_utf32(screen_t *screen) {
 }
 
 void screen_backspace(screen_t *screen) {
-    if (screen->cursor.column > 0) {
-        if (screen->grid[screen->cursor.row][screen->cursor.column].width == 0) screen->cursor.column--;
+    if (screen->cursor.row > 0 && screen->cursor.column == 2) {
+        int32_t row = screen->cursor.row;
 
-        screen->cursor.column--;
+        if (screen->grid[row][0].width == 2 && screen->grid[row][1].width == 0) {
+            screen->cursor.column = 0;
+            screen_delete_utf32(screen);
+
+            int32_t last = row - 1;
+            bool wide = false;
+
+            for (int32_t j = 0; j < screen->columns; j++) {
+                if (screen->grid[last][j].width != 1) {
+                    wide = true;
+
+                    break;
+                }
+            }
+
+            screen->cursor.row = last;
+            screen->cursor.column = wide ? 1 : screen->columns - 1;
+
+            if (screen->cursor.column < 0) screen->cursor.column = 0;
+
+            return;
+        }
+    }
+
+    if (screen->cursor.column > 0) {
+        int32_t row = screen->cursor.row;
+        int32_t column = screen->cursor.column - 1;
+
+        if (screen->grid[row][column].width == 0 && column > 0) column--;
+
+        screen->cursor.column = column;
 
         if (screen->cursor.column < 0) screen->cursor.column = 0;
 
         screen_delete_utf32(screen);
     } else if (screen->cursor.row > 0) {
         screen->cursor.row--;
-        screen->cursor.column = screen->columns - 1;
+
+        int32_t row = screen->cursor.row;
+        int32_t column = screen->columns - 1;
+
+        if (screen->grid[row][column].width == 0 && column > 0) column--;
+
+        screen->cursor.column = column;
         screen_delete_utf32(screen);
     }
 }
