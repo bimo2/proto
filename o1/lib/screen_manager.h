@@ -10,6 +10,7 @@
 
 #include "ansi.h"
 #include "screen.h"
+#include "unicode.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,6 +37,10 @@ void screen_manager_reset(screen_manager_t *manager);
 screen_t *screen_manager_current_screen(screen_manager_t *manager);
 
 void screen_manager_set_grid(screen_manager_t *manager, int32_t rows, int32_t columns);
+
+unicode_codepoint_t screen_manager_codepoint(screen_manager_t *manager);
+
+void screen_manager_set_codepoint(screen_manager_t *manager, unicode_codepoint_t scalar);
 
 const char *screen_manager_title(screen_manager_t *manager);
 

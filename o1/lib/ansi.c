@@ -59,7 +59,7 @@ static size_t mouse_data(ansi_mouse_t base, ansi_mouse_event_t event, uint16_t f
     uint8_t cy = (uint8_t)(y + 32);
     size_t i = 0;
 
-    data[i++] = 0x1B;
+    data[i++] = 0x1Bu;
     data[i++] = '[';
     data[i++] = 'M';
     data[i++] = cb;

@@ -10,8 +10,6 @@
 
 #include "ansi.h"
 
-#include <stddef.h>
-#include <stdint.h>
 #include <string.h>
 
 @interface ANSITests : XCTestCase
@@ -47,7 +45,7 @@
     size_t length = ansi_mouse_x10(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DOWN, 0, 10, 20, false, bytes, sizeof(bytes));
 
     XCTAssertEqual(length, 6);
-    XCTAssertEqual(bytes[0], 0x1B);
+    XCTAssertEqual(bytes[0], 0x1Bu);
     XCTAssertEqual(bytes[1], '[');
     XCTAssertEqual(bytes[2], 'M');
     XCTAssertEqual(bytes[3], 0);
@@ -64,7 +62,7 @@
     size_t length = ansi_mouse_normal(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DRAG, 0, 10, 20, false, bytes, sizeof(bytes));
 
     XCTAssertEqual(length, 6);
-    XCTAssertEqual(bytes[0], 0x1B);
+    XCTAssertEqual(bytes[0], 0x1Bu);
     XCTAssertEqual(bytes[1], '[');
     XCTAssertEqual(bytes[2], 'M');
     XCTAssertEqual(bytes[3], 0 | 32);

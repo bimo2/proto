@@ -12,6 +12,8 @@
 #include "render.h"
 #include "screen.h"
 
+#include <dispatch/dispatch.h>
+
 @interface ViewController ()
 
 @property (strong) Terminal *terminal;
@@ -46,7 +48,7 @@
 
                             if (codepoint == 0) codepoint = ' ';
 
-                            if (codepoint <= 0xFFFF) {
+                            if (codepoint <= 0xFFFFu) {
                                 [text appendFormat:@"%C", (unichar)codepoint];
                             } else {
                                 [text appendString:@"?"];

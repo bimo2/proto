@@ -11,7 +11,6 @@
 #include "ansi.h"
 #include "ansi_reader.h"
 
-#include <stdint.h>
 #include <string.h>
 
 static void test_callback(void *, ansi_t *);
@@ -407,12 +406,12 @@ static void test_callback(void *, ansi_t *);
 
     ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
-    const uint8_t partial[] = {0xE2};
+    const uint8_t partial[] = {0xE2u};
 
     ansi_reader_feed(reader, partial, 1);
     XCTAssertEqual(self.output.count, 0);
 
-    const uint8_t rest[] = {0x82, 0xAC, '1', 0x07};
+    const uint8_t rest[] = {0x82u, 0xACu, '1', 0x07u};
 
     ansi_reader_feed(reader, rest, 4);
     XCTAssertEqual(self.output.count, 3);

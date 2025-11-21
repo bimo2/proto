@@ -517,16 +517,16 @@ static void send_bell(ansi_reader_t *reader) {
 }
 
 static inline int utf8_expected_length(uint8_t lead) {
-    if (lead <= 0x7F) return 1;
-    if (lead >= 0xC2 && lead <= 0xDF) return 2;
-    if (lead >= 0xE0 && lead <= 0xEF) return 3;
-    if (lead >= 0xF0 && lead <= 0xF4) return 4;
+    if (lead <= 0x7Fu) return 1;
+    if (lead >= 0xC2u && lead <= 0xDFu) return 2;
+    if (lead >= 0xE0u && lead <= 0xEFu) return 3;
+    if (lead >= 0xF0u && lead <= 0xF4u) return 4;
 
     return 0;
 }
 
 static inline bool utf8_incomplete(uint8_t byte) {
-    return (byte & 0xC0) == 0x80;
+    return (byte & 0xC0u) == 0x80u;
 }
 
 static size_t utf8_incomplete_length(const uint8_t *bytes, size_t length) {
@@ -660,7 +660,7 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
 
         switch (reader->state) {
             case STATE_GROUND: {
-                if (byte == 0x1B) {
+                if (byte == 0x1Bu) {
                     if (bytes + i > start) send_text(reader, start, (size_t)(bytes + i - start));
 
                     reader->state = STATE_ESC;
@@ -670,7 +670,7 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                     continue;
                 }
 
-                if (byte == 0x07) {
+                if (byte == 0x07u) {
                     if (bytes + i > start) send_text(reader, start, (size_t)(bytes + i - start));
 
                     send_bell(reader);
@@ -680,7 +680,7 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                     continue;
                 }
 
-                if (byte == 0x9B) {
+                if (byte == 0x9Bu) {
                     if (bytes + i > start) send_text(reader, start, (size_t)(bytes + i - start));
 
                     reader->state = STATE_CSI;
@@ -691,7 +691,7 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                     continue;
                 }
 
-                if (byte == 0x9D) {
+                if (byte == 0x9Du) {
                     if (bytes + i > start) send_text(reader, start, (size_t)(bytes + i - start));
 
                     reader->state = STATE_OSC;
@@ -816,7 +816,7 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                     continue;
                 }
 
-                if (byte >= 0x40 && byte <= 0x7E) {
+                if (byte >= 0x40u && byte <= 0x7Eu) {
                     send_csi(reader, (char)byte);
                     reader->state = STATE_GROUND;
                     reset_csi(reader);
@@ -831,7 +831,7 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                 continue;
             }
             case STATE_OSC: {
-                if (byte == 0x07) {
+                if (byte == 0x07u) {
                     send_osc(reader);
                     reader->state = STATE_GROUND;
                     reset_osc(reader);
@@ -841,7 +841,7 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                     continue;
                 }
 
-                if (byte == 0x1B) {
+                if (byte == 0x1Bu) {
                     reader->state = STATE_OSC_MAYBE_ST;
                     i++;
 
@@ -869,7 +869,7 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                     continue;
                 }
 
-                if (reader->osc_length + 1 < reader->osc_capacity) reader->osc_buffer[reader->osc_length++] = 0x1B;
+                if (reader->osc_length + 1 < reader->osc_capacity) reader->osc_buffer[reader->osc_length++] = 0x1Bu;
 
                 reader->state = STATE_OSC;
 

@@ -23,6 +23,7 @@ struct screen_manager_t {
     screen_t *main;
     screen_t *alternate;
     screen_t *current;
+    unicode_codepoint_t utf_codepoint;
     bool bracketed_paste;
     bool cursor_keys;
     screen_manager_mouse_mode_t mouse_mode;
@@ -40,6 +41,25 @@ struct screen_manager_t {
     void *mouse_user_data;
 };
 
+static inline void write_codepoint(screen_manager_t *manager, uint32_t codepoint) {
+    if (!manager->current) return;
+
+    if (unicode_codepoint_supported(codepoint, manager->utf_codepoint)) {
+        screen_write_utf32(manager->current, codepoint);
+
+        return;
+    }
+
+    char buffer[16];
+    size_t length = unicode_codepoint_string(codepoint, buffer, sizeof(buffer));
+
+    for (size_t i = 0; i < length; i++) {
+        uint8_t byte = (uint8_t)buffer[i];
+
+        screen_write_utf32(manager->current, (uint32_t)byte);
+    }
+}
+
 static inline void apply_text(screen_manager_t *manager, const uint8_t *text, size_t length) {
     if (!text || length < 1) return;
 
@@ -52,7 +72,7 @@ static inline void apply_text(screen_manager_t *manager, const uint8_t *text, si
 
         if (used < 1) break;
 
-        screen_write_utf32(manager->current, codepoint);
+        write_codepoint(manager, codepoint);
         last = codepoint;
         i += used;
     }
@@ -404,7 +424,7 @@ static inline void apply_csi(screen_manager_t *manager, const ansi_csi_t *csi) {
             int value = csi_parameter(csi, 0, 1);
 
             if (manager->last_codepoint != 0) {
-                for (int i = 0; i < value; i++) screen_write_utf32(manager->current, manager->last_codepoint);
+                for (int i = 0; i < value; i++) write_codepoint(manager, manager->last_codepoint);
             }
 
             break;
@@ -497,6 +517,7 @@ screen_manager_t *init_screen_manager(void) {
     manager->main = main;
     manager->alternate = NULL;
     manager->current = main;
+    manager->utf_codepoint = unicode_default_codepoint;
     manager->bracketed_paste = false;
     manager->cursor_keys = false;
     manager->mouse_mode = SCREEN_MANAGER_MOUSE_NONE;
@@ -527,6 +548,7 @@ void screen_manager_reset(screen_manager_t *manager) {
     manager->current = manager->main;
     free_screen(manager->alternate);
     manager->alternate = NULL;
+    manager->utf_codepoint = unicode_default_codepoint;
     manager->bracketed_paste = false;
     manager->cursor_keys = false;
     manager->mouse_mode = SCREEN_MANAGER_MOUSE_NONE;
@@ -544,6 +566,14 @@ screen_t *screen_manager_current_screen(screen_manager_t *manager) {
 void screen_manager_set_grid(screen_manager_t *manager, int32_t rows, int32_t columns) {
     if (manager->main) screen_set_grid(manager->main, rows, columns);
     if (manager->alternate) screen_set_grid(manager->alternate, rows, columns);
+}
+
+unicode_codepoint_t screen_manager_codepoint(screen_manager_t *manager) {
+    return manager->utf_codepoint;
+}
+
+void screen_manager_set_codepoint(screen_manager_t *manager, unicode_codepoint_t scalar) {
+    manager->utf_codepoint = scalar;
 }
 
 const char *screen_manager_title(screen_manager_t *manager) {

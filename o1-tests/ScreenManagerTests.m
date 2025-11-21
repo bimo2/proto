@@ -12,8 +12,6 @@
 #include "screen.h"
 #include "screen_manager.h"
 
-#include <stddef.h>
-#include <stdint.h>
 #include <string.h>
 
 static void test_response_callback(void *, const char *);
@@ -38,6 +36,133 @@ static void test_mouse_callback(void *, bool);
     self.title = nil;
     self.bells = 0;
     self.mouseEnabled = false;
+}
+
+- (void)test_codepoint_dynamic {
+    screen_manager_t *manager = init_screen_manager();
+    screen_t *screen = screen_manager_current_screen(manager);
+
+    screen_manager_set_codepoint(manager, UNICODE_CODEPOINT_DYNAMIC);
+
+    const uint8_t utf8[] = {0x41u};
+
+    ansi_t text = {
+        .event = ANSI_EVENT_TEXT,
+        .text = {
+            .bytes = utf8,
+            .length = sizeof(utf8),
+        },
+    };
+
+    screen_manager_update(manager, &text);
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 0x0041u);
+
+    const uint8_t utf16[] = {0xE2u, 0x82u, 0xACu};
+
+    text.text.bytes = utf16;
+    text.text.length = sizeof(utf16);
+    screen_manager_update(manager, &text);
+    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, 0x20ACu);
+
+    const uint8_t utf32[] = {0xF0u, 0x9Fu, 0x92u, 0xAFu};
+
+    text.text.bytes = utf32;
+    text.text.length = sizeof(utf32);
+    screen_manager_update(manager, &text);
+    XCTAssertEqual(screen_cell(screen, 0, 2)->codepoint, 0x1F4AFu);
+
+    free_screen_manager(manager);
+}
+
+- (void)test_codepoint_utf8 {
+    screen_manager_t *manager = init_screen_manager();
+    screen_t *screen = screen_manager_current_screen(manager);
+
+    screen_manager_set_codepoint(manager, UNICODE_CODEPOINT_UTF8);
+
+    const uint8_t utf8[] = {0x41u};
+
+    ansi_t text = {
+        .event = ANSI_EVENT_TEXT,
+        .text = {
+            .bytes = utf8,
+            .length = sizeof(utf8),
+        },
+    };
+
+    screen_manager_update(manager, &text);
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 0x0041u);
+
+    const uint8_t utf16[] = {0xE2u, 0x82u, 0xACu};
+
+    text.text.bytes = utf16;
+    text.text.length = sizeof(utf16);
+    screen_manager_update(manager, &text);
+    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, 'U');
+    XCTAssertEqual(screen_cell(screen, 0, 2)->codepoint, '+');
+    XCTAssertEqual(screen_cell(screen, 0, 3)->codepoint, '2');
+    XCTAssertEqual(screen_cell(screen, 0, 4)->codepoint, '0');
+    XCTAssertEqual(screen_cell(screen, 0, 5)->codepoint, 'A');
+    XCTAssertEqual(screen_cell(screen, 0, 6)->codepoint, 'C');
+
+    free_screen_manager(manager);
+}
+
+- (void)test_codepoint_utf16 {
+    screen_manager_t *manager = init_screen_manager();
+    screen_t *screen = screen_manager_current_screen(manager);
+
+    screen_manager_set_codepoint(manager, UNICODE_CODEPOINT_UTF16);
+
+    const uint8_t utf16[] = {0xE2u, 0x82u, 0xACu};
+
+    ansi_t text = {
+        .event = ANSI_EVENT_TEXT,
+        .text = {
+            .bytes = utf16,
+            .length = sizeof(utf16),
+        },
+    };
+
+    screen_manager_update(manager, &text);
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 0x20ACu);
+
+    const uint8_t utf32[] = {0xF0u, 0x9Fu, 0x92u, 0xAFu};
+
+    text.text.bytes = utf32;
+    text.text.length = sizeof(utf32);
+    screen_manager_update(manager, &text);
+    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, 'U');
+    XCTAssertEqual(screen_cell(screen, 0, 2)->codepoint, '+');
+    XCTAssertEqual(screen_cell(screen, 0, 3)->codepoint, '1');
+    XCTAssertEqual(screen_cell(screen, 0, 4)->codepoint, 'F');
+    XCTAssertEqual(screen_cell(screen, 0, 5)->codepoint, '4');
+    XCTAssertEqual(screen_cell(screen, 0, 6)->codepoint, 'A');
+    XCTAssertEqual(screen_cell(screen, 0, 7)->codepoint, 'F');
+
+    free_screen_manager(manager);
+}
+
+- (void)test_codepoint_utf32 {
+    screen_manager_t *manager = init_screen_manager();
+    screen_t *screen = screen_manager_current_screen(manager);
+
+    screen_manager_set_codepoint(manager, UNICODE_CODEPOINT_UTF32);
+
+    const uint8_t utf32[] = {0xF0u, 0x9Fu, 0x92u, 0xAFu};
+
+    ansi_t text = {
+        .event = ANSI_EVENT_TEXT,
+        .text = {
+            .bytes = utf32,
+            .length = sizeof(utf32),
+        },
+    };
+
+    screen_manager_update(manager, &text);
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 0x1F4AFu);
+
+    free_screen_manager(manager);
 }
 
 - (void)test_update_text {

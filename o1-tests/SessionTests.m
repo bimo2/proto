@@ -11,6 +11,7 @@
 #include "include.h"
 #include "session.h"
 
+#include <dispatch/dispatch.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/ioctl.h>

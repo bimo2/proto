@@ -970,7 +970,7 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
             screen_backspace(screen);
 
             return;
-        case 0x7F:
+        case 0x7Fu:
             screen_delete_utf32(screen);
 
             return;

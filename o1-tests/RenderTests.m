@@ -11,8 +11,6 @@
 #include "render.h"
 #include "screen.h"
 
-#include <stddef.h>
-
 @interface RenderTests : XCTestCase
 
 @end

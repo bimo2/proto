@@ -10,9 +10,6 @@
 
 #include "buffer.h"
 
-#include <stddef.h>
-#include <stdint.h>
-
 @interface BufferTests : XCTestCase
 
 @end

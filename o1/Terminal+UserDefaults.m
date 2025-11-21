@@ -8,6 +8,7 @@
 #import "Terminal+UserDefaults.h"
 
 #include "screen.h"
+#include "unicode.h"
 
 @implementation Terminal (UserDefaults)
 
@@ -41,6 +42,27 @@
 
 + (void)setColumns:(NSUInteger)columns {
     screen_default_columns = (uint32_t)columns;
+}
+
++ (TerminalCodepoint)codepoint {
+    return (TerminalCodepoint)unicode_default_codepoint;
+}
+
++ (void)setCodepoint:(TerminalCodepoint)codepoint {
+    unicode_codepoint_t scalar = (unicode_codepoint_t)codepoint;
+
+    switch (scalar) {
+        case UNICODE_CODEPOINT_UTF8:
+        case UNICODE_CODEPOINT_UTF16:
+        case UNICODE_CODEPOINT_UTF32:
+            unicode_default_codepoint = scalar;
+
+            break;
+        case UNICODE_CODEPOINT_DYNAMIC:
+            unicode_default_codepoint = UNICODE_CODEPOINT_UTF32;
+
+            break;
+    }
 }
 
 @end
