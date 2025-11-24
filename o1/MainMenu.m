@@ -26,7 +26,7 @@
 }
 
 - (NSMenuItem *)app {
-    NSString *name = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleName"];
+    NSString *name = NSProcessInfo.processInfo.processName;
     NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:name action:nil keyEquivalent:@""];
     NSMenu *appMenu = [[NSMenu alloc] initWithTitle:name];
 
@@ -76,6 +76,11 @@
     NSMenu *fileMenu = [[NSMenu alloc] initWithTitle:@"File"];
 
     item.submenu = fileMenu;
+
+    NSMenuItem *newWindow = [[NSMenuItem alloc] initWithTitle:@"New Window" action:@selector(window:) keyEquivalent:@"n"];
+
+    [fileMenu addItem:newWindow];
+    [fileMenu addItem:[NSMenuItem separatorItem]];
 
     NSMenuItem *close = [[NSMenuItem alloc] initWithTitle:@"Close Window" action:@selector(performClose:) keyEquivalent:@"w"];
 
