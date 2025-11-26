@@ -105,14 +105,14 @@ typedef enum ansi_dec_mode_t {
 
 typedef enum ansi_sgr_flag_t {
     ANSI_SGR_FLAG_NONE = 0,
-    ANSI_SGR_FLAG_BOLD = 1u << 0,
-    ANSI_SGR_FLAG_FAINT = 1u << 1,
-    ANSI_SGR_FLAG_ITALIC = 1u << 2,
-    ANSI_SGR_FLAG_UNDERLINE = 1u << 3,
-    ANSI_SGR_FLAG_BLINK = 1u << 4,
-    ANSI_SGR_FLAG_INVERSE = 1u << 5,
-    ANSI_SGR_FLAG_HIDDEN = 1u << 6,
-    ANSI_SGR_FLAG_STRIKE = 1u << 7,
+    ANSI_SGR_FLAG_BOLD = 1 << 0,
+    ANSI_SGR_FLAG_FAINT = 1 << 1,
+    ANSI_SGR_FLAG_ITALIC = 1 << 2,
+    ANSI_SGR_FLAG_UNDERLINE = 1 << 3,
+    ANSI_SGR_FLAG_BLINK = 1 << 4,
+    ANSI_SGR_FLAG_INVERSE = 1 << 5,
+    ANSI_SGR_FLAG_HIDDEN = 1 << 6,
+    ANSI_SGR_FLAG_STRIKE = 1 << 7,
 } ansi_sgr_flag_t;
 
 typedef struct ansi_sgr_t {
@@ -186,9 +186,10 @@ typedef enum ansi_mouse_event_t {
 } ansi_mouse_event_t;
 
 typedef enum ansi_mouse_modifier_flag_t {
-    ANSI_MOUSE_MODIFIER_FLAG_SHIFT = 1u << 0,
-    ANSI_MOUSE_MODIFIER_FLAG_OPTION = 1u << 1,
-    ANSI_MOUSE_MODIFIER_FLAG_CONTROL = 1u << 2,
+    ANSI_MOUSE_MODIFIER_FLAG_NONE = 0,
+    ANSI_MOUSE_MODIFIER_FLAG_SHIFT = 1 << 0,
+    ANSI_MOUSE_MODIFIER_FLAG_OPTION = 1 << 1,
+    ANSI_MOUSE_MODIFIER_FLAG_CONTROL = 1 << 2,
 } ansi_mouse_modifier_t;
 
 uint32_t ansi_color_pack_indexed(int index);

@@ -8,11 +8,11 @@
 #import "AppDelegate.h"
 
 #import "MainMenu.h"
-#import "ViewController.h"
+#import "WindowController.h"
 
-@interface AppDelegate () <NSWindowDelegate, MainMenuDelegate>
+@interface AppDelegate ()
 
-@property (strong) NSMutableArray<NSWindow *> *windows;
+@property (strong) NSMutableArray<NSWindowController *> *windowControllers;
 
 @end
 
@@ -47,53 +47,43 @@
     return YES;
 }
 
-- (void)windowWillEnterFullScreen:(NSNotification *)notification {
-    if ([notification.object isKindOfClass:[NSWindow class]]) {
-        NSWindow *window = (NSWindow *)notification.object;
+- (void)windowWillClose:(NSNotification *)notification {
+    NSWindow *window = (NSWindow *)notification.object;
 
-        window.titlebarAppearsTransparent = NO;
-        window.toolbarStyle = NSWindowToolbarStyleUnifiedCompact;
-        window.appearance = nil;
+    for (NSInteger i = 0; i < self.windowControllers.count; i++) {
+        if (self.windowControllers[i].window == window) {
+            [self.windowControllers removeObjectAtIndex:i];
+
+            break;
+        }
     }
+}
+
+- (void)windowWillEnterFullScreen:(NSNotification *)notification {
+    NSWindow *window = (NSWindow *)notification.object;
+
+    window.titlebarAppearsTransparent = NO;
+    window.toolbarStyle = NSWindowToolbarStyleUnifiedCompact;
+    window.appearance = nil;
 }
 
 - (void)windowWillExitFullScreen:(NSNotification *)notification {
-    if ([notification.object isKindOfClass:[NSWindow class]]) {
-        NSWindow *window = (NSWindow *)notification.object;
+    NSWindow *window = (NSWindow *)notification.object;
 
-        window.titlebarAppearsTransparent = YES;
-        window.toolbarStyle = NSWindowToolbarStyleUnified;
-        window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-    }
+    window.titlebarAppearsTransparent = YES;
+    window.toolbarStyle = NSWindowToolbarStyleUnified;
+    window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
 }
 
 - (void)window:(id)sender {
-    if (!_windows) _windows = [NSMutableArray array];
+    if (!_windowControllers) _windowControllers = [NSMutableArray array];
 
-    NSRect frame = NSMakeRect(100, 250, 575, 375);
-    NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable | NSWindowStyleMaskFullSizeContentView;
-    NSWindow *window = [[NSWindow alloc] initWithContentRect:frame styleMask:style backing:NSBackingStoreBuffered defer:NO];
+    WindowController *windowController = [[WindowController alloc] init];
 
-    window.restorable = NO;
-    window.title = @"github.com";
-    window.titlebarAppearsTransparent = YES;
-    window.backgroundColor = [NSColor colorWithDeviceWhite:0.0 alpha:0.94];
-
-    NSToolbar *toolbar = [[NSToolbar alloc] init];
-
-    toolbar.displayMode = NSToolbarDisplayModeIconOnly;
-    window.toolbar = toolbar;
-    window.toolbarStyle = NSWindowToolbarStyleUnified;
-
-    ViewController *viewController = [[ViewController alloc] init];
-
-    window.contentViewController = viewController;
-    window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-    window.delegate = self;
-    [window setContentSize:frame.size];
-    [window makeKeyAndOrderFront:nil];
-    [self.windows addObject:window];
-    [NSApp activateIgnoringOtherApps:YES];
+    windowController.window.delegate = self;
+    [windowController showWindow:nil];
+    [self.windowControllers addObject:windowController];
+    [NSApp activate];
 }
 
 @end

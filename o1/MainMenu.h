@@ -7,12 +7,6 @@
 
 #import <Cocoa/Cocoa.h>
 
-@protocol MainMenuDelegate <NSObject>
-
-- (void)window:(id)sender;
-
-@end
-
 @interface MainMenu : NSMenu
 
 @end

@@ -7,6 +7,8 @@
 
 #import "MainMenu.h"
 
+#import "AppDelegate.h"
+
 @implementation MainMenu
 
 - (instancetype)init {

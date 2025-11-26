@@ -5,7 +5,7 @@
 //  Created by grok-code-fast-1 on 2025-10-10.
 //
 
-#include "AppDelegate.h"
+#import "AppDelegate.h"
 
 #import <Cocoa/Cocoa.h>
 
