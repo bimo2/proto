@@ -44,11 +44,11 @@
     screen_default_columns = (uint32_t)columns;
 }
 
-+ (TerminalCodepoint)codepoint {
-    return (TerminalCodepoint)unicode_default_codepoint;
++ (NSUInteger)codepoint {
+    return (NSUInteger)unicode_default_codepoint;
 }
 
-+ (void)setCodepoint:(TerminalCodepoint)codepoint {
++ (void)setCodepoint:(NSUInteger)codepoint {
     unicode_codepoint_t scalar = (unicode_codepoint_t)codepoint;
 
     switch (scalar) {

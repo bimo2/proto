@@ -8,6 +8,7 @@
 #import "ViewController.h"
 
 #import "Terminal.h"
+#import "TerminalView.h"
 
 #include "render.h"
 #include "screen.h"
@@ -21,6 +22,13 @@
 @end
 
 @implementation ViewController
+
+- (void)loadView {
+    NSRect frame = NSMakeRect(0, 0, 575, 375);
+    TerminalView *terminalView = [[TerminalView alloc] initWithFrame:frame];
+
+    self.view = terminalView;
+}
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -65,6 +73,12 @@
                         break;
                 }
             }
+
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+
+            if (!strongSelf) return;
+
+            [strongSelf render];
         };
 
         strongSelf.terminal.updateBlock = ^(screen_t *screen) {
@@ -133,6 +147,12 @@
 
 - (void)dealloc {
     [self.terminal stop];
+}
+
+- (void)render {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.view setNeedsDisplay:YES];
+    });
 }
 
 @end
