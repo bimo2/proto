@@ -13,7 +13,7 @@
 #include "session.h"
 #include "render.h"
 #include "screen.h"
-#include "screen_manager.h"
+#include "screen_context.h"
 
 #include <crt_externs.h>
 #include <dispatch/dispatch.h>
@@ -32,7 +32,7 @@ static void on_mouse_callback(void *, bool);
 @interface Terminal () {
     session_t *session;
     ansi_reader_t *reader;
-    screen_manager_t *manager;
+    screen_context_t *context;
     dispatch_queue_t io_queue;
     dispatch_source_t read_source;
     dispatch_source_t write_source;
@@ -50,7 +50,7 @@ static void on_mouse_callback(void *, bool);
     if (self) {
         session = init_session();
         reader = init_ansi_reader();
-        manager = init_screen_manager();
+        context = init_screen_context();
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
         write_source_suspended = true;
         _file = @"/bin/zsh";
@@ -60,10 +60,10 @@ static void on_mouse_callback(void *, bool);
         __weak typeof(self) weakSelf = self;
 
         ansi_reader_set_callback(reader, on_ansi_callback, (__bridge void *)weakSelf);
-        screen_manager_set_response_callback(manager, on_response_callback, (__bridge void *)weakSelf);
-        screen_manager_set_title_callback(manager, on_title_callback, (__bridge void *)weakSelf);
-        screen_manager_set_bell_callback(manager, on_bell_callback, (__bridge void *)weakSelf);
-        screen_manager_set_mouse_callback(manager, on_mouse_callback, (__bridge void *)weakSelf);
+        screen_context_set_response_callback(context, on_response_callback, (__bridge void *)weakSelf);
+        screen_context_set_title_callback(context, on_title_callback, (__bridge void *)weakSelf);
+        screen_context_set_bell_callback(context, on_bell_callback, (__bridge void *)weakSelf);
+        screen_context_set_mouse_callback(context, on_mouse_callback, (__bridge void *)weakSelf);
     }
 
     return self;
@@ -71,7 +71,7 @@ static void on_mouse_callback(void *, bool);
 
 - (void)dealloc {
     [self stop];
-    free_screen_manager(manager);
+    free_screen_context(context);
     free_ansi_reader(reader);
     free_session(session);
 }
@@ -199,7 +199,7 @@ static void on_mouse_callback(void *, bool);
 - (void)paste:(NSData *)data {
     if (data.length < 1) return;
 
-    if (!screen_manager_bracketed_paste(manager)) {
+    if (!screen_context_bracketed_paste(context)) {
         [self write:data];
 
         return;
@@ -216,7 +216,7 @@ static void on_mouse_callback(void *, bool);
 }
 
 - (void)focus:(BOOL)isFocused {
-    if (!screen_manager_focus_reporting(manager)) return;
+    if (!screen_context_focus_reporting(context)) return;
 
     const char *sequence = isFocused ? ANSI_FOCUS_IN : ANSI_FOCUS_OUT;
     NSData *data = [NSData dataWithBytes:sequence length:strlen(sequence)];
@@ -237,17 +237,17 @@ static void on_mouse_callback(void *, bool);
         uint32_t width = (uint32_t)lround(size.width);
         uint32_t height = (uint32_t)lround(size.height);
 
-        screen_manager_set_grid(strongSelf->manager, (uint32_t)rows, (uint32_t)columns);
+        screen_context_set_grid(strongSelf->context, (uint32_t)rows, (uint32_t)columns);
         session_update_window(strongSelf->session, (uint32_t)rows, (uint32_t)columns, width, height);
     });
 }
 
 - (void)mouse:(TerminalMouseButton)button event:(TerminalMouseEvent)event flags:(TerminalMouseModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column {
-    screen_manager_mouse_mode_t mode = screen_manager_mouse_mode(manager);
+    screen_context_mouse_mode_t mode = screen_context_mouse_mode(context);
 
-    if (mode == SCREEN_MANAGER_MOUSE_NONE) return;
+    if (mode == SCREEN_CONTEXT_MOUSE_NONE) return;
 
-    bool sgr = screen_manager_mouse_sgr(manager);
+    bool sgr = screen_context_mouse_sgr(context);
     uint32_t x = MAX(1, (uint32_t)column);
     uint32_t y = MAX(1, (uint32_t)row);
     uint8_t bytes[64];
@@ -282,11 +282,11 @@ static void on_mouse_callback(void *, bool);
     }
 
     switch (mode) {
-        case SCREEN_MANAGER_MOUSE_X10:
+        case SCREEN_CONTEXT_MOUSE_X10:
             length = ansi_mouse_x10(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, sizeof(bytes));
 
             break;
-        case SCREEN_MANAGER_MOUSE_NORMAL:
+        case SCREEN_CONTEXT_MOUSE_NORMAL:
             length = ansi_mouse_normal(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, sizeof(bytes));
 
             break;
@@ -405,8 +405,8 @@ static void on_mouse_callback(void *, bool);
     dispatch_resume(proc_source);
 }
 
-- (screen_manager_t *)_manager {
-    return manager;
+- (screen_context_t *)_context {
+    return context;
 }
 
 @end
@@ -416,11 +416,11 @@ static void on_ansi_callback(void *user_data, ansi_t *ansi) {
 
     if (!self) return;
 
-    screen_manager_t *manager = [self _manager];
-    screen_manager_update(manager, ansi);
+    screen_context_t *context = [self _context];
+    screen_context_update(context, ansi);
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        screen_t *screen = screen_manager_current_screen(manager);
+        screen_t *screen = screen_context_current_screen(context);
 
         if (self.renderBlock) {
             render_t *ops = NULL;
