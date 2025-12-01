@@ -7,110 +7,50 @@
 
 #import "TerminalView.h"
 
-#import <Cocoa/Cocoa.h>
-#import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
-
 @interface TerminalView ()
 
-@property (nonatomic, strong) id<MTLDevice> device;
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
-@property (nonatomic, assign) MTLClearColor clearColor;
 
 @end
 
 @implementation TerminalView
 
 - (instancetype)initWithFrame:(NSRect)frameRect {
-    self = [super initWithFrame:frameRect];
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+
+    NSAssert(device, @"metal device not supported");
+
+    self = [super initWithFrame:frameRect device:device];
 
     if (self) {
-        _device = MTLCreateSystemDefaultDevice();
-        NSAssert(_device, @"metal device not supported");
-
-        _commandQueue = [_device newCommandQueue];
-        _clearColor = MTLClearColorMake(0, 0, 0, 0);
-        self.wantsLayer = YES;
-        self.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
+        _commandQueue = [device newCommandQueue];
+        self.delegate = self;
+        self.clearColor = MTLClearColorMake(0, 0, 0, 0);
+        self.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
+        self.layer.opaque = NO;
         self.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-        [self updateDrawableSize];
+        self.paused = NO;
+        self.enableSetNeedsDisplay = NO;
     }
 
     return self;
 }
 
-- (void)viewDidMoveToWindow {
-    [super viewDidMoveToWindow];
-    [self updateDrawableSize];
+- (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
+    // TODO
 }
 
-- (void)viewDidChangeBackingProperties {
-    [super viewDidChangeBackingProperties];
-    [self updateDrawableSize];
-}
+- (void)drawInMTKView:(MTKView *)view {
+    MTLRenderPassDescriptor *descriptor = view.currentRenderPassDescriptor;
 
-- (void)setFrameSize:(NSSize)newSize {
-    [super setFrameSize:newSize];
-    [self updateDrawableSize];
-}
+    if (!descriptor) return;
 
-- (CALayer *)makeBackingLayer {
-    CAMetalLayer *layer = [CAMetalLayer layer];
-
-    layer.device = self.device;
-    layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-    layer.framebufferOnly = YES;
-    layer.opaque = NO;
-    layer.backgroundColor = nil;
-    layer.contentsGravity = kCAGravityResize;
-    layer.needsDisplayOnBoundsChange = YES;
-
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-
-    layer.colorspace = colorSpace;
-    CGColorSpaceRelease(colorSpace);
-
-    return layer;
-}
-
-- (BOOL)wantsUpdateLayer {
-    return YES;
-}
-
-- (void)updateLayer {
-    CAMetalLayer *layer = (CAMetalLayer *)self.layer;
-
-    if (!layer || !self.commandQueue) return;
-
-    id<CAMetalDrawable> drawable = layer.nextDrawable;
-
-    if (!drawable) return;
-
-    MTLRenderPassDescriptor *descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-
-    descriptor.colorAttachments[0].texture = drawable.texture;
-    descriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
-    descriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
-    descriptor.colorAttachments[0].clearColor = _clearColor;
-
-    id<MTLCommandBuffer> buffer = [_commandQueue commandBuffer];
+    id<MTLCommandBuffer> buffer = [self.commandQueue commandBuffer];
     id<MTLRenderCommandEncoder> encoder = [buffer renderCommandEncoderWithDescriptor:descriptor];
 
     [encoder endEncoding];
-    [buffer presentDrawable:drawable];
+    [buffer presentDrawable:view.currentDrawable];
     [buffer commit];
-}
-
-- (void)updateDrawableSize {
-    CAMetalLayer *layer = (CAMetalLayer *)self.layer;
-
-    if (!layer) return;
-
-    CGFloat scale = self.window.backingScaleFactor;
-    CGSize bounds = self.bounds.size;
-
-    layer.contentsScale = scale;
-    layer.drawableSize = CGSizeMake(bounds.width * scale, bounds.height * scale);
 }
 
 @end

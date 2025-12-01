@@ -23,6 +23,10 @@
 
 @implementation ViewController
 
+- (void)dealloc {
+    [self.terminal stop];
+}
+
 - (void)loadView {
     NSRect frame = NSMakeRect(0, 0, 575, 375);
     TerminalView *terminalView = [[TerminalView alloc] initWithFrame:frame];
@@ -73,12 +77,6 @@
                         break;
                 }
             }
-
-            __strong typeof(weakSelf) strongSelf = weakSelf;
-
-            if (!strongSelf) return;
-
-            [strongSelf render];
         };
 
         strongSelf.terminal.updateBlock = ^(screen_t *screen) {
@@ -142,16 +140,6 @@
         [strongSelf.terminal write:data];
         usleep(500 * 1000);
         [strongSelf.terminal stop];
-    });
-}
-
-- (void)dealloc {
-    [self.terminal stop];
-}
-
-- (void)render {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self.view setNeedsDisplay:YES];
     });
 }
 

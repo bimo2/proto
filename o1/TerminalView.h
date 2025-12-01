@@ -6,7 +6,8 @@
 //
 
 #import <Cocoa/Cocoa.h>
+#import <MetalKit/MetalKit.h>
 
-@interface TerminalView : NSView
+@interface TerminalView : MTKView <MTKViewDelegate>
 
 @end
