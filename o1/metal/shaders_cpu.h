@@ -10,14 +10,22 @@
 
 #include <simd/simd.h>
 
-#define CPU_DOT_VERTEX_SHADER "dotVertexShader"
-#define CPU_DOT_FRAGMENT_SHADER "dotFragmentShader"
+#define CPU_TERMINAL_VERTEX_SHADER "terminal_vertex"
+#define CPU_TERMINAL_FRAGMENT_SHADER "terminal_fragment"
+
+typedef struct cpu_glyph_instance_t {
+    uint32_t glyph_id;
+    simd_float2 position;
+    simd_float4 uv;
+    simd_float2 size;
+    simd_float2 bearing;
+    simd_float4 fg_color;
+    simd_float4 bg_color;
+} cpu_glyph_instance_t;
 
 typedef struct cpu_grid_uniforms_t {
     simd_float2 viewport_size;
-    simd_float2 cell_size;
-    simd_uint2 grid_size;
-    float dot_size;
+    simd_float2 unit_size;
 } cpu_grid_uniforms_t;
 
 #endif // !SHADERS_CPU_H

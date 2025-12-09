@@ -9,44 +9,58 @@
 
 using namespace metal;
 
+struct GlyphInstance {
+    uint glyph_id;
+    float2 position;
+    float4 uv;
+    float2 size;
+    float2 bearing;
+    float4 fg_color;
+    float4 bg_color;
+};
+
 struct GridUniforms {
-    float2 viewportSize;
-    float2 cellSize;
-    uint2 gridSize;
-    float dotSize;
+    float2 viewport_size;
+    float2 unit_size;
 };
 
 struct VertexOut {
     float4 position [[position]];
+    float2 uv;
+    float4 fg_color;
+    float4 bg_color;
 };
 
-vertex VertexOut dotVertexShader(uint vertexID [[vertex_id]], uint instanceID [[instance_id]], constant GridUniforms &uniforms [[buffer(0)]]) {
-    uint row = instanceID / uniforms.gridSize.x;
-    uint column = instanceID % uniforms.gridSize.x;
-    float2 center = float2((float(column) + 0.5f) * uniforms.cellSize.x, (float(row) + 0.5f) * uniforms.cellSize.y);
-    float radius = uniforms.dotSize * 0.5f;
+vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]], constant GlyphInstance* instances [[buffer(1)]], constant GridUniforms& uniforms [[buffer(0)]]) {
+    GlyphInstance glyph = instances[iid];
 
-    float2 offsets[6] = {
-        float2(-radius, -radius),
-        float2(radius, -radius),
-        float2(-radius, radius),
-        float2(radius, -radius),
-        float2(radius, radius),
-        float2(-radius, radius),
+    float2 quad[6] = {
+        float2(0.0f, 0.0f),
+        float2(1.0f, 0.0f),
+        float2(0.0f, 1.0f),
+        float2(1.0f, 0.0f),
+        float2(1.0f, 1.0f),
+        float2(0.0f, 1.0f),
     };
 
-    float2 pixel = center + offsets[vertexID];
-    float2 ndc = (pixel / uniforms.viewportSize) * 2.0f - 1.0f;
-
-    ndc.y = -ndc.y;
+    float2 point = quad[vid];
+    float2 pixel = glyph.position * uniforms.unit_size + glyph.bearing + point * glyph.size;
+    float2 ndc = (pixel / uniforms.viewport_size) * 2.0f - 1.0f;
 
     VertexOut out = {
         .position = float4(ndc, 0.0f, 1.0f),
+        .uv = mix(glyph.uv.xy, glyph.uv.zw, point),
+        .fg_color = glyph.fg_color,
+        .bg_color = glyph.bg_color,
     };
 
     return out;
 }
 
-fragment float4 dotFragmentShader(VertexOut in [[stage_in]]) {
-    return float4(0.9f, 0.9f, 0.9f, 1.0f);
+fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d<float> atlas [[texture(0)]], sampler s [[sampler(0)]]) {
+    float mask = atlas.sample(s, in.uv).r;
+    float3 rgb = in.fg_color.rgb * mask;
+    float alpha = in.fg_color.a * mask;
+
+    return float4(rgb, alpha);
 }
