@@ -87,7 +87,7 @@
     self.scale = self.window.screen.backingScaleFactor;
     self.drawableSize = CGSizeMake(self.bounds.size.width * self.scale, self.bounds.size.height * self.scale);
     self.typeset = [[FontTexture alloc] initWithName:@"SF Mono" size:12 weight:NSFontWeightRegular scale:self.scale];
-    [self.typeset load];
+    [self.typeset load:nil];
 
     MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatR8Unorm width:self.typeset.width height:self.typeset.height mipmapped:NO];
 

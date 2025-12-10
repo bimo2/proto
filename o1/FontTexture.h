@@ -29,6 +29,6 @@ typedef struct glyph_attributes_t {
 
 - (instancetype)initWithName:(NSString *)name size:(CGFloat)size weight:(NSFontWeight)weight scale:(CGFloat)scale;
 
-- (void)load;
+- (void)load:(NSError **)error;
 
 @end

@@ -37,7 +37,7 @@ typedef NS_OPTIONS(NSUInteger, TerminalMouseModifierFlags) {
 @property (nonatomic, copy) NSString *file;
 @property (nonatomic, copy) NSArray<NSString *> *flags;
 @property (nonatomic, copy) NSDictionary<NSString *, NSString *> *environment;
-@property (assign, readonly, getter=isRunning) BOOL running;
+@property (readonly, getter=isRunning) BOOL running;
 @property (nonatomic, copy) void (^renderBlock)(const render_t *, size_t);
 @property (nonatomic, copy) void (^updateBlock)(screen_t *);
 @property (nonatomic, copy) void (^titleBlock)(const char *);

@@ -7,6 +7,8 @@
 
 #import "FontTexture.h"
 
+#import "NSError+Reporting.h"
+
 #import <CoreText/CoreText.h>
 
 @interface FontTexture ()
@@ -54,7 +56,7 @@
     if (_font) CFRelease(_font);
 }
 
-- (void)load {
+- (void)load:(__autoreleasing NSError **)error {
     [self.glyphSet removeAllIndexes];
 
     for (NSInteger i = 32; i < 127; i++) {
@@ -70,6 +72,7 @@
     __block NSUInteger x = padding;
     __block NSUInteger y = padding;
     __block NSUInteger rowHeight = 0;
+    __block NSError *blockError = nil;
 
     [_glyphSet enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
         CGGlyph glyph = index;
@@ -105,6 +108,13 @@
             x = padding;
             y += rowHeight + padding;
             rowHeight = 0;
+        }
+
+        if (y + height + padding > self.height) {
+            blockError = NSErrorLog(ERANGE, @"texture image size exceeded");
+            *stop = YES;
+
+            return;
         }
 
         NSMutableData *glyphData = [NSMutableData dataWithLength:width * height];
@@ -144,6 +154,8 @@
         x += width + padding;
         rowHeight = MAX(rowHeight, height);
     }];
+
+    if (blockError && error) *error = [blockError copy];
 
     self.data = data;
     self.attributes = attributes;

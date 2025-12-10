@@ -17,14 +17,14 @@
 
 @interface ViewController ()
 
-@property (strong) Terminal *terminal;
+@property (nonatomic, strong) Terminal *terminal;
 
 @end
 
 @implementation ViewController
 
 - (void)dealloc {
-    [self.terminal stop];
+    [_terminal stop];
 }
 
 - (void)loadView {

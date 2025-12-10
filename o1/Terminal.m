@@ -10,10 +10,10 @@
 #include "ansi.h"
 #include "ansi_reader.h"
 #include "include.h"
-#include "session.h"
 #include "render.h"
 #include "screen.h"
 #include "screen_context.h"
+#include "session.h"
 
 #include <crt_externs.h>
 #include <dispatch/dispatch.h>
@@ -22,7 +22,6 @@
 #include <string.h>
 #include <sys/wait.h>
 
-static NSString *TerminalErrorDomain = @"TerminalErrorDomain";
 static void on_ansi_callback(void *, ansi_t *);
 static void on_title_callback(void *, const char *);
 static void on_response_callback(void *, const char *);
@@ -80,7 +79,7 @@ static void on_mouse_callback(void *, bool);
     return session_running(session);
 }
 
-- (BOOL)start:(NSError **)error {
+- (BOOL)start:(__autoreleasing NSError **)error {
     if (self.running) return YES;
 
     NSMutableArray<NSString *> *argvObjC = [NSMutableArray array];
@@ -140,7 +139,7 @@ static void on_mouse_callback(void *, bool);
         [self setupWriteSource];
         [self setupProcSource];
     } else if (error) {
-        *error = [NSError errorWithDomain:TerminalErrorDomain code:errno userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"%s", strerror(errno)]}];
+        *error = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"%s", strerror(errno)]}];
     }
 
     return self.running;
