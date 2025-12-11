@@ -34,7 +34,7 @@
         _height = 2048;
 
         NSFontDescriptor *descriptor = [NSFontDescriptor fontDescriptorWithFontAttributes:@{
-            NSFontFamilyAttribute: _name,
+            NSFontFamilyAttribute: _name ?: @"",
             NSFontTraitsAttribute: @{ NSFontWeightTrait: @(_weight) }
         }];
 
@@ -59,8 +59,8 @@
 - (void)load:(__autoreleasing NSError **)error {
     [self.glyphSet removeAllIndexes];
 
-    for (NSInteger i = 32; i < 127; i++) {
-        UniChar index = i;
+    for (uint32_t codepoint = 0; codepoint <= 0xFFFFu; codepoint++) {
+        UniChar index = codepoint;
         CGGlyph glyph = 0;
 
         if (CTFontGetGlyphsForCharacters(self.font, &index, &glyph, 1) && glyph != 0) [self.glyphSet addIndex:glyph];

@@ -86,7 +86,7 @@
     self.columns = 80;
     self.scale = self.window.screen.backingScaleFactor;
     self.drawableSize = CGSizeMake(self.bounds.size.width * self.scale, self.bounds.size.height * self.scale);
-    self.typeset = [[FontTexture alloc] initWithName:@"SF Mono" size:12 weight:NSFontWeightRegular scale:self.scale];
+    self.typeset = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightRegular scale:self.scale];
     [self.typeset load:nil];
 
     MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatR8Unorm width:self.typeset.width height:self.typeset.height mipmapped:NO];
@@ -135,12 +135,13 @@
 
 - (void)test {
     NSMutableData *data = [NSMutableData data];
-    NSArray<NSNumber *> *keys = self.typeset.attributes.allKeys;
-    NSUInteger total = keys.count;
+    NSArray<NSNumber *> *keys = [self.typeset.attributes.allKeys sortedArrayUsingSelector:@selector(compare:)];
+    NSUInteger count = MIN(keys.count, self.rows * self.columns);
+    NSUInteger index = 0;
 
-    for (NSUInteger i = 0; i < self.rows; i++) {
-        for (NSUInteger j = 0; j < self.columns; j++) {
-            uint32_t glyph_id = keys[arc4random_uniform((uint32_t)total)].unsignedIntValue;
+    for (NSUInteger i = 0; i < self.rows && index < count; i++) {
+        for (NSUInteger j = 0; j < self.columns && index < count; j++) {
+            uint32_t glyph_id = (uint32_t)keys[index].unsignedIntValue;
             glyph_attributes_t attributes;
             NSValue *value = self.typeset.attributes[@(glyph_id)];
 
@@ -149,13 +150,14 @@
             cpu_glyph_instance_t instance;
 
             instance.glyph_id = glyph_id;
-            instance.position = simd_make_float2((float)j, (float)i);
+            instance.position = simd_make_float2((float)j, (float)(self.rows - 1 - i));
             instance.uv = simd_make_float4(attributes.uv[0], attributes.uv[1], attributes.uv[2], attributes.uv[3]);
             instance.size = simd_make_float2(attributes.width, attributes.height);
             instance.bearing = simd_make_float2(attributes.bearing_x, attributes.bearing_y);
             instance.fg_color = simd_make_float4(1.0f, 1.0f, 1.0f, 1.0f);
             instance.bg_color = simd_make_float4(0.0f, 0.0f, 0.0f, 1.0f);
             [data appendBytes:&instance length:sizeof(instance)];
+            index++;
         }
     }
 
