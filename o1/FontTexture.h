@@ -6,6 +6,7 @@
 //
 
 #import <AppKit/AppKit.h>
+#include <stdint.h>
 
 typedef struct glyph_attributes_t {
     float advance_x;
@@ -25,10 +26,11 @@ typedef struct glyph_attributes_t {
 @property (nonatomic, assign, readonly) CGFloat width;
 @property (nonatomic, assign, readonly) CGFloat height;
 @property (nonatomic, copy, readonly) NSData *data;
-@property (nonatomic, copy, readonly) NSDictionary<NSNumber *, NSValue *> *attributes;
 
 - (instancetype)initWithName:(NSString *)name size:(CGFloat)size weight:(NSFontWeight)weight scale:(CGFloat)scale;
 
 - (void)load:(NSError **)error;
+
+- (BOOL)find:(uint32_t)codepoint glyph:(uint32_t *)glyph attributes:(glyph_attributes_t *)attributes;
 
 @end

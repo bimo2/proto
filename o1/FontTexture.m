@@ -14,9 +14,9 @@
 @interface FontTexture ()
 
 @property (nonatomic, assign) CTFontRef font;
-@property (nonatomic, strong) NSMutableIndexSet *glyphSet;
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSNumber *> *codepoints;
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSValue *> *attributes;
 @property (nonatomic, copy, readwrite) NSData *data;
-@property (nonatomic, copy, readwrite) NSDictionary<NSNumber *, NSValue *> *attributes;
 
 @end
 
@@ -44,9 +44,9 @@
         if (!font) font = [NSFont monospacedSystemFontOfSize:displaySize weight:_weight];
 
         _font = CFRetain((__bridge CTFontRef)font);
-        _glyphSet = [NSMutableIndexSet indexSet];
         _data = [NSData data];
-        _attributes = [NSDictionary dictionary];
+        _attributes = [NSMutableDictionary dictionary];
+        _codepoints = [NSMutableDictionary dictionary];
     }
 
     return self;
@@ -57,24 +57,29 @@
 }
 
 - (void)load:(__autoreleasing NSError **)error {
-    [self.glyphSet removeAllIndexes];
+    [self.attributes removeAllObjects];
+    [self.codepoints removeAllObjects];
+
+    NSMutableIndexSet *allGlyphs = [NSMutableIndexSet indexSet];
 
     for (uint32_t codepoint = 0; codepoint <= 0xFFFFu; codepoint++) {
         UniChar index = codepoint;
         CGGlyph glyph = 0;
 
-        if (CTFontGetGlyphsForCharacters(self.font, &index, &glyph, 1) && glyph != 0) [self.glyphSet addIndex:glyph];
+        if (CTFontGetGlyphsForCharacters(self.font, &index, &glyph, 1) && glyph != 0) {
+            [allGlyphs addIndex:glyph];
+            self.codepoints[@(codepoint)] = @(glyph);
+        }
     }
 
     NSMutableData *data = [NSMutableData dataWithLength:self.width * self.height];
-    NSMutableDictionary<NSNumber *, NSValue *> *attributes = [NSMutableDictionary dictionary];
     NSUInteger padding = 1;
     __block NSUInteger x = padding;
     __block NSUInteger y = padding;
     __block NSUInteger rowHeight = 0;
     __block NSError *blockError = nil;
 
-    [_glyphSet enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
+    [allGlyphs enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
         CGGlyph glyph = index;
         CGRect bbox = CGRectZero;
 
@@ -99,7 +104,7 @@
                 .uv = {0.0f, 0.0f, 0.0f, 0.0f},
             };
 
-            attributes[@(index)] = [NSValue valueWithBytes:&glyph_attributes objCType:@encode(typeof(glyph_attributes))];
+            self.attributes[@(glyph)] = [NSValue valueWithBytes:&glyph_attributes objCType:@encode(typeof(glyph_attributes))];
 
             return;
         }
@@ -150,7 +155,7 @@
             },
         };
 
-        attributes[@(index)] = [NSValue valueWithBytes:&glyph_attributes objCType:@encode(typeof(glyph_attributes))];
+        self.attributes[@(glyph)] = [NSValue valueWithBytes:&glyph_attributes objCType:@encode(typeof(glyph_attributes))];
         x += width + padding;
         rowHeight = MAX(rowHeight, height);
     }];
@@ -158,7 +163,20 @@
     if (blockError && error) *error = [blockError copy];
 
     self.data = data;
-    self.attributes = attributes;
+}
+
+- (BOOL)find:(uint32_t)codepoint glyph:(uint32_t *)glyph attributes:(glyph_attributes_t *)attributes {
+    NSNumber *glyphNumber = self.codepoints[@(codepoint)];
+
+    if (!glyphNumber) return NO;
+    if (glyph) *glyph = (uint32_t)glyphNumber.unsignedIntValue;
+
+    NSValue *value = self.attributes[glyphNumber];
+
+    if (!value) return NO;
+    if (attributes) [value getValue:attributes];
+
+    return YES;
 }
 
 @end

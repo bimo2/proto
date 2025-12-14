@@ -25,7 +25,7 @@ typedef struct cpu_glyph_instance_t {
 
 typedef struct cpu_grid_uniforms_t {
     simd_float2 viewport_size;
-    simd_float2 unit_size;
+    simd_float2 cell_size;
 } cpu_grid_uniforms_t;
 
 #endif // !SHADERS_CPU_H

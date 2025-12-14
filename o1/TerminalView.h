@@ -8,6 +8,10 @@
 #import <Cocoa/Cocoa.h>
 #import <MetalKit/MetalKit.h>
 
+#include "render.h"
+
 @interface TerminalView : MTKView <MTKViewDelegate>
+
+- (void)render:(const render_t *)ops count:(size_t)count;
 
 @end

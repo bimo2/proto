@@ -21,7 +21,7 @@ struct GlyphInstance {
 
 struct GridUniforms {
     float2 viewport_size;
-    float2 unit_size;
+    float2 cell_size;
 };
 
 struct VertexOut {
@@ -44,7 +44,7 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
     };
 
     float2 point = quad[vid];
-    float2 pixel = glyph.position * uniforms.unit_size + glyph.bearing + point * glyph.size;
+    float2 pixel = glyph.position * uniforms.cell_size + glyph.bearing + point * glyph.size;
     float2 ndc = (pixel / uniforms.viewport_size) * 2.0f - 1.0f;
 
     VertexOut out = {
