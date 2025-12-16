@@ -7,6 +7,6 @@
 
 #import <Cocoa/Cocoa.h>
 
-@interface WindowController : NSWindowController
+@interface WindowController : NSWindowController <NSToolbarDelegate>
 
 @end

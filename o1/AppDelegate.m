@@ -63,7 +63,6 @@
     NSWindow *window = (NSWindow *)notification.object;
 
     window.titlebarAppearsTransparent = NO;
-    window.toolbarStyle = NSWindowToolbarStyleUnifiedCompact;
     window.appearance = nil;
 }
 
@@ -71,7 +70,6 @@
     NSWindow *window = (NSWindow *)notification.object;
 
     window.titlebarAppearsTransparent = YES;
-    window.toolbarStyle = NSWindowToolbarStyleUnified;
     window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
 }
 

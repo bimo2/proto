@@ -9,6 +9,14 @@
 
 #import "ViewController.h"
 
+static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
+
+@interface WindowController ()
+
+@property (nonatomic, strong) ViewController *viewController;
+
+@end
+
 @implementation WindowController
 
 - (instancetype)init {
@@ -26,18 +34,44 @@
 
         NSToolbar *toolbar = [[NSToolbar alloc] init];
 
+        toolbar.delegate = self;
         toolbar.displayMode = NSToolbarDisplayModeIconOnly;
         window.toolbar = toolbar;
         window.toolbarStyle = NSWindowToolbarStyleUnified;
-
-        ViewController *viewController = [[ViewController alloc] init];
-
-        window.contentViewController = viewController;
+        _viewController = [[ViewController alloc] init];
+        window.contentViewController = _viewController;
         window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
         [window setContentSize:frame.size];
     }
 
     return self;
+}
+
+- (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier willBeInsertedIntoToolbar:(BOOL)flag {
+    if ([itemIdentifier isEqualToString:SearchItemIdentifier]) {
+        NSSearchToolbarItem *search = [[NSSearchToolbarItem alloc] initWithItemIdentifier:itemIdentifier];
+        NSSearchField *searchField = search.searchField;
+
+        searchField.delegate = self.viewController;
+
+        return search;
+    }
+
+    return nil;
+}
+
+- (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar {
+    return @[
+        NSToolbarFlexibleSpaceItemIdentifier,
+        SearchItemIdentifier,
+    ];
+}
+
+- (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar {
+    return @[
+        NSToolbarFlexibleSpaceItemIdentifier,
+        SearchItemIdentifier,
+    ];
 }
 
 @end

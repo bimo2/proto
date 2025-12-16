@@ -10,6 +10,8 @@
 #import "Terminal.h"
 #import "TerminalView.h"
 
+#import <QuartzCore/QuartzCore.h>
+
 #include "render.h"
 #include "screen.h"
 
@@ -18,6 +20,8 @@
 @interface ViewController ()
 
 @property (nonatomic, strong) Terminal *terminal;
+@property (nonatomic, strong) TerminalView *terminalView;
+@property (nonatomic, strong) NSView *gradientView;
 
 @end
 
@@ -27,16 +31,8 @@
     [_terminal stop];
 }
 
-- (void)loadView {
-    NSRect frame = NSMakeRect(0, 0, 575, 375);
-    TerminalView *terminalView = [[TerminalView alloc] initWithFrame:frame];
-
-    self.view = terminalView;
-}
-
 - (void)viewDidLoad {
     [super viewDidLoad];
-
     self.terminal = [[Terminal alloc] init];
     self.terminal.file = @"/bin/zsh";
 
@@ -47,7 +43,7 @@
 
         if (!strongSelf) return;
 
-        [(TerminalView *)strongSelf.view render:ops count:count];
+        [strongSelf.terminalView render:ops count:count];
 
         for (size_t i = 0; i < count; i++) {
             const render_t *diff = &ops[i];
@@ -125,6 +121,42 @@
         NSLog(@"exit: %d", status);
     };
 
+    TerminalView *terminalView = [[TerminalView alloc] initWithFrame:self.view.bounds];
+
+    terminalView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:terminalView];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [terminalView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:2.0],
+        [terminalView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-20.0],
+        [terminalView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16.0],
+        [terminalView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16.0],
+    ]];
+
+    self.terminalView = terminalView;
+
+    CGFloat height = 80.0;
+    NSRect frame = NSMakeRect(0, self.view.bounds.size.height - height, self.view.bounds.size.width, height);
+    NSView *subview = [[NSView alloc] initWithFrame:frame];
+
+    subview.autoresizingMask = NSViewWidthSizable | NSViewMinYMargin;
+    subview.wantsLayer = YES;
+
+    CAGradientLayer *gradient = [CAGradientLayer layer];
+
+    gradient.colors = @[
+        (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.84].CGColor,
+        (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.0].CGColor,
+    ];
+
+    gradient.locations = @[@0.24, @1.0];
+    gradient.startPoint = CGPointMake(0.5, 1.0);
+    gradient.endPoint = CGPointMake(0.5, 0.0);
+    gradient.frame = subview.bounds;
+    subview.layer = gradient;
+    [self.view addSubview:subview positioned:NSWindowAbove relativeTo:self.terminalView];
+    self.gradientView = subview;
+
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         __strong typeof(weakSelf) strongSelf = weakSelf;
 
@@ -140,7 +172,7 @@
 
         usleep(100 * 1000);
 
-        NSString *string = @"ls -l\n";
+        NSString *string = @"ls -a\n";
         NSData *data = [string dataUsingEncoding:NSUTF8StringEncoding];
 
         [strongSelf.terminal write:data];

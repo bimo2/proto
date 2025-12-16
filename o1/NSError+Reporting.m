@@ -9,14 +9,14 @@
 
 #include <os/log.h>
 
-static NSErrorDomain const domain = @"com.github.o1.error";
+static NSErrorDomain const ErrorDomain = @"com.github.o1.error";
 
 @implementation NSError (Reporting)
 
 + (NSError *)error:(NSInteger)code description:(NSString *)description file:(NSString *)file line:(NSInteger)line {
     os_log_error(eventlog(), EVENTLOG_INFO " %s", file.UTF8String, (int)line, description.UTF8String);
 
-    return [NSError errorWithDomain:domain code:code userInfo:@{NSLocalizedDescriptionKey : description}];
+    return [NSError errorWithDomain:ErrorDomain code:code userInfo:@{NSLocalizedDescriptionKey : description}];
 }
 
 @end
