@@ -22,7 +22,6 @@
 @property (nonatomic, strong) id<MTLSamplerState> sampler;
 @property (nonatomic, strong) id<MTLTexture> texture;
 @property (nonatomic, strong) id<MTLBuffer> buffer;
-@property (nonatomic, strong) NSMutableData *codepoints;
 @property (nonatomic, assign) NSUInteger rows;
 @property (nonatomic, assign) NSUInteger columns;
 @property (nonatomic, assign) CGFloat scale;
@@ -107,17 +106,20 @@
 
     NSUInteger instanceCount = self.rows * self.columns;
 
-    self.codepoints = [NSMutableData dataWithLength:instanceCount * sizeof(uint32_t)];
     self.buffer = [self.device newBufferWithLength:instanceCount * sizeof(cpu_glyph_instance_t) options:MTLResourceStorageModeShared];
     self.instanceCount = instanceCount;
 
-    uint32_t *grid = (uint32_t *)self.codepoints.mutableBytes;
+    cpu_glyph_instance_t *instances = (cpu_glyph_instance_t *)self.buffer.contents;
 
-    if (grid) {
-        for (size_t i = 0; i < instanceCount; i++) grid[i] = ' ';
+    if (!instances) return;
+
+    for (NSUInteger row = 0; row < self.rows; row++) {
+        for (NSUInteger column = 0; column < self.columns; column++) {
+            NSUInteger index = row * self.columns + column;
+
+            [self update:&instances[index] row:row column:column codepoint:' ' attributes:NULL];
+        }
     }
-
-    [self updateInstances];
 }
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
@@ -170,50 +172,47 @@
                 break;
         }
     }
-
-    [self updateInstances];
 }
 
-- (void)updateInstances {
-    cpu_glyph_instance_t *instances = (cpu_glyph_instance_t *)self.buffer.contents;
-    uint32_t *grid = (uint32_t *)self.codepoints.mutableBytes;
+- (void)update:(cpu_glyph_instance_t *)instance row:(NSUInteger)row column:(NSUInteger)column codepoint:(uint32_t)codepoint attributes:(const ansi_sgr_t *)attributes {
+    if (!instance) return;
 
-    if (!instances || !grid) return;
+    if (codepoint == 0) codepoint = ' ';
 
-    for (NSUInteger row = 0; row < self.rows; row++) {
-        for (NSUInteger column = 0; column < self.columns; column++) {
-            NSUInteger index = row * self.columns + column;
-            uint32_t codepoint = grid[index];
+    glyph_attributes_t glyphAttrs;
 
-            if (codepoint == 0) codepoint = ' ';
+    memset(&glyphAttrs, 0, sizeof(glyphAttrs));
 
-            cpu_glyph_instance_t instance;
-            glyph_attributes_t attributes;
+    uint32_t glyph = 0;
+    BOOL hasGlyph = [self.typeset find:codepoint glyph:&glyph attributes:&glyphAttrs];
 
-            memset(&instance, 0, sizeof(typeof(instance)));
-            memset(&attributes, 0, sizeof(typeof(attributes)));
+    if (!hasGlyph) [self.typeset find:' ' glyph:&glyph attributes:&glyphAttrs];
 
-            uint32_t glyph = 0;
-            BOOL hasGlyph = [self.typeset find:codepoint glyph:&glyph attributes:&attributes];
+    uint32_t fg_packed = attributes ? attributes->fg_color : ANSI_COLOR_RESET;
+    uint32_t bg_packed = attributes ? attributes->bg_color : ANSI_COLOR_RESET;
+    simd_float4 fg_color = cpu_rgba_color(fg_packed, false);
+    simd_float4 bg_color = cpu_rgba_color(bg_packed, true);
 
-            if (!hasGlyph) [self.typeset find:' ' glyph:&glyph attributes:&attributes];
+    if (attributes && (attributes->flags & ANSI_SGR_FLAG_INVERSE)) {
+        simd_float4 reverse = fg_color;
 
-            instance.glyph_id = glyph;
-            instance.position = simd_make_float2((float)column, (float)(self.rows - 1 - row));
-            instance.uv = simd_make_float4(attributes.uv[0], attributes.uv[1], attributes.uv[2], attributes.uv[3]);
-            instance.size = simd_make_float2(attributes.width, attributes.height);
-            instance.bearing = simd_make_float2(attributes.bearing_x, attributes.bearing_y);
-            instance.fg_color = simd_make_float4(1.0f, 1.0f, 1.0f, 1.0f);
-            instance.bg_color = simd_make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-            instances[index] = instance;
-        }
+        fg_color = bg_color;
+        bg_color = reverse;
     }
+
+    instance->glyph_id = glyph;
+    instance->position = simd_make_float2((float)column, (float)(self.rows - 1 - row));
+    instance->uv = simd_make_float4(glyphAttrs.uv[0], glyphAttrs.uv[1], glyphAttrs.uv[2], glyphAttrs.uv[3]);
+    instance->size = simd_make_float2(glyphAttrs.width, glyphAttrs.height);
+    instance->bearing = simd_make_float2(glyphAttrs.bearing_x, glyphAttrs.bearing_y);
+    instance->fg_color = fg_color;
+    instance->bg_color = bg_color;
 }
 
 - (void)applySpan:(const render_op_span_t *)span {
-    uint32_t *grid = (uint32_t *)self.codepoints.mutableBytes;
+    cpu_glyph_instance_t *instances = (cpu_glyph_instance_t *)self.buffer.contents;
 
-    if (!grid) return;
+    if (!instances) return;
 
     NSUInteger row = (NSUInteger)span->row;
 
@@ -224,18 +223,14 @@
 
         if (column >= self.columns) break;
 
-        uint32_t codepoint = span->cells[i].codepoint;
-
-        if (codepoint == 0) codepoint = ' ';
-
-        grid[row * self.columns + column] = codepoint;
+        [self update:&instances[row * self.columns + column] row:row column:column codepoint:span->cells[i].codepoint attributes:&span->cells[i].attributes];
     }
 }
 
 - (void)applyScroll:(const render_op_scroll_t *)scroll {
-    uint32_t *grid = (uint32_t *)self.codepoints.mutableBytes;
+    cpu_glyph_instance_t *instances = (cpu_glyph_instance_t *)self.buffer.contents;
 
-    if (!grid) return;
+    if (!instances) return;
 
     NSInteger top = MAX(0, scroll->top);
     NSInteger bottom = MIN((NSInteger)self.rows - 1, scroll->bottom);
@@ -244,14 +239,28 @@
 
     NSInteger height = bottom - top + 1;
     NSInteger shift = MIN(height, labs(scroll->delta));
-    size_t width = self.columns * sizeof(uint32_t);
+    size_t size = self.columns * sizeof(cpu_glyph_instance_t);
 
     if (scroll->delta > 0) {
-        for (NSInteger row = top; row <= bottom - shift; row++) memmove(grid + (row * self.columns), grid + ((row + shift) * self.columns), width);
-        for (NSInteger row = bottom - shift + 1; row <= bottom; row++) memset(grid + (row * self.columns), 0, width);
+        for (NSInteger row = top; row <= bottom - shift; row++) memmove(instances + (row * self.columns), instances + ((row + shift) * self.columns), size);
+
+        for (NSInteger row = bottom - shift + 1; row <= bottom; row++) {
+            for (NSUInteger column = 0; column < self.columns; column++) {
+                NSUInteger index = (NSUInteger)row * self.columns + column;
+
+                [self update:&instances[index] row:row column:column codepoint:' ' attributes:NULL];
+            }
+        }
     } else {
-        for (NSInteger row = bottom; row >= top + shift; row--) memmove(grid + (row * self.columns), grid + ((row - shift) * self.columns), width);
-        for (NSInteger row = top; row < top + shift; row++) memset(grid + (row * self.columns), 0, width);
+        for (NSInteger row = bottom; row >= top + shift; row--) memmove(instances + (row * self.columns), instances + ((row - shift) * self.columns), size);
+
+        for (NSInteger row = top; row < top + shift; row++) {
+            for (NSUInteger column = 0; column < self.columns; column++) {
+                NSUInteger index = (NSUInteger)row * self.columns + column;
+
+                [self update:&instances[index] row:row column:column codepoint:' ' attributes:NULL];
+            }
+        }
     }
 }
 

@@ -9,9 +9,33 @@
 #define SHADERS_CPU_H
 
 #include <simd/simd.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 #define CPU_TERMINAL_VERTEX_SHADER "terminal_vertex"
 #define CPU_TERMINAL_FRAGMENT_SHADER "terminal_fragment"
+#define CPU_USER_COLOR_LENGTH 16
+
+typedef enum cpu_user_color_t {
+    CPU_USER_COLOR_BLACK = 0,
+    CPU_USER_COLOR_RED,
+    CPU_USER_COLOR_GREEN,
+    CPU_USER_COLOR_YELLOW,
+    CPU_USER_COLOR_BLUE,
+    CPU_USER_COLOR_MAGENTA,
+    CPU_USER_COLOR_CYAN,
+    CPU_USER_COLOR_WHITE,
+    CPU_USER_COLOR_BRIGHT_BLACK,
+    CPU_USER_COLOR_BRIGHT_RED,
+    CPU_USER_COLOR_BRIGHT_GREEN,
+    CPU_USER_COLOR_BRIGHT_YELLOW,
+    CPU_USER_COLOR_BRIGHT_BLUE,
+    CPU_USER_COLOR_BRIGHT_MAGENTA,
+    CPU_USER_COLOR_BRIGHT_CYAN,
+    CPU_USER_COLOR_BRIGHT_WHITE,
+} cpu_user_color_t;
+
+extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
 
 typedef struct cpu_glyph_instance_t {
     uint32_t glyph_id;
@@ -27,5 +51,7 @@ typedef struct cpu_grid_uniforms_t {
     simd_float2 viewport_size;
     simd_float2 cell_size;
 } cpu_grid_uniforms_t;
+
+simd_float4 cpu_rgba_color(uint32_t color, bool background);
 
 #endif // !SHADERS_CPU_H

@@ -9,7 +9,8 @@
 
 #include "include.h"
 
-#define NSErrorLog(code, nsstring) [NSError error:code description:nsstring file:@__FILENAME__ line:__LINE__]
+#define NSErrorLog(code, nsstring) \
+    [NSError error:code description:nsstring file:@__FILENAME__ line:__LINE__]
 
 @interface NSError (Reporting)
 

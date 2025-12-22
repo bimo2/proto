@@ -6,6 +6,7 @@
 //
 
 #import <AppKit/AppKit.h>
+
 #include <stdint.h>
 
 typedef struct glyph_attributes_t {

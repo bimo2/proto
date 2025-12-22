@@ -8,6 +8,7 @@
 #import "Terminal+UserDefaults.h"
 
 #include "screen.h"
+#include "shaders_cpu.h"
 #include "unicode.h"
 
 @implementation Terminal (UserDefaults)
@@ -63,6 +64,33 @@
 
             break;
     }
+}
+
++ (NSDictionary<NSNumber *, NSColor *> *)colors {
+    NSMutableDictionary *indexed = [NSMutableDictionary dictionary];
+
+    for (int i = 0; i < CPU_USER_COLOR_LENGTH; i++) {
+        simd_float3 rgba = cpu_default_colors[i];
+        CGFloat components[] = {rgba.x, rgba.y, rgba.z, 1.0};
+
+        indexed[@(i)] = [NSColor colorWithColorSpace:NSColorSpace.sRGBColorSpace components:components count:4];
+    }
+
+    return [indexed copy];
+}
+
++ (void)setColors:(NSDictionary<NSNumber *, NSColor *> *)colors {
+    [colors enumerateKeysAndObjectsUsingBlock:^(NSNumber *key, NSColor *value, BOOL *stop) {
+        NSColor *color = [value colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+
+        if (!color) return;
+
+        float red = (float)color.redComponent;
+        float green = (float)color.greenComponent;
+        float blue = (float)color.blueComponent;
+
+        cpu_default_colors[key.intValue] = simd_make_float3(red, green, blue);
+    }];
 }
 
 @end

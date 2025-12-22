@@ -7,6 +7,8 @@
 
 #import "Terminal.h"
 
+#import <AppKit/AppKit.h>
+
 @interface Terminal (UserDefaults)
 
 @property (class, assign) NSUInteger width;
@@ -14,5 +16,6 @@
 @property (class, assign) NSUInteger rows;
 @property (class, assign) NSUInteger columns;
 @property (class, assign) NSUInteger codepoint;
+@property (class, copy) NSDictionary<NSNumber *, NSColor *> *colors;
 
 @end
