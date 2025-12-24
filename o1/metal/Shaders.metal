@@ -29,38 +29,68 @@ struct VertexOut {
     float2 uv;
     float4 fg_color;
     float4 bg_color;
+    bool background;
 };
 
 vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]], constant GlyphInstance* instances [[buffer(1)]], constant GridUniforms& uniforms [[buffer(0)]]) {
     GlyphInstance glyph = instances[iid];
+    uint local_vid = vid % 12;
+    bool background = (local_vid < 6);
+    float2 point;
+    float2 pixel;
+    float2 uv_out;
 
-    float2 quad[6] = {
-        float2(0.0f, 0.0f),
-        float2(1.0f, 0.0f),
-        float2(0.0f, 1.0f),
-        float2(1.0f, 0.0f),
-        float2(1.0f, 1.0f),
-        float2(0.0f, 1.0f),
-    };
+    if (background) {
+        float2 quad[6] = {
+            float2(0.0f, 0.0f),
+            float2(1.0f, 0.0f),
+            float2(0.0f, 1.0f),
+            float2(1.0f, 0.0f),
+            float2(1.0f, 1.0f),
+            float2(0.0f, 1.0f),
+        };
 
-    float2 point = quad[vid];
-    float2 pixel = glyph.position * uniforms.cell_size + glyph.bearing + point * glyph.size;
+        point = quad[local_vid];
+        pixel = glyph.position * uniforms.cell_size + point * uniforms.cell_size;
+        uv_out = float2(0.0f);
+    } else {
+        uint text_vid = local_vid - 6;
+
+        float2 quad[6] = {
+            float2(0.0f, 0.0f),
+            float2(1.0f, 0.0f),
+            float2(0.0f, 1.0f),
+            float2(1.0f, 0.0f),
+            float2(1.0f, 1.0f),
+            float2(0.0f, 1.0f),
+        };
+
+        point = quad[text_vid];
+        pixel = glyph.position * uniforms.cell_size + glyph.bearing + point * glyph.size;
+        uv_out = mix(glyph.uv.xy, glyph.uv.zw, point);
+    }
+
     float2 ndc = (pixel / uniforms.viewport_size) * 2.0f - 1.0f;
 
     VertexOut out = {
         .position = float4(ndc, 0.0f, 1.0f),
-        .uv = mix(glyph.uv.xy, glyph.uv.zw, point),
+        .uv = uv_out,
         .fg_color = glyph.fg_color,
         .bg_color = glyph.bg_color,
+        .background = background,
     };
 
     return out;
 }
 
 fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d<float> atlas [[texture(0)]], sampler s [[sampler(0)]]) {
-    float mask = atlas.sample(s, in.uv).r;
-    float3 rgb = in.fg_color.rgb * mask;
-    float alpha = in.fg_color.a * mask;
+    if (in.background) {
+        return float4(in.bg_color.rgb * in.bg_color.a, in.bg_color.a);
+    } else {
+        float mask = atlas.sample(s, in.uv).r;
+        float alpha = in.fg_color.a * mask;
+        float3 rgb = in.fg_color.rgb * alpha;
 
-    return float4(rgb, alpha);
+        return float4(rgb, alpha);
+    }
 }

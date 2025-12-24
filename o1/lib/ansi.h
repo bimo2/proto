@@ -13,7 +13,10 @@
 #include <stdint.h>
 
 #define ANSI_MAX_PARAMETERS 16
-#define ANSI_COLOR_RESET 0xFFFFFFFFu
+#define ANSI_COLOR_UNSET 0xFFFFFFFFu
+#define ANSI_COLOR_RESET 0xFFFFFFFEu
+#define ANSI_SGR_FLAGS_ON_MASK 0x00FFu
+#define ANSI_SGR_FLAGS_OFF_MASK 0xFF00u
 #define ANSI_BRACKETED_PASTE_START "\x1b[200~"
 #define ANSI_BRACKETED_PASTE_END "\x1b[201~"
 #define ANSI_FOCUS_IN "\x1b[I"
@@ -113,6 +116,14 @@ typedef enum ansi_sgr_flag_t {
     ANSI_SGR_FLAG_INVERSE = 1 << 5,
     ANSI_SGR_FLAG_HIDDEN = 1 << 6,
     ANSI_SGR_FLAG_STRIKE = 1 << 7,
+    ANSI_SGR_FLAG_OFF_BOLD = 1 << 8,
+    ANSI_SGR_FLAG_OFF_FAINT = 1 << 9,
+    ANSI_SGR_FLAG_OFF_ITALIC = 1 << 10,
+    ANSI_SGR_FLAG_OFF_UNDERLINE = 1 << 11,
+    ANSI_SGR_FLAG_OFF_BLINK = 1 << 12,
+    ANSI_SGR_FLAG_OFF_INVERSE = 1 << 13,
+    ANSI_SGR_FLAG_OFF_HIDDEN = 1 << 14,
+    ANSI_SGR_FLAG_OFF_STRIKE = 1 << 15,
 } ansi_sgr_flag_t;
 
 typedef struct ansi_sgr_t {

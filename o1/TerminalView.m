@@ -147,7 +147,7 @@
     [encoder setVertexBuffer:self.buffer offset:0 atIndex:1];
     [encoder setFragmentTexture:self.texture atIndex:0];
     [encoder setFragmentSamplerState:self.sampler atIndex:0];
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6 instanceCount:self.instanceCount];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:12 instanceCount:self.instanceCount];
     [encoder endEncoding];
     [buffer presentDrawable:view.currentDrawable];
     [buffer commit];

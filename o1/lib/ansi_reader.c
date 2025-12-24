@@ -42,10 +42,18 @@ struct ansi_reader_t {
     void *user_data;
 };
 
-static inline void sgr_reset_attributes(ansi_sgr_t *attributes) {
+static inline void sgr_unset_attributes(ansi_sgr_t *attributes) {
     if (!attributes) return;
 
     attributes->flags = ANSI_SGR_FLAG_NONE;
+    attributes->fg_color = ANSI_COLOR_UNSET;
+    attributes->bg_color = ANSI_COLOR_UNSET;
+}
+
+static inline void sgr_reset_attributes(ansi_sgr_t *attributes) {
+    if (!attributes) return;
+
+    attributes->flags = ANSI_SGR_FLAGS_OFF_MASK;
     attributes->fg_color = ANSI_COLOR_RESET;
     attributes->bg_color = ANSI_COLOR_RESET;
 }
@@ -113,38 +121,38 @@ static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, 
                 break;
             case 21:
             case 22:
-                attributes->flags &= ~ANSI_SGR_FLAG_BOLD;
+                attributes->flags |= ANSI_SGR_FLAG_OFF_BOLD | ANSI_SGR_FLAG_OFF_FAINT;
                 i++;
 
                 break;
             case 23:
-                attributes->flags &= ~ANSI_SGR_FLAG_ITALIC;
+                attributes->flags |= ANSI_SGR_FLAG_OFF_ITALIC;
                 i++;
 
                 break;
             case 24:
-                attributes->flags &= ~ANSI_SGR_FLAG_UNDERLINE;
+                attributes->flags |= ANSI_SGR_FLAG_OFF_UNDERLINE;
                 i++;
 
                 break;
             case 25:
             case 26:
-                attributes->flags &= ~ANSI_SGR_FLAG_BLINK;
+                attributes->flags |= ANSI_SGR_FLAG_OFF_BLINK;
                 i++;
 
                 break;
             case 27:
-                attributes->flags &= ~ANSI_SGR_FLAG_INVERSE;
+                attributes->flags |= ANSI_SGR_FLAG_OFF_INVERSE;
                 i++;
 
                 break;
             case 28:
-                attributes->flags &= ~ANSI_SGR_FLAG_HIDDEN;
+                attributes->flags |= ANSI_SGR_FLAG_OFF_HIDDEN;
                 i++;
 
                 break;
             case 29:
-                attributes->flags &= ~ANSI_SGR_FLAG_STRIKE;
+                attributes->flags |= ANSI_SGR_FLAG_OFF_STRIKE;
                 i++;
 
                 break;
@@ -172,7 +180,7 @@ static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, 
                     attributes->bg_color = ansi_color_pack_indexed(index);
                     i++;
                 } else if (p == 38 || p == 48) {
-                    bool foregound = p == 38;
+                    bool foreground = p == 38;
 
                     if (i + 1 < count && parameters[i + 1] == 5 && i + 2 < count) {
                         int index = parameters[i + 2];
@@ -180,7 +188,7 @@ static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, 
                         if (index < 0) index = 0;
                         if (index > 255) index = 255;
 
-                        uint32_t *color = foregound ? &attributes->fg_color : &attributes->bg_color;
+                        uint32_t *color = foreground ? &attributes->fg_color : &attributes->bg_color;
 
                         *color = ansi_color_pack_indexed(index);
                         i += 3;
@@ -196,7 +204,7 @@ static void sgr_apply_parameters(ansi_sgr_t *attributes, const int *parameters, 
                         if (blue < 0) blue = 0;
                         if (blue > 255) blue = 255;
 
-                        uint32_t *color = foregound ? &attributes->fg_color : &attributes->bg_color;
+                        uint32_t *color = foreground ? &attributes->fg_color : &attributes->bg_color;
 
                         *color = ansi_color_pack_rgb(red, green, blue);
                         i += 5;
@@ -321,7 +329,7 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
 
     for (size_t j = 0; j < reader->csi_intermediates_count && j < 5; j++) ansi.csi.intermediates[j] = reader->csi_intermediates[j];
 
-    sgr_reset_attributes(&ansi.csi.attributes);
+    sgr_unset_attributes(&ansi.csi.attributes);
 
     ansi_csi_event_t event = ANSI_CSI_KIND_UNKNOWN;
 
@@ -444,7 +452,7 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
     if (event == ANSI_CSI_SGR) {
         ansi_sgr_t attributes;
 
-        sgr_reset_attributes(&attributes);
+        sgr_unset_attributes(&attributes);
         sgr_apply_parameters(&attributes, ansi.csi.parameters, ansi.csi.parameters_count);
         ansi.csi.attributes = attributes;
     }

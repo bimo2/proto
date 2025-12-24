@@ -780,7 +780,11 @@ void screen_set_attributes(screen_t *screen, const ansi_sgr_t *attributes) {
     if (!attributes) {
         screen->attributes = default_attributes;
     } else {
-        screen->attributes = *attributes;
+        screen->attributes.flags |= (attributes->flags & ANSI_SGR_FLAGS_ON_MASK);
+        screen->attributes.flags &= ~((attributes->flags & ANSI_SGR_FLAGS_OFF_MASK) >> 8);
+
+        if (attributes->fg_color != ANSI_COLOR_UNSET) screen->attributes.fg_color = attributes->fg_color;
+        if (attributes->bg_color != ANSI_COLOR_UNSET) screen->attributes.bg_color = attributes->bg_color;
     }
 }
 

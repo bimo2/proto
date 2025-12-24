@@ -116,7 +116,7 @@ uint32_t ansi_color_pack_rgb(uint8_t red, uint8_t green, uint8_t blue) {
 }
 
 ansi_color_t ansi_color_unpack(uint32_t color, int *index, uint8_t *red, uint8_t *green, uint8_t *blue) {
-    if (color == ANSI_COLOR_RESET) return ANSI_COLOR_DEFAULT;
+    if (color == ANSI_COLOR_UNSET || color == ANSI_COLOR_RESET) return ANSI_COLOR_DEFAULT;
 
     if ((color & ANSI_BITWISE_MASK) == ANSI_BITWISE_INDEXED) {
         if (index) *index = color & 0xFFu;
