@@ -16,7 +16,7 @@
 
 @interface TerminalView ()
 
-@property (nonatomic, strong) FontTexture *typeset;
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, FontTexture *> *typesets;
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
 @property (nonatomic, strong) id<MTLRenderPipelineState> pipeline;
 @property (nonatomic, strong) id<MTLSamplerState> sampler;
@@ -51,6 +51,7 @@
         self.enableSetNeedsDisplay = NO;
         self.paused = NO;
 
+        _typesets = [NSMutableDictionary dictionary];
         _commandQueue = [device newCommandQueue];
 
         id<MTLLibrary> library = [device newDefaultLibraryWithBundle:NSBundle.mainBundle error:nil];
@@ -89,18 +90,38 @@
     self.columns = 80;
     self.scale = self.window.screen.backingScaleFactor;
     self.drawableSize = CGSizeMake(self.bounds.size.width * self.scale, self.bounds.size.height * self.scale);
-    self.typeset = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightRegular scale:self.scale];
-    [self.typeset load:nil];
 
-    MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatR8Unorm width:self.typeset.width height:self.typeset.height mipmapped:NO];
+    FontTexture *fontRegular = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightRegular scale:self.scale];
 
+    [fontRegular load:nil];
+    self.typesets[@(CPU_FONT_INDEX_REGULAR)] = fontRegular;
+
+    FontTexture *fontBold = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightBold scale:self.scale];
+
+    [fontBold load:nil];
+    self.typesets[@(CPU_FONT_INDEX_BOLD)] = fontBold;
+
+    NSUInteger fontWidth = (NSUInteger)fontRegular.width;
+    NSUInteger fontHeight = (NSUInteger)fontRegular.height;
+    MTLTextureDescriptor *descriptor = [[MTLTextureDescriptor alloc] init];
+
+    descriptor.pixelFormat = MTLPixelFormatR8Unorm;
+    descriptor.width = fontWidth;
+    descriptor.height = fontHeight;
+    descriptor.mipmapLevelCount = 1;
+    descriptor.textureType = MTLTextureType2DArray;
+    descriptor.arrayLength = 2;
+    descriptor.usage = MTLTextureUsageShaderRead;
     self.texture = [self.device newTextureWithDescriptor:descriptor];
 
     MTLOrigin origin = MTLOriginMake(0, 0, 0);
-    MTLSize size = MTLSizeMake(self.typeset.width, self.typeset.height, 1);
+    MTLSize size = MTLSizeMake(fontWidth, fontHeight, 1);
     MTLRegion region = {origin, size};
+    size_t row_bytes = (size_t)fontWidth;
+    size_t image_bytes = (size_t)(fontWidth * fontHeight);
 
-    [self.texture replaceRegion:region mipmapLevel:0 withBytes:self.typeset.data.bytes bytesPerRow:self.typeset.width];
+    [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_REGULAR withBytes:fontRegular.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
+    [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_BOLD withBytes:fontBold.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
     self.cellWidth = self.drawableSize.width / self.columns;
     self.cellHeight = self.drawableSize.height / self.rows;
 
@@ -179,14 +200,19 @@
 
     if (codepoint == 0) codepoint = ' ';
 
-    glyph_attributes_t glyphAttrs;
+    uint32_t font = attributes && (attributes->flags & ANSI_SGR_FLAG_BOLD) ? CPU_FONT_INDEX_BOLD : CPU_FONT_INDEX_REGULAR;
+    FontTexture *typeset = self.typesets[@(font)];
 
-    memset(&glyphAttrs, 0, sizeof(glyphAttrs));
+    if (!typeset) return;
+
+    glyph_attributes_t glyph_attributes;
+
+    memset(&glyph_attributes, 0, sizeof(glyph_attributes));
 
     uint32_t glyph = 0;
-    BOOL hasGlyph = [self.typeset find:codepoint glyph:&glyph attributes:&glyphAttrs];
+    BOOL hasGlyph = [typeset find:codepoint glyph:&glyph attributes:&glyph_attributes];
 
-    if (!hasGlyph) [self.typeset find:' ' glyph:&glyph attributes:&glyphAttrs];
+    if (!hasGlyph) [typeset find:' ' glyph:&glyph attributes:&glyph_attributes];
 
     uint32_t fg_packed = attributes ? attributes->fg_color : ANSI_COLOR_RESET;
     uint32_t bg_packed = attributes ? attributes->bg_color : ANSI_COLOR_RESET;
@@ -201,10 +227,11 @@
     }
 
     instance->glyph_id = glyph;
+    instance->font_index = font;
     instance->position = simd_make_float2((float)column, (float)(self.rows - 1 - row));
-    instance->uv = simd_make_float4(glyphAttrs.uv[0], glyphAttrs.uv[1], glyphAttrs.uv[2], glyphAttrs.uv[3]);
-    instance->size = simd_make_float2(glyphAttrs.width, glyphAttrs.height);
-    instance->bearing = simd_make_float2(glyphAttrs.bearing_x, glyphAttrs.bearing_y);
+    instance->uv = simd_make_float4(glyph_attributes.uv[0], glyph_attributes.uv[1], glyph_attributes.uv[2], glyph_attributes.uv[3]);
+    instance->size = simd_make_float2(glyph_attributes.width, glyph_attributes.height);
+    instance->bearing = simd_make_float2(glyph_attributes.bearing_x, glyph_attributes.bearing_y);
     instance->fg_color = fg_color;
     instance->bg_color = bg_color;
 }

@@ -15,6 +15,8 @@
 #define CPU_TERMINAL_VERTEX_SHADER "terminal_vertex"
 #define CPU_TERMINAL_FRAGMENT_SHADER "terminal_fragment"
 #define CPU_USER_COLOR_LENGTH 16
+#define CPU_FONT_INDEX_REGULAR 0
+#define CPU_FONT_INDEX_BOLD 1
 
 typedef enum cpu_user_color_t {
     CPU_USER_COLOR_BLACK = 0,
@@ -39,6 +41,7 @@ extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
 
 typedef struct cpu_glyph_instance_t {
     uint32_t glyph_id;
+    uint32_t font_index;
     simd_float2 position;
     simd_float4 uv;
     simd_float2 size;

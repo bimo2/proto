@@ -11,6 +11,7 @@ using namespace metal;
 
 struct GlyphInstance {
     uint glyph_id;
+    uint font_index;
     float2 position;
     float4 uv;
     float2 size;
@@ -27,6 +28,7 @@ struct GridUniforms {
 struct VertexOut {
     float4 position [[position]];
     float2 uv;
+    uint font_index;
     float4 fg_color;
     float4 bg_color;
     bool background;
@@ -75,6 +77,7 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
     VertexOut out = {
         .position = float4(ndc, 0.0f, 1.0f),
         .uv = uv_out,
+        .font_index = glyph.font_index,
         .fg_color = glyph.fg_color,
         .bg_color = glyph.bg_color,
         .background = background,
@@ -83,11 +86,11 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
     return out;
 }
 
-fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d<float> atlas [[texture(0)]], sampler s [[sampler(0)]]) {
+fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<float> atlas [[texture(0)]], sampler s [[sampler(0)]]) {
     if (in.background) {
         return float4(in.bg_color.rgb * in.bg_color.a, in.bg_color.a);
     } else {
-        float mask = atlas.sample(s, in.uv).r;
+        float mask = atlas.sample(s, in.uv, in.font_index).r;
         float alpha = in.fg_color.a * mask;
         float3 rgb = in.fg_color.rgb * alpha;
 
