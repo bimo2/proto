@@ -12,11 +12,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define CPU_TERMINAL_VERTEX_COUNT 12
 #define CPU_TERMINAL_VERTEX_SHADER "terminal_vertex"
 #define CPU_TERMINAL_FRAGMENT_SHADER "terminal_fragment"
 #define CPU_USER_COLOR_LENGTH 16
-#define CPU_FONT_INDEX_REGULAR 0
-#define CPU_FONT_INDEX_BOLD 1
+
+extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
 
 typedef enum cpu_user_color_t {
     CPU_USER_COLOR_BLACK = 0,
@@ -37,7 +38,10 @@ typedef enum cpu_user_color_t {
     CPU_USER_COLOR_BRIGHT_WHITE,
 } cpu_user_color_t;
 
-extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
+typedef enum cpu_font_index_t {
+    CPU_FONT_INDEX_REGULAR = 0,
+    CPU_FONT_INDEX_BOLD,
+} cpu_font_index_t;
 
 typedef struct cpu_glyph_instance_t {
     uint32_t glyph_id;

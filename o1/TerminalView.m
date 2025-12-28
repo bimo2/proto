@@ -28,6 +28,7 @@
 @property (nonatomic, assign) NSUInteger instanceCount;
 @property (nonatomic, assign) CGFloat cellWidth;
 @property (nonatomic, assign) CGFloat cellHeight;
+@property (nonatomic, assign) CGFloat textBaseline;
 
 @end
 
@@ -50,7 +51,6 @@
         self.clearColor = MTLClearColorMake(0, 0, 0, 0);
         self.enableSetNeedsDisplay = NO;
         self.paused = NO;
-
         _typesets = [NSMutableDictionary dictionary];
         _commandQueue = [device newCommandQueue];
 
@@ -65,7 +65,6 @@
         pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
         pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
         pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
-
         _pipeline = [device newRenderPipelineStateWithDescriptor:pipelineDescriptor error:nil];
 
         MTLSamplerDescriptor *samplerDescriptor = [[MTLSamplerDescriptor alloc] init];
@@ -74,7 +73,6 @@
         samplerDescriptor.magFilter = MTLSamplerMinMagFilterLinear;
         samplerDescriptor.sAddressMode = MTLSamplerAddressModeClampToEdge;
         samplerDescriptor.tAddressMode = MTLSamplerAddressModeClampToEdge;
-
         _sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
     }
 
@@ -122,8 +120,31 @@
 
     [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_REGULAR withBytes:fontRegular.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
     [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_BOLD withBytes:fontBold.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
-    self.cellWidth = self.drawableSize.width / self.columns;
-    self.cellHeight = self.drawableSize.height / self.rows;
+
+    static const uint32_t samples[] = {'/', '0', '1', '5', '@', 'M', 'W', 'X', '_', 'd', 'g', 'i', 'j', 'q', 'y', '|'};
+    float max_advance_x = 0.0f;
+    float max_above_baseline = 0.0f;
+    float max_below_baseline = 0.0f;
+
+    for (size_t i = 0; i < sizeof(samples) / sizeof(samples[0]); i++) {
+        glyph_attributes_t glyph_attributes;
+
+        memset(&glyph_attributes, 0, sizeof(glyph_attributes));
+
+        if (![fontRegular find:samples[i] glyph:NULL attributes:&glyph_attributes]) continue;
+
+        max_advance_x = MAX(max_advance_x, glyph_attributes.advance_x);
+        max_above_baseline = MAX(max_above_baseline, glyph_attributes.bearing_y + glyph_attributes.height);
+        max_below_baseline = MAX(max_below_baseline, -glyph_attributes.bearing_y);
+    }
+
+    float pad_x = 0.0f;
+    float pad_above = 2.0f;
+    float pad_below = 2.0f;
+
+    self.cellWidth = MAX(1.0, max_advance_x + pad_x);
+    self.cellHeight = MAX(1.0, max_below_baseline + pad_below + max_above_baseline + pad_above);
+    self.textBaseline = MAX(0.0, max_below_baseline + pad_below);
 
     NSUInteger instanceCount = self.rows * self.columns;
 
@@ -144,8 +165,7 @@
 }
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
-    self.cellWidth = size.width / self.columns;
-    self.cellHeight = size.height / self.rows;
+    // do nothing
 }
 
 - (void)drawInMTKView:(MTKView *)view {
@@ -168,7 +188,7 @@
     [encoder setVertexBuffer:self.buffer offset:0 atIndex:1];
     [encoder setFragmentTexture:self.texture atIndex:0];
     [encoder setFragmentSamplerState:self.sampler atIndex:0];
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:12 instanceCount:self.instanceCount];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:CPU_TERMINAL_VERTEX_COUNT instanceCount:self.instanceCount];
     [encoder endEncoding];
     [buffer presentDrawable:view.currentDrawable];
     [buffer commit];
@@ -231,7 +251,12 @@
     instance->position = simd_make_float2((float)column, (float)(self.rows - 1 - row));
     instance->uv = simd_make_float4(glyph_attributes.uv[0], glyph_attributes.uv[1], glyph_attributes.uv[2], glyph_attributes.uv[3]);
     instance->size = simd_make_float2(glyph_attributes.width, glyph_attributes.height);
-    instance->bearing = simd_make_float2(glyph_attributes.bearing_x, glyph_attributes.bearing_y);
+
+    float x_offset = 0.0f;
+
+    if (glyph_attributes.advance_x > 0.0f) x_offset = MAX(0.0f, ((float)self.cellWidth - glyph_attributes.advance_x) * 0.5f);
+
+    instance->bearing = simd_make_float2(glyph_attributes.bearing_x + x_offset, glyph_attributes.bearing_y + (float)self.textBaseline);
     instance->fg_color = fg_color;
     instance->bg_color = bg_color;
 }

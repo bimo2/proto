@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-unicode_codepoint_t unicode_default_codepoint = UNICODE_CODEPOINT_UTF32;
+unicode_codepoint_t unicode_default_codepoint = UNICODE_CODEPOINT_UTF16;
 
 static inline bool range(uint32_t codepoint, uint32_t low, uint32_t high) {
     return codepoint >= low && codepoint <= high;
@@ -61,7 +61,6 @@ static inline bool wide_legacy_symbol(uint32_t codepoint) {
     if (range(codepoint, 0x2600u, 0x26FFu)) return true;
     if (range(codepoint, 0x2700u, 0x27BFu)) return true;
     if (range(codepoint, 0x2B50u, 0x2B55u)) return true;
-    if (range(codepoint, 0x2500u, 0x259Fu)) return true;
 
     return false;
 }
