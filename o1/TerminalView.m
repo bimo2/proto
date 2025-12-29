@@ -79,93 +79,28 @@
     return self;
 }
 
-- (void)viewDidMoveToWindow {
-    [super viewDidMoveToWindow];
-
-    if (!self.window) return;
-
-    self.rows = 24;
-    self.columns = 80;
-    self.scale = self.window.screen.backingScaleFactor;
-    self.drawableSize = CGSizeMake(self.bounds.size.width * self.scale, self.bounds.size.height * self.scale);
-
-    FontTexture *fontRegular = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightRegular scale:self.scale];
-
-    [fontRegular load:nil];
-    self.typesets[@(CPU_FONT_INDEX_REGULAR)] = fontRegular;
-
-    FontTexture *fontBold = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightBold scale:self.scale];
-
-    [fontBold load:nil];
-    self.typesets[@(CPU_FONT_INDEX_BOLD)] = fontBold;
-
-    NSUInteger fontWidth = (NSUInteger)fontRegular.width;
-    NSUInteger fontHeight = (NSUInteger)fontRegular.height;
-    MTLTextureDescriptor *descriptor = [[MTLTextureDescriptor alloc] init];
-
-    descriptor.pixelFormat = MTLPixelFormatR8Unorm;
-    descriptor.width = fontWidth;
-    descriptor.height = fontHeight;
-    descriptor.mipmapLevelCount = 1;
-    descriptor.textureType = MTLTextureType2DArray;
-    descriptor.arrayLength = 2;
-    descriptor.usage = MTLTextureUsageShaderRead;
-    self.texture = [self.device newTextureWithDescriptor:descriptor];
-
-    MTLOrigin origin = MTLOriginMake(0, 0, 0);
-    MTLSize size = MTLSizeMake(fontWidth, fontHeight, 1);
-    MTLRegion region = {origin, size};
-    size_t row_bytes = (size_t)fontWidth;
-    size_t image_bytes = (size_t)(fontWidth * fontHeight);
-
-    [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_REGULAR withBytes:fontRegular.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
-    [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_BOLD withBytes:fontBold.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
-
-    static const uint32_t samples[] = {'/', '0', '1', '5', '@', 'M', 'W', 'X', '_', 'd', 'g', 'i', 'j', 'q', 'y', '|'};
-    float max_advance_x = 0.0f;
-    float max_above_baseline = 0.0f;
-    float max_below_baseline = 0.0f;
-
-    for (size_t i = 0; i < sizeof(samples) / sizeof(samples[0]); i++) {
-        glyph_attributes_t glyph_attributes;
-
-        memset(&glyph_attributes, 0, sizeof(glyph_attributes));
-
-        if (![fontRegular find:samples[i] glyph:NULL attributes:&glyph_attributes]) continue;
-
-        max_advance_x = MAX(max_advance_x, glyph_attributes.advance_x);
-        max_above_baseline = MAX(max_above_baseline, glyph_attributes.bearing_y + glyph_attributes.height);
-        max_below_baseline = MAX(max_below_baseline, -glyph_attributes.bearing_y);
-    }
-
-    float pad_x = 0.0f;
-    float pad_above = 2.0f;
-    float pad_below = 2.0f;
-
-    self.cellWidth = MAX(1.0, max_advance_x + pad_x);
-    self.cellHeight = MAX(1.0, max_below_baseline + pad_below + max_above_baseline + pad_above);
-    self.textBaseline = MAX(0.0, max_below_baseline + pad_below);
-
-    NSUInteger instanceCount = self.rows * self.columns;
-
-    self.buffer = [self.device newBufferWithLength:instanceCount * sizeof(cpu_glyph_instance_t) options:MTLResourceStorageModeShared];
-    self.instanceCount = instanceCount;
-
-    cpu_glyph_instance_t *instances = (cpu_glyph_instance_t *)self.buffer.contents;
-
-    if (!instances) return;
-
-    for (NSUInteger row = 0; row < self.rows; row++) {
-        for (NSUInteger column = 0; column < self.columns; column++) {
-            NSUInteger index = row * self.columns + column;
-
-            [self update:&instances[index] row:row column:column codepoint:' ' attributes:NULL];
-        }
-    }
-}
-
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
-    // do nothing
+    CGFloat scale = self.window.screen.backingScaleFactor;
+
+    if (scale > 0 && self.scale != scale) [self setup:scale];
+
+    NSUInteger rows = floor((double)size.height / (double)self.cellHeight);
+    NSUInteger columns = floor((double)size.width / (double)self.cellWidth);
+
+    if (rows < 1) rows = 1;
+    if (columns < 1) columns = 1;
+
+    if (rows != self.rows || columns != self.columns) {
+        self.rows = rows;
+        self.columns = columns;
+
+        NSUInteger instanceCount = self.rows * self.columns;
+
+        self.buffer = [self.device newBufferWithLength:instanceCount * sizeof(cpu_glyph_instance_t) options:MTLResourceStorageModeShared];
+        self.instanceCount = instanceCount;
+
+        if (self.terminal) [self.terminal layout:NSMakeSize(size.width, size.height) rows:rows columns:columns];
+    }
 }
 
 - (void)drawInMTKView:(MTKView *)view {
@@ -202,17 +137,78 @@
 
         switch (diff->op) {
             case RENDER_OP_SPAN:
-                [self applySpan:&diff->span];
+                [self span:&diff->span];
 
                 break;
             case RENDER_OP_SCROLL:
-                [self applyScroll:&diff->scroll];
+                [self scroll:&diff->scroll];
 
                 break;
             default:
                 break;
         }
     }
+}
+
+- (void)setup:(CGFloat)scale {
+    self.scale = scale;
+
+    FontTexture *fontRegular = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightRegular scale:self.scale];
+
+    [fontRegular load:nil];
+    self.typesets[@(CPU_FONT_INDEX_REGULAR)] = fontRegular;
+
+    FontTexture *fontBold = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightBold scale:self.scale];
+
+    [fontBold load:nil];
+    self.typesets[@(CPU_FONT_INDEX_BOLD)] = fontBold;
+
+    NSUInteger fontWidth = (NSUInteger)fontRegular.width;
+    NSUInteger fontHeight = (NSUInteger)fontRegular.height;
+    MTLTextureDescriptor *descriptor = [[MTLTextureDescriptor alloc] init];
+
+    descriptor.pixelFormat = MTLPixelFormatR8Unorm;
+    descriptor.width = fontWidth;
+    descriptor.height = fontHeight;
+    descriptor.mipmapLevelCount = 1;
+    descriptor.textureType = MTLTextureType2DArray;
+    descriptor.arrayLength = 2;
+    descriptor.usage = MTLTextureUsageShaderRead;
+    self.texture = [self.device newTextureWithDescriptor:descriptor];
+
+    MTLOrigin textureOrigin = MTLOriginMake(0, 0, 0);
+    MTLSize textureSize = MTLSizeMake(fontWidth, fontHeight, 1);
+    MTLRegion region = {textureOrigin, textureSize};
+    size_t row_bytes = (size_t)fontWidth;
+    size_t image_bytes = (size_t)(fontWidth * fontHeight);
+
+    [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_REGULAR withBytes:fontRegular.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
+    [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_BOLD withBytes:fontBold.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
+
+    static const uint32_t samples[] = {'/', '0', '1', '5', '@', 'M', 'W', 'X', '_', 'd', 'g', 'i', 'j', 'q', 'y', '|'};
+    float max_advance_x = 0.0f;
+    float max_above_baseline = 0.0f;
+    float max_below_baseline = 0.0f;
+
+    for (size_t i = 0; i < sizeof(samples) / sizeof(samples[0]); i++) {
+        glyph_attributes_t glyph_attributes;
+
+        memset(&glyph_attributes, 0, sizeof(glyph_attributes));
+
+        if (![fontRegular find:samples[i] glyph:NULL attributes:&glyph_attributes]) continue;
+
+        max_advance_x = MAX(max_advance_x, glyph_attributes.advance_x);
+        max_above_baseline = MAX(max_above_baseline, glyph_attributes.bearing_y + glyph_attributes.height);
+        max_below_baseline = MAX(max_below_baseline, -glyph_attributes.bearing_y);
+    }
+
+    float pad_x = 0.0f;
+    float pad_above = 3.0f;
+    float pad_below = 2.0f;
+
+    self.cellWidth = MAX(1.0, max_advance_x + pad_x);
+    self.cellHeight = MAX(1.0, max_below_baseline + pad_below + max_above_baseline + pad_above);
+    self.textBaseline = MAX(0.0, max_below_baseline + pad_below);
 }
 
 - (void)update:(cpu_glyph_instance_t *)instance row:(NSUInteger)row column:(NSUInteger)column codepoint:(uint32_t)codepoint attributes:(const ansi_sgr_t *)attributes {
@@ -261,7 +257,7 @@
     instance->bg_color = bg_color;
 }
 
-- (void)applySpan:(const render_op_span_t *)span {
+- (void)span:(const render_op_span_t *)span {
     cpu_glyph_instance_t *instances = (cpu_glyph_instance_t *)self.buffer.contents;
 
     if (!instances) return;
@@ -279,7 +275,7 @@
     }
 }
 
-- (void)applyScroll:(const render_op_scroll_t *)scroll {
+- (void)scroll:(const render_op_scroll_t *)scroll {
     cpu_glyph_instance_t *instances = (cpu_glyph_instance_t *)self.buffer.contents;
 
     if (!instances) return;

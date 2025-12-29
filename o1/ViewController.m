@@ -124,6 +124,7 @@
     TerminalView *terminalView = [[TerminalView alloc] initWithFrame:self.view.bounds];
 
     terminalView.translatesAutoresizingMaskIntoConstraints = NO;
+    terminalView.terminal = self.terminal;
     [self.view addSubview:terminalView];
 
     [NSLayoutConstraint activateConstraints:@[

@@ -224,8 +224,6 @@ static void on_mouse_callback(void *, bool);
 }
 
 - (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns {
-    if (!self.running) return;
-
     __weak typeof(self) weakSelf = self;
 
     dispatch_async(io_queue, ^{
@@ -238,6 +236,26 @@ static void on_mouse_callback(void *, bool);
 
         screen_context_set_grid(strongSelf->context, (uint32_t)rows, (uint32_t)columns);
         session_update_window(strongSelf->session, (uint32_t)rows, (uint32_t)columns, width, height);
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+
+            if (!strongSelf) return;
+
+            screen_t *screen = screen_context_current_screen(strongSelf->context);
+
+            if (strongSelf.renderBlock) {
+                render_t *ops = NULL;
+                size_t count = 0;
+
+                render_collect_ops(&ops, screen, &count);
+
+                if (count > 0) strongSelf.renderBlock(ops, count);
+                if (ops) render_clear_ops(ops, count);
+            }
+
+            if (strongSelf.updateBlock) strongSelf.updateBlock(screen);
+        });
     });
 }
 

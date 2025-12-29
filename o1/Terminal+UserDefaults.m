@@ -70,8 +70,8 @@
     NSMutableDictionary *indexed = [NSMutableDictionary dictionary];
 
     for (int i = 0; i < CPU_USER_COLOR_LENGTH; i++) {
-        simd_float3 rgba = cpu_default_colors[i];
-        CGFloat components[] = {rgba.x, rgba.y, rgba.z, 1.0};
+        simd_float3 rgb = cpu_default_colors[i];
+        CGFloat components[] = {rgb.x, rgb.y, rgb.z, 1.0};
 
         indexed[@(i)] = [NSColor colorWithColorSpace:NSColorSpace.sRGBColorSpace components:components count:4];
     }
