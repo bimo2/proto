@@ -225,19 +225,19 @@
 
     screen_write_utf32(screen, '\n');
 
-    for (int i = 0; i < 4; i++) screen_write_utf32(screen, 'X');
+    for (int i = 0; i < 4; i++) screen_write_utf32(screen, i % 2 == 0 ? 'X' : ' ');
 
     screen_write_utf32(screen, 0x2713u);
     screen_set_grid(screen, 10, 10);
     XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 'X');
-    XCTAssertEqual(screen_cell(screen, 4, 3)->codepoint, 'X');
+    XCTAssertEqual(screen_cell(screen, 4, 3)->codepoint, ' ');
     XCTAssertEqual(screen_cell(screen, 4, 4)->codepoint, 0x2713u);
     XCTAssertEqual(screen_cell(screen, 4, 5)->codepoint, 0);
     XCTAssertEqual(screen_cell(screen, 4, 6)->codepoint, ' ');
 
     screen_set_grid(screen, 5, 5);
     XCTAssertEqual(screen_cell(screen, 3, 0)->codepoint, 'X');
-    XCTAssertEqual(screen_cell(screen, 3, 3)->codepoint, 'X');
+    XCTAssertEqual(screen_cell(screen, 3, 3)->codepoint, ' ');
     XCTAssertEqual(screen_cell(screen, 3, 4)->codepoint, ' ');
     XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 0x2713u);
     XCTAssertEqual(screen_cell(screen, 4, 1)->codepoint, 0);
