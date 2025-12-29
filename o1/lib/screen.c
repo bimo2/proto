@@ -75,6 +75,7 @@ struct screen_t {
     scrollback_t scrollback;
     int32_t viewport_offset;
     int32_t viewport_delta;
+    bool needs_display;
 };
 
 static inline size_t min(size_t a, size_t b) {
@@ -186,15 +187,6 @@ static inline bool blank_cell(const screen_cell_t *cell) {
     if (cell->width == 0) return cell->codepoint == 0;
 
     return false;
-}
-
-static inline void needs_layout(screen_t *screen, int32_t start, int32_t end) {
-    if (start < 0) start = 0;
-    if (end >= screen->rows) end = screen->rows - 1;
-
-    for (int32_t i = start; i <= end; i++) {
-        for (int32_t j = 0; j < screen->columns; j++) screen->grid[i][j].dirty = true;
-    }
 }
 
 static void add_staging_cells(staging_line_t *line, const screen_cell_t *cells, size_t count) {
@@ -383,6 +375,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
     screen->scrollback.head = 0;
     screen->viewport_offset = 0;
     screen->viewport_delta = 0;
+    screen->needs_display = false;
 
     for (int32_t j = 8; j < columns; j += 8) screen->tab_stops[j] = true;
 
@@ -583,7 +576,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
         if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 
-        needs_layout(screen, 0, rows - 1);
+        screen->needs_display = true;
 
         return;
     }
@@ -820,7 +813,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
     if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 
-    needs_layout(screen, 0, rows - 1);
+    screen->needs_display = true;
 
     return;
 }
@@ -1342,7 +1335,7 @@ void screen_clear(screen_t *screen) {
         screen->wide_wrap[i] = false;
     }
 
-    needs_layout(screen, 0, screen->rows - 1);
+    screen->needs_display = true;
 }
 
 void screen_erase(screen_t *screen, int32_t mode) {
@@ -1737,4 +1730,12 @@ int32_t screen_stage_viewport_scroll(screen_t *screen) {
     screen->viewport_delta = 0;
 
     return delta;
+}
+
+bool screen_invalidate_needs_display(screen_t *screen) {
+    bool needs_display = screen->needs_display;
+
+    screen->needs_display = false;
+
+    return needs_display;
 }

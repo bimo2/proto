@@ -60,8 +60,26 @@ void render_collect_ops(render_t **ops, screen_t *screen, size_t *count) {
     int32_t rows = screen_rows(screen);
     int32_t columns = screen_columns(screen);
     int32_t delta = screen_stage_viewport_scroll(screen);
+    bool full_repaint = screen_invalidate_needs_display(screen);
+
+    if (full_repaint) delta = 0;
+
+    int32_t repaint_start = 0;
+    int32_t repaint_end = -1;
 
     if (delta != 0) {
+        int32_t shift = delta < 0 ? -delta : delta;
+
+        if (shift > rows) shift = rows;
+
+        if (delta > 0) {
+            repaint_start = 0;
+            repaint_end = shift - 1;
+        } else {
+            repaint_start = rows - shift;
+            repaint_end = rows - 1;
+        }
+
         render_op_scroll_t scroll = {
             .top = 0,
             .bottom = rows - 1,
@@ -81,6 +99,54 @@ void render_collect_ops(render_t **ops, screen_t *screen, size_t *count) {
         screen_cell_t *cells = screen_viewport_row(screen, i, &mutable);
 
         if (!cells) continue;
+
+        if (full_repaint) {
+            const screen_cell_t *span_cells = retain_cells(cells, (size_t)columns);
+
+            render_op_span_t span = {
+                .row = i,
+                .column = 0,
+                .cells = span_cells,
+                .width = (size_t)columns,
+            };
+
+            render_t diff = {
+                .op = RENDER_OP_SPAN,
+                .span = span,
+            };
+
+            add_render_op(ops, count, &capacity, &diff);
+
+            if (mutable) {
+                for (int32_t j = 0; j < columns; j++) cells[j].dirty = false;
+            }
+
+            continue;
+        }
+
+        if (delta != 0 && i >= repaint_start && i <= repaint_end) {
+            const screen_cell_t *span_cells = retain_cells(cells, (size_t)columns);
+
+            render_op_span_t span = {
+                .row = i,
+                .column = 0,
+                .cells = span_cells,
+                .width = (size_t)columns,
+            };
+
+            render_t diff = {
+                .op = RENDER_OP_SPAN,
+                .span = span,
+            };
+
+            add_render_op(ops, count, &capacity, &diff);
+
+            if (mutable) {
+                for (int32_t j = 0; j < columns; j++) cells[j].dirty = false;
+            }
+
+            continue;
+        }
 
         int32_t start = -1;
         render_t last = { .op = 0 };

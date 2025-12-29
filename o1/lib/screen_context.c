@@ -651,6 +651,12 @@ void screen_context_update(screen_context_t *context, const ansi_t *ansi) {
     }
 }
 
+void screen_context_scroll(screen_context_t *context, int32_t delta) {
+    if (!context->current) return;
+
+    screen_viewport_scroll(context->current, delta);
+}
+
 bool screen_context_bracketed_paste(screen_context_t *context) {
     return context->bracketed_paste;
 }

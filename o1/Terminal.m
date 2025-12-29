@@ -214,6 +214,38 @@ static void on_mouse_callback(void *, bool);
     [self write:payload];
 }
 
+- (void)scroll:(NSInteger)delta {
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_async(io_queue, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        screen_context_scroll(strongSelf->context, (int32_t)delta);
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+
+            if (!strongSelf) return;
+
+            screen_t *screen = screen_context_current_screen(strongSelf->context);
+
+            if (strongSelf.renderBlock) {
+                render_t *ops = NULL;
+                size_t count = 0;
+
+                render_collect_ops(&ops, screen, &count);
+
+                if (count > 0) strongSelf.renderBlock(ops, count);
+                if (ops) render_clear_ops(ops, count);
+            }
+
+            if (strongSelf.updateBlock) strongSelf.updateBlock(screen);
+        });
+    });
+}
+
 - (void)focus:(BOOL)isFocused {
     if (!screen_context_focus_reporting(context)) return;
 

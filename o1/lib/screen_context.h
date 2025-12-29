@@ -56,6 +56,8 @@ void screen_context_set_mouse_callback(screen_context_t *context, screen_context
 
 void screen_context_update(screen_context_t *context, const ansi_t *ansi);
 
+void screen_context_scroll(screen_context_t *context, int32_t delta);
+
 bool screen_context_bracketed_paste(screen_context_t *context);
 
 bool screen_context_cursor_keys(screen_context_t *context);

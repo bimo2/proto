@@ -53,6 +53,8 @@ typedef NS_OPTIONS(NSUInteger, TerminalMouseModifierFlags) {
 
 - (void)paste:(NSData *)data;
 
+- (void)scroll:(NSInteger)delta;
+
 - (void)focus:(BOOL)isFocused;
 
 - (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns;

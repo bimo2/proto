@@ -12,6 +12,7 @@
 #include "render.h"
 #include "shaders_cpu.h"
 
+#include <math.h>
 #include <string.h>
 
 @interface TerminalView ()
@@ -29,6 +30,7 @@
 @property (nonatomic, assign) CGFloat cellWidth;
 @property (nonatomic, assign) CGFloat cellHeight;
 @property (nonatomic, assign) CGFloat textBaseline;
+@property (nonatomic, assign) CGFloat queuedOffset;
 
 @end
 
@@ -127,6 +129,22 @@
     [encoder endEncoding];
     [buffer presentDrawable:view.currentDrawable];
     [buffer commit];
+}
+
+- (void)scrollWheel:(NSEvent *)event {
+    CGFloat delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.deltaY;
+    CGFloat lines = event.hasPreciseScrollingDeltas && self.cellHeight > 0.0 ? (delta / self.cellHeight) : delta;
+    CGFloat speed = 3.5;
+
+    self.queuedOffset += lines * speed;
+
+    NSInteger offset = trunc(self.queuedOffset);
+
+    if (offset != 0) {
+        self.queuedOffset -= offset;
+
+        if (self.terminal) [self.terminal scroll:offset];
+    }
 }
 
 - (void)render:(const render_t *)ops count:(size_t)count {
@@ -290,9 +308,17 @@
     size_t size = self.columns * sizeof(cpu_glyph_instance_t);
 
     if (scroll->delta > 0) {
-        for (NSInteger row = top; row <= bottom - shift; row++) memmove(instances + (row * self.columns), instances + ((row + shift) * self.columns), size);
+        for (NSInteger row = bottom; row >= top + shift; row--) memmove(instances + (row * self.columns), instances + ((row - shift) * self.columns), size);
 
-        for (NSInteger row = bottom - shift + 1; row <= bottom; row++) {
+        for (NSInteger row = top + shift; row <= bottom; row++) {
+            for (NSUInteger column = 0; column < self.columns; column++) {
+                NSUInteger index = (NSUInteger)row * self.columns + column;
+
+                instances[index].position = simd_make_float2((float)column, (float)(self.rows - 1 - (NSUInteger)row));
+            }
+        }
+
+        for (NSInteger row = top; row < top + shift; row++) {
             for (NSUInteger column = 0; column < self.columns; column++) {
                 NSUInteger index = (NSUInteger)row * self.columns + column;
 
@@ -300,9 +326,17 @@
             }
         }
     } else {
-        for (NSInteger row = bottom; row >= top + shift; row--) memmove(instances + (row * self.columns), instances + ((row - shift) * self.columns), size);
+        for (NSInteger row = top; row <= bottom - shift; row++) memmove(instances + (row * self.columns), instances + ((row + shift) * self.columns), size);
 
-        for (NSInteger row = top; row < top + shift; row++) {
+        for (NSInteger row = top; row <= bottom - shift; row++) {
+            for (NSUInteger column = 0; column < self.columns; column++) {
+                NSUInteger index = (NSUInteger)row * self.columns + column;
+
+                instances[index].position = simd_make_float2((float)column, (float)(self.rows - 1 - (NSUInteger)row));
+            }
+        }
+
+        for (NSInteger row = bottom - shift + 1; row <= bottom; row++) {
             for (NSUInteger column = 0; column < self.columns; column++) {
                 NSUInteger index = (NSUInteger)row * self.columns + column;
 
