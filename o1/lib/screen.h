@@ -121,9 +121,19 @@ void screen_scroll_up(screen_t *screen, int32_t lines);
 
 void screen_scroll_down(screen_t *screen, int32_t lines);
 
+void screen_index(screen_t *screen);
+
+void screen_reverse_index(screen_t *screen);
+
 void screen_insert_line(screen_t *screen, int32_t count);
 
 void screen_delete_line(screen_t *screen, int32_t count);
+
+void screen_insert_inline(screen_t *screen, int32_t count);
+
+void screen_delete_inline(screen_t *screen, int32_t count);
+
+void screen_erase_inline(screen_t *screen, int32_t count);
 
 void screen_insert_column(screen_t *screen, int32_t count);
 

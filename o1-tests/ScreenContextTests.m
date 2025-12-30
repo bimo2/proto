@@ -480,7 +480,8 @@ static void test_mouse_callback(void *, bool);
     };
 
     screen_context_update(context, &index);
-    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, '2');
+    XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, ' ');
+    XCTAssertEqual(screen_cell(screen, 1, 0)->codepoint, '2');
 
     ansi_t reverse_index = {
         .event = ANSI_EVENT_ESC,

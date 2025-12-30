@@ -386,6 +386,34 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
             event = reader->csi_dec_private ? ANSI_CSI_DECSEL : ANSI_CSI_EL;
 
             break;
+        case '@':
+            event = ANSI_CSI_ICH;
+
+            break;
+        case 'P':
+            event = ANSI_CSI_DCH;
+
+            break;
+        case 'X':
+            event = ANSI_CSI_ECH;
+
+            break;
+        case 'L':
+            event = ANSI_CSI_IL;
+
+            break;
+        case 'M':
+            event = ANSI_CSI_DL;
+
+            break;
+        case 's':
+            event = ANSI_CSI_SCP;
+
+            break;
+        case 'u':
+            event = ANSI_CSI_RCP;
+
+            break;
         case 'S':
             event = ANSI_CSI_SU;
 

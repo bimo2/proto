@@ -82,6 +82,10 @@ static inline size_t min(size_t a, size_t b) {
     return a < b ? a : b;
 }
 
+static inline size_t max(size_t a, size_t b) {
+    return a > b ? a : b;
+}
+
 static inline void reset_cell(screen_cell_t *cell) {
     if (!cell) return;
 
@@ -272,6 +276,29 @@ static void commit_staging_cells(line_t **lines, size_t *count, size_t *capacity
     (*lines)[*count].soft_wrap = soft_wrap;
     (*lines)[*count].wide_wrap = wide_wrap;
     (*count)++;
+}
+
+static void delete_utf32(screen_t *screen) {
+    if (!valid_position(screen, screen->cursor.row, screen->cursor.column)) return;
+
+    int32_t row = screen->cursor.row;
+    int32_t column = screen->cursor.column;
+
+    if (screen->grid[row][column].width == 0 && column > 0) column--;
+
+    int delete = 1;
+
+    if (screen->grid[row][column].width == 2 && column + 1 < screen->columns && screen->grid[row][column + 1].width == 0) delete = 2;
+
+    for (int32_t j = column; j < screen->columns - delete; j++) {
+        screen->grid[row][j] = screen->grid[row][j + delete];
+        screen->grid[row][j].dirty = true;
+    }
+
+    for (int32_t j = screen->columns - delete; j < screen->columns; j++) {
+        reset_cell(&screen->grid[row][j]);
+        screen->grid[row][j].dirty = true;
+    }
 }
 
 screen_t *init_screen(int32_t rows, int32_t columns) {
@@ -1193,35 +1220,12 @@ void screen_insert_utf32(screen_t *screen, uint32_t codepoint) {
 }
 
 void screen_delete_utf32(screen_t *screen) {
-    if (!valid_position(screen, screen->cursor.row, screen->cursor.column)) return;
-
-    int32_t row = screen->cursor.row;
-    int32_t column = screen->cursor.column;
-
-    if (screen->grid[row][column].width == 0 && column > 0) column--;
-
-    int delete = 1;
-
-    if (screen->grid[row][column].width == 2 && column + 1 < screen->columns && screen->grid[row][column + 1].width == 0) delete = 2;
-
-    for (int32_t j = column; j < screen->columns - delete; j++) {
-        screen->grid[row][j] = screen->grid[row][j + delete];
-        screen->grid[row][j].dirty = true;
-    }
-
-    for (int32_t j = screen->columns - delete; j < screen->columns; j++) {
-        reset_cell(&screen->grid[row][j]);
-        screen->grid[row][j].dirty = true;
-    }
-}
-
-void screen_backspace(screen_t *screen) {
     if (screen->cursor.row > 0 && screen->cursor.column == 2) {
         int32_t row = screen->cursor.row;
 
         if (screen->grid[row][0].width == 2 && screen->grid[row][1].width == 0) {
             screen->cursor.column = 0;
-            screen_delete_utf32(screen);
+            delete_utf32(screen);
 
             int32_t last = row - 1;
             bool wide = false;
@@ -1253,7 +1257,7 @@ void screen_backspace(screen_t *screen) {
 
         if (screen->cursor.column < 0) screen->cursor.column = 0;
 
-        screen_delete_utf32(screen);
+        delete_utf32(screen);
     } else if (screen->cursor.row > 0) {
         screen->cursor.row--;
 
@@ -1263,8 +1267,18 @@ void screen_backspace(screen_t *screen) {
         if (screen->grid[row][column].width == 0 && column > 0) column--;
 
         screen->cursor.column = column;
-        screen_delete_utf32(screen);
+        delete_utf32(screen);
     }
+}
+
+void screen_backspace(screen_t *screen) {
+    if (screen->cursor.column < 1) return;
+
+    int32_t column = screen->cursor.column - 1;
+
+    if (valid_position(screen, screen->cursor.row, column) && screen->grid[screen->cursor.row][column].width == 0 && column > 0) column--;
+
+    screen->cursor.column = (int32_t)max(0, column);
 }
 
 void screen_newline(screen_t *screen) {
@@ -1426,7 +1440,8 @@ void screen_erase_line(screen_t *screen, int32_t mode) {
             break;
     }
 
-    screen->grid[screen->cursor.row][0].dirty = true;
+    for (int32_t j = 0; j < screen->columns; j++) screen->grid[screen->cursor.row][j].dirty = true;
+
     screen->soft_wrap[screen->cursor.row] = false;
     screen->wide_wrap[screen->cursor.row] = false;
 }
@@ -1529,6 +1544,32 @@ void screen_scroll_down(screen_t *screen, int32_t lines) {
     }
 }
 
+void screen_index(screen_t *screen) {
+    if (screen->cursor.row >= screen->scroll_bottom) {
+        screen_scroll_up(screen, 1);
+        screen->cursor.row = screen->scroll_bottom;
+        fix_cursor(screen);
+
+        return;
+    }
+
+    screen->cursor.row++;
+    fix_cursor(screen);
+}
+
+void screen_reverse_index(screen_t *screen) {
+    if (screen->cursor.row <= screen->scroll_top) {
+        screen_scroll_down(screen, 1);
+        screen->cursor.row = screen->scroll_top;
+        fix_cursor(screen);
+
+        return;
+    }
+
+    screen->cursor.row--;
+    fix_cursor(screen);
+}
+
 void screen_insert_line(screen_t *screen, int32_t count) {
     if (count < 1) return;
 
@@ -1540,6 +1581,104 @@ void screen_delete_line(screen_t *screen, int32_t count) {
     if (count < 1) return;
 
     screen_scroll_up(screen, count);
+}
+
+void screen_insert_inline(screen_t *screen, int32_t count) {
+    if (count < 1) return;
+
+    int32_t row = screen->cursor.row;
+    int32_t column = screen->cursor.column;
+
+    if (!valid_position(screen, row, column)) return;
+    if (count > screen->columns - column) count = screen->columns - column;
+
+    if (column > 0 && screen->grid[row][column].width == 0) {
+        reset_cell(&screen->grid[row][column - 1]);
+        reset_cell(&screen->grid[row][column]);
+        screen->grid[row][column - 1].dirty = true;
+        screen->grid[row][column].dirty = true;
+    }
+
+    if (screen->grid[row][column].width == 2 && column + 1 < screen->columns && screen->grid[row][column + 1].width == 0) {
+        reset_cell(&screen->grid[row][column]);
+        reset_cell(&screen->grid[row][column + 1]);
+        screen->grid[row][column].dirty = true;
+        screen->grid[row][column + 1].dirty = true;
+    }
+
+    for (int32_t j = screen->columns - 1; j >= column + count; j--) {
+        screen->grid[row][j] = screen->grid[row][j - count];
+        screen->grid[row][j].dirty = true;
+    }
+
+    for (int32_t j = column; j < column + count; j++) {
+        screen_cell_t *cell = &screen->grid[row][j];
+
+        cell->codepoint = ' ';
+        cell->attributes = screen->attributes;
+        cell->width = 1;
+        cell->link_id = 0;
+        cell->dirty = true;
+    }
+
+    fix_wide_cells(screen, row);
+}
+
+void screen_delete_inline(screen_t *screen, int32_t count) {
+    if (count < 1) return;
+
+    int32_t row = screen->cursor.row;
+    int32_t column = screen->cursor.column;
+
+    if (!valid_position(screen, row, column)) return;
+    if (count > screen->columns - column) count = screen->columns - column;
+
+    if (column > 0 && screen->grid[row][column].width == 0) {
+        column--;
+        count++;
+
+        if (count > screen->columns - column) count = screen->columns - column;
+    }
+
+    for (int32_t j = column; j < screen->columns - count; j++) {
+        screen->grid[row][j] = screen->grid[row][j + count];
+        screen->grid[row][j].dirty = true;
+    }
+
+    for (int32_t j = screen->columns - count; j < screen->columns; j++) {
+        reset_cell(&screen->grid[row][j]);
+        screen->grid[row][j].dirty = true;
+    }
+
+    fix_wide_cells(screen, row);
+}
+
+void screen_erase_inline(screen_t *screen, int32_t count) {
+    if (count < 1) return;
+
+    int32_t row = screen->cursor.row;
+    int32_t column = screen->cursor.column;
+
+    if (!valid_position(screen, row, column)) return;
+    if (count > screen->columns - column) count = screen->columns - column;
+
+    int32_t start = column;
+    int32_t end = column + count - 1;
+
+    if (start > 0 && screen->grid[row][start].width == 0) start--;
+    if (end + 1 < screen->columns && screen->grid[row][end].width == 2 && screen->grid[row][end + 1].width == 0) end++;
+
+    for (int32_t j = start; j <= end; j++) {
+        screen_cell_t *cell = &screen->grid[row][j];
+
+        cell->codepoint = ' ';
+        cell->attributes = screen->attributes;
+        cell->width = 1;
+        cell->link_id = 0;
+        cell->dirty = true;
+    }
+
+    fix_wide_cells(screen, row);
 }
 
 void screen_insert_column(screen_t *screen, int32_t count) {

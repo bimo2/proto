@@ -145,6 +145,13 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "[1;1f"
     "\x1b" "[1J"
     "\x1b" "[1K"
+    "\x1b" "[1@"
+    "\x1b" "[1P"
+    "\x1b" "[1X"
+    "\x1b" "[1L"
+    "\x1b" "[1M"
+    "\x1b" "[1s"
+    "\x1b" "[1u"
     "\x1b" "[?1J"
     "\x1b" "[?1K"
     "\x1b" "[1S"
@@ -166,7 +173,7 @@ static void test_callback(void *, ansi_t *);
     "\x1b" "[201~";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
-    XCTAssertEqual(self.output.count, 31);
+    XCTAssertEqual(self.output.count, 38);
 
     for (NSUInteger i = 0; i < self.output.count; i++) {
         ansi_t ansi;

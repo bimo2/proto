@@ -97,11 +97,11 @@ static inline void apply_esc(screen_context_t *context, const ansi_esc_t *esc) {
 
             break;
         case ANSI_ESC_IND:
-            screen_scroll_up(context->current, 1);
+            screen_index(context->current);
 
             break;
         case ANSI_ESC_RI:
-            screen_scroll_down(context->current, 1);
+            screen_reverse_index(context->current);
 
             break;
         case ANSI_ESC_RESET:
@@ -201,6 +201,49 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
             break;
         }
+        case ANSI_CSI_ICH: {
+            int value = csi_parameter(csi, 0, 1);
+
+            screen_insert_inline(context->current, value);
+
+            break;
+        }
+        case ANSI_CSI_DCH: {
+            int value = csi_parameter(csi, 0, 1);
+
+            screen_delete_inline(context->current, value);
+
+            break;
+        }
+        case ANSI_CSI_ECH: {
+            int value = csi_parameter(csi, 0, 1);
+
+            screen_erase_inline(context->current, value);
+
+            break;
+        }
+        case ANSI_CSI_IL: {
+            int value = csi_parameter(csi, 0, 1);
+
+            screen_insert_line(context->current, value);
+
+            break;
+        }
+        case ANSI_CSI_DL: {
+            int value = csi_parameter(csi, 0, 1);
+
+            screen_delete_line(context->current, value);
+
+            break;
+        }
+        case ANSI_CSI_SCP:
+            screen_save_cursor(context->current);
+
+            break;
+        case ANSI_CSI_RCP:
+            screen_restore_cursor(context->current);
+
+            break;
         case ANSI_CSI_DECSED: {
             int mode = csi_parameter(csi, 0, 0);
 
@@ -237,21 +280,18 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
             break;
         }
-        case ANSI_CSI_SGR: {
+        case ANSI_CSI_SGR:
             screen_set_attributes(context->current, &csi->attributes);
 
             break;
-        }
-        case ANSI_CSI_SM: {
+        case ANSI_CSI_SM:
             if (csi->mode == ANSI_MODE_INSERT) screen_set_insert_mode(context->current, true);
 
             break;
-        }
-        case ANSI_CSI_RM: {
+        case ANSI_CSI_RM:
             if (csi->mode == ANSI_MODE_INSERT) screen_set_insert_mode(context->current, false);
 
             break;
-        }
         case ANSI_CSI_DECSET: {
             switch (csi->dec_mode) {
                 case ANSI_DEC_MODE_CURSOR_KEYS:
