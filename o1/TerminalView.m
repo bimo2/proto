@@ -51,8 +51,8 @@
         self.framebufferOnly = NO;
         self.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
         self.clearColor = MTLClearColorMake(0, 0, 0, 0);
-        self.enableSetNeedsDisplay = NO;
-        self.paused = NO;
+        self.enableSetNeedsDisplay = YES;
+        self.paused = YES;
         _typesets = [NSMutableDictionary dictionary];
         _commandQueue = [device newCommandQueue];
 
@@ -166,6 +166,8 @@
                 break;
         }
     }
+
+    [self setNeedsDisplay:YES];
 }
 
 - (void)setup:(CGFloat)scale {
