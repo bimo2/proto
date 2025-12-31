@@ -369,6 +369,14 @@
     }
 }
 
+- (void)paste:(id)sender {
+    NSString *string = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
+
+    if (string.length < 1) return;
+
+    [self.terminal paste:[string dataUsingEncoding:NSUTF8StringEncoding]];
+}
+
 - (void)render:(const render_t *)ops count:(size_t)count {
     if (!ops || count < 1) return;
 
@@ -443,12 +451,12 @@
     }
 
     float pad_x = 0.0f;
-    float pad_above = 3.0f;
-    float pad_below = 2.0f;
+    float pad_top = 4.0f;
+    float pad_bottom = 2.0f;
 
     self.cellWidth = MAX(1.0, max_advance_x + pad_x);
-    self.cellHeight = MAX(1.0, max_below_baseline + pad_below + max_above_baseline + pad_above);
-    self.textBaseline = MAX(0.0, max_below_baseline + pad_below);
+    self.cellHeight = MAX(1.0, max_below_baseline + pad_bottom + max_above_baseline + pad_top);
+    self.textBaseline = MAX(0.0, max_below_baseline + pad_bottom);
 }
 
 - (void)update:(cpu_glyph_instance_t *)instance row:(NSUInteger)row column:(NSUInteger)column codepoint:(uint32_t)codepoint attributes:(const ansi_sgr_t *)attributes {

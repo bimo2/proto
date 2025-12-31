@@ -249,9 +249,8 @@ static void on_mouse_callback(void *, bool);
     if (!screen_context_focus_reporting(context)) return;
 
     const char *sequence = isFocused ? ANSI_FOCUS_IN : ANSI_FOCUS_OUT;
-    NSData *data = [NSData dataWithBytes:sequence length:strlen(sequence)];
 
-    [self write:data];
+    [self write:[NSData dataWithBytes:sequence length:strlen(sequence)]];
 }
 
 - (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns {
@@ -302,9 +301,7 @@ static void on_mouse_callback(void *, bool);
 
     if (length < 1) return;
 
-    NSData *data = [NSData dataWithBytes:bytes length:length];
-
-    [self write:data];
+    [self write:[NSData dataWithBytes:bytes length:length]];
 }
 
 - (void)mouse:(ansi_mouse_t)button event:(ansi_mouse_event_t)event flags:(NSEventModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column {
@@ -341,9 +338,7 @@ static void on_mouse_callback(void *, bool);
 
     if (length < 1) return;
 
-    NSData *data = [NSData dataWithBytes:bytes length:length];
-
-    [self write:data];
+    [self write:[NSData dataWithBytes:bytes length:length]];
 }
 
 - (void)setupReadSource {

@@ -179,7 +179,25 @@
 
 - (void)viewDidAppear {
     [super viewDidAppear];
-    [self.view.window makeFirstResponder:self.terminalView];
+
+    NSWindow *window = self.view.window;
+
+    [window makeFirstResponder:self.terminalView];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidBecomeKey:) name:NSWindowDidBecomeKeyNotification object:window];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidResignKey:) name:NSWindowDidResignKeyNotification object:window];
+}
+
+- (void)viewWillDisappear {
+    [super viewWillDisappear];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)windowDidBecomeKey:(NSNotification *)notification {
+    [self.terminal focus:YES];
+}
+
+- (void)windowDidResignKey:(NSNotification *)notification {
+    [self.terminal focus:NO];
 }
 
 @end
