@@ -1330,8 +1330,6 @@ void screen_clear_tab_stops(screen_t *screen, int32_t mode) {
             memset(screen->tab_stops, 0, (size_t)screen->columns * sizeof(bool));
 
             break;
-        default:
-            break;
     }
 }
 

@@ -7,6 +7,8 @@
 
 #import "NSError+Reporting.h"
 
+#include "include.h"
+
 #include <os/log.h>
 
 static NSErrorDomain const ErrorDomain = @"com.github.o1.error";

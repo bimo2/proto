@@ -662,14 +662,14 @@ static void test_mouse_callback(void *, bool);
     };
 
     screen_context_update(context, &status);
-    XCTAssertEqualObjects(self.response, @"\x1b" "[0n");
+    XCTAssertEqualObjects(self.response, @"\x1b[0n");
 
     screen_move_cursor_absolute(screen, 2, 4);
     status.csi.dec_private = true;
     status.csi.parameters[0] = 6;
     status.csi.event = ANSI_CSI_DEC_DSR;
     screen_context_update(context, &status);
-    XCTAssertEqualObjects(self.response, @"\x1b" "[2;4R");
+    XCTAssertEqualObjects(self.response, @"\x1b[2;4R");
 
     ansi_t attributes = {
         .event = ANSI_EVENT_CSI,
@@ -679,7 +679,7 @@ static void test_mouse_callback(void *, bool);
     };
 
     screen_context_update(context, &attributes);
-    XCTAssertEqualObjects(self.response, @"\x1b" "[?1;2c");
+    XCTAssertEqualObjects(self.response, @"\x1b[?1;2c");
 
     free_screen_context(context);
 }

@@ -18,7 +18,6 @@
 #include <crt_externs.h>
 #include <dispatch/dispatch.h>
 #include <errno.h>
-#include <math.h>
 #include <string.h>
 #include <sys/wait.h>
 
@@ -291,56 +290,51 @@ static void on_mouse_callback(void *, bool);
     });
 }
 
-- (void)mouse:(TerminalMouseButton)button event:(TerminalMouseEvent)event flags:(TerminalMouseModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column {
+- (void)keyboard:(ansi_keyboard_t)value flags:(NSEventModifierFlags)flags {
+    uint16_t mods = 0;
+
+    if (flags & NSEventModifierFlagShift) mods |= ANSI_MODIFIER_FLAG_SHIFT;
+    if (flags & NSEventModifierFlagOption) mods |= ANSI_MODIFIER_FLAG_OPTION;
+    if (flags & NSEventModifierFlagControl) mods |= ANSI_MODIFIER_FLAG_CONTROL;
+
+    uint8_t bytes[64];
+    size_t length = ansi_keyboard(value, mods, screen_context_cursor_keys(context), bytes, sizeof(bytes));
+
+    if (length < 1) return;
+
+    NSData *data = [NSData dataWithBytes:bytes length:length];
+
+    [self write:data];
+}
+
+- (void)mouse:(ansi_mouse_t)button event:(ansi_mouse_event_t)event flags:(NSEventModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column {
     screen_context_mouse_mode_t mode = screen_context_mouse_mode(context);
 
     if (mode == SCREEN_CONTEXT_MOUSE_NONE) return;
 
-    bool sgr = screen_context_mouse_sgr(context);
+    uint16_t mods = 0;
+
+    if (flags & NSEventModifierFlagShift) mods |= ANSI_MODIFIER_FLAG_SHIFT;
+    if (flags & NSEventModifierFlagOption) mods |= ANSI_MODIFIER_FLAG_OPTION;
+    if (flags & NSEventModifierFlagControl) mods |= ANSI_MODIFIER_FLAG_CONTROL;
+
     uint32_t x = MAX(1, (uint32_t)column);
     uint32_t y = MAX(1, (uint32_t)row);
+    bool sgr = screen_context_mouse_sgr(context);
     uint8_t bytes[64];
     size_t length = 0;
-    ansi_mouse_t base;
-
-    switch (button) {
-        case TerminalMouseButtonLeft:
-            base = ANSI_MOUSE_LEFT;
-
-            break;
-        case TerminalMouseButtonMiddle:
-            base = ANSI_MOUSE_MIDDLE;
-
-            break;
-        case TerminalMouseButtonRight:
-            base = ANSI_MOUSE_RIGHT;
-
-            break;
-        case TerminalMouseButtonWheelUp:
-            base = ANSI_MOUSE_WHEEL_UP;
-
-            break;
-        case TerminalMouseButtonWheelDown:
-            base = ANSI_MOUSE_WHEEL_DOWN;
-
-            break;
-        default:
-            base = ANSI_MOUSE_RELEASE;
-
-            break;
-    }
 
     switch (mode) {
         case SCREEN_CONTEXT_MOUSE_X10:
-            length = ansi_mouse_x10(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, sizeof(bytes));
+            length = ansi_mouse_x10(button, event, mods, x, y, sgr, bytes, sizeof(bytes));
 
             break;
         case SCREEN_CONTEXT_MOUSE_NORMAL:
-            length = ansi_mouse_normal(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, sizeof(bytes));
+            length = ansi_mouse_normal(button, event, mods, x, y, sgr, bytes, sizeof(bytes));
 
             break;
         default:
-            length = ansi_mouse_all(base, (ansi_mouse_event_t)event, (uint16_t)flags, x, y, sgr, bytes, sizeof(bytes));
+            length = ansi_mouse_all(button, event, mods, x, y, sgr, bytes, sizeof(bytes));
 
             break;
     }

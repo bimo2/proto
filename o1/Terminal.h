@@ -5,32 +5,11 @@
 //  Created by gpt-5-high on 2025-10-10.
 //
 
-#import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
 
+#include "ansi.h"
 #include "render.h"
 #include "screen.h"
-
-typedef NS_ENUM(NSUInteger, TerminalMouseButton) {
-    TerminalMouseButtonNone = 0,
-    TerminalMouseButtonLeft,
-    TerminalMouseButtonMiddle,
-    TerminalMouseButtonRight,
-    TerminalMouseButtonWheelUp,
-    TerminalMouseButtonWheelDown,
-};
-
-typedef NS_ENUM(NSUInteger, TerminalMouseEvent) {
-    TerminalMouseEventDown = 0,
-    TerminalMouseEventUp,
-    TerminalMouseEventDrag,
-    TerminalMouseEventMove,
-};
-
-typedef NS_OPTIONS(NSUInteger, TerminalMouseModifierFlags) {
-    TerminalMouseModifierFlagShift = 1 << 0,
-    TerminalMouseModifierFlagOption = 1 << 1,
-    TerminalMouseModifierFlagControl = 1 << 2,
-};
 
 @interface Terminal : NSObject
 
@@ -59,6 +38,8 @@ typedef NS_OPTIONS(NSUInteger, TerminalMouseModifierFlags) {
 
 - (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns;
 
-- (void)mouse:(TerminalMouseButton)button event:(TerminalMouseEvent)event flags:(TerminalMouseModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column;
+- (void)keyboard:(ansi_keyboard_t)value flags:(NSEventModifierFlags)flags;
+
+- (void)mouse:(ansi_mouse_t)button event:(ansi_mouse_event_t)event flags:(NSEventModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column;
 
 @end

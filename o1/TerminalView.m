@@ -9,6 +9,7 @@
 
 #import "FontTexture.h"
 
+#include "ansi.h"
 #include "render.h"
 #include "shaders_cpu.h"
 
@@ -100,8 +101,7 @@
 
         self.buffer = [self.device newBufferWithLength:instanceCount * sizeof(cpu_glyph_instance_t) options:MTLResourceStorageModeShared];
         self.instanceCount = instanceCount;
-
-        if (self.terminal) [self.terminal layout:NSMakeSize(size.width, size.height) rows:rows columns:columns];
+        [self.terminal layout:NSMakeSize(size.width, size.height) rows:rows columns:columns];
     }
 }
 
@@ -131,6 +131,229 @@
     [buffer commit];
 }
 
+- (BOOL)acceptsFirstResponder {
+    return YES;
+}
+
+- (void)keyDown:(NSEvent *)event {
+    if (!self.terminal || event.modifierFlags & NSEventModifierFlagCommand) {
+        [super keyDown:event];
+
+        return;
+    }
+
+    if (event.charactersIgnoringModifiers.length == 1) {
+        unichar key = [event.charactersIgnoringModifiers characterAtIndex:0];
+
+        switch (key) {
+            case NSDeleteFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_DELETE flags:event.modifierFlags];
+
+                return;
+            case NSInsertFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_INSERT flags:event.modifierFlags];
+
+                return;
+            case NSUpArrowFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_UP flags:event.modifierFlags];
+
+                return;
+            case NSDownArrowFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_DOWN flags:event.modifierFlags];
+
+                return;
+            case NSLeftArrowFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_LEFT flags:event.modifierFlags];
+
+                return;
+            case NSRightArrowFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_RIGHT flags:event.modifierFlags];
+
+                return;
+            case NSHomeFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_HOME flags:event.modifierFlags];
+
+                return;
+            case NSEndFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_END flags:event.modifierFlags];
+
+                return;
+            case NSPageUpFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_PAGE_UP flags:event.modifierFlags];
+
+                return;
+            case NSPageDownFunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_PAGE_DOWN flags:event.modifierFlags];
+
+                return;
+            case NSF1FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F1 flags:event.modifierFlags];
+
+                return;
+            case NSF2FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F2 flags:event.modifierFlags];
+
+                return;
+            case NSF3FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F3 flags:event.modifierFlags];
+
+                return;
+            case NSF4FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F4 flags:event.modifierFlags];
+
+                return;
+            case NSF5FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F5 flags:event.modifierFlags];
+
+                return;
+            case NSF6FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F6 flags:event.modifierFlags];
+
+                return;
+            case NSF7FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F7 flags:event.modifierFlags];
+
+                return;
+            case NSF8FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F8 flags:event.modifierFlags];
+
+                return;
+            case NSF9FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F9 flags:event.modifierFlags];
+
+                return;
+            case NSF10FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F10 flags:event.modifierFlags];
+
+                return;
+            case NSF11FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F11 flags:event.modifierFlags];
+
+                return;
+            case NSF12FunctionKey:
+                [self.terminal keyboard:ANSI_KEYBOARD_F12 flags:event.modifierFlags];
+
+                return;
+        }
+
+        if (event.modifierFlags & NSEventModifierFlagControl) {
+            uint8_t byte = 0x00u;
+
+            if (ansi_control(key, &byte)) {
+                [self.terminal write:[NSData dataWithBytes:&byte length:1]];
+
+                return;
+            }
+        }
+
+        switch (key) {
+            case 0x1B:
+                [self.terminal keyboard:ANSI_KEYBOARD_ESCAPE flags:event.modifierFlags];
+
+                return;
+            case NSEnterCharacter:
+            case NSNewlineCharacter:
+            case NSCarriageReturnCharacter:
+                [self.terminal keyboard:ANSI_KEYBOARD_ENTER flags:event.modifierFlags];
+
+                return;
+            case NSTabCharacter:
+                [self.terminal keyboard:ANSI_KEYBOARD_TAB flags:event.modifierFlags];
+
+                return;
+            case NSBackTabCharacter:
+                [self.terminal keyboard:ANSI_KEYBOARD_BACKTAB flags:event.modifierFlags];
+
+                return;
+            case NSBackspaceCharacter:
+            case NSDeleteCharacter:
+                [self.terminal keyboard:ANSI_KEYBOARD_BACKSPACE flags:event.modifierFlags];
+
+                return;
+        }
+    }
+
+    [self interpretKeyEvents:@[event]];
+}
+
+- (void)insertText:(id)text {
+    NSString *string = nil;
+
+    if ([text isKindOfClass:[NSAttributedString class]]) {
+        string = [(NSAttributedString *)text string];
+    } else if ([text isKindOfClass:[NSString class]]) {
+        string = (NSString *)text;
+    }
+
+    if (string.length < 1) return;
+
+    [self.terminal write:[string dataUsingEncoding:NSUTF8StringEncoding]];
+}
+
+- (void)insertNewline:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_ENTER flags:0];
+}
+
+- (void)insertLineBreak:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_ENTER flags:0];
+}
+
+- (void)insertTab:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_TAB flags:0];
+}
+
+- (void)insertBacktab:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_BACKTAB flags:0];
+}
+
+- (void)deleteBackward:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_BACKSPACE flags:0];
+}
+
+- (void)deleteForward:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_DELETE flags:0];
+}
+
+- (void)moveUp:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_UP flags:0];
+}
+
+- (void)moveDown:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_DOWN flags:0];
+}
+
+- (void)moveLeft:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_LEFT flags:0];
+}
+
+- (void)moveRight:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_RIGHT flags:0];
+}
+
+- (void)moveToBeginningOfLine:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_HOME flags:0];
+}
+
+- (void)moveToBeginningOfParagraph:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_HOME flags:0];
+}
+
+- (void)moveToEndOfLine:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_END flags:0];
+}
+
+- (void)moveToEndOfParagraph:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_END flags:0];
+}
+
+- (void)scrollPageUp:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_PAGE_UP flags:0];
+}
+
+- (void)scrollPageDown:(id)sender {
+    [self.terminal keyboard:ANSI_KEYBOARD_PAGE_DOWN flags:0];
+}
+
 - (void)scrollWheel:(NSEvent *)event {
     CGFloat delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.deltaY;
     CGFloat lines = event.hasPreciseScrollingDeltas && self.cellHeight > 0.0 ? (delta / self.cellHeight) : delta;
@@ -142,8 +365,7 @@
 
     if (offset != 0) {
         self.queuedOffset -= offset;
-
-        if (self.terminal) [self.terminal scroll:offset];
+        [self.terminal scroll:offset];
     }
 }
 
@@ -161,8 +383,6 @@
             case RENDER_OP_SCROLL:
                 [self scroll:&diff->scroll];
 
-                break;
-            default:
                 break;
         }
     }

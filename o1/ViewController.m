@@ -33,12 +33,14 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.terminal = [[Terminal alloc] init];
-    self.terminal.file = @"/bin/zsh";
+
+    Terminal *terminal = [[Terminal alloc] init];
+
+    terminal.file = @"/bin/zsh";
 
     __weak typeof(self) weakSelf = self;
 
-    self.terminal.renderBlock = ^(const render_t *ops, size_t count) {
+    terminal.renderBlock = ^(const render_t *ops, size_t count) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
 
         if (!strongSelf) return;
@@ -76,7 +78,7 @@
         }
     };
 
-    self.terminal.updateBlock = ^(screen_t *screen) {
+    terminal.updateBlock = ^(screen_t *screen) {
         int32_t rows = screen_rows(screen);
         int32_t columns = screen_columns(screen);
         screen_cursor_t *cursor = screen_cursor(screen);
@@ -109,22 +111,24 @@
         NSLog(@"update:\n%@", grid);
     };
 
-    self.terminal.titleBlock = ^(const char *title) {
+    terminal.titleBlock = ^(const char *title) {
         NSLog(@"title: %s", title);
     };
 
-    self.terminal.bellBlock = ^() {
+    terminal.bellBlock = ^() {
         NSLog(@"bell");
     };
 
-    self.terminal.exitBlock = ^(int status) {
+    terminal.exitBlock = ^(int status) {
         NSLog(@"exit: %d", status);
     };
+
+    self.terminal = terminal;
 
     TerminalView *terminalView = [[TerminalView alloc] initWithFrame:self.view.bounds];
 
     terminalView.translatesAutoresizingMaskIntoConstraints = NO;
-    terminalView.terminal = self.terminal;
+    terminalView.terminal = terminal;
     [self.view addSubview:terminalView];
 
     [NSLayoutConstraint activateConstraints:@[
@@ -155,7 +159,7 @@
     gradient.endPoint = CGPointMake(0.5, 0.0);
     gradient.frame = subview.bounds;
     subview.layer = gradient;
-    [self.view addSubview:subview positioned:NSWindowAbove relativeTo:self.terminalView];
+    [self.view addSubview:subview positioned:NSWindowAbove relativeTo:terminalView];
     self.gradientView = subview;
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
@@ -170,16 +174,12 @@
 
             return;
         }
-
-        usleep(100 * 1000);
-
-        NSString *string = @"ls -a\n";
-        NSData *data = [string dataUsingEncoding:NSUTF8StringEncoding];
-
-        [strongSelf.terminal write:data];
-        usleep(500 * 1000);
-        [strongSelf.terminal stop];
     });
+}
+
+- (void)viewDidAppear {
+    [super viewDidAppear];
+    [self.view.window makeFirstResponder:self.terminalView];
 }
 
 @end

@@ -448,8 +448,6 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
                         break;
                     }
-                    default:
-                        break;
                 }
             }
 

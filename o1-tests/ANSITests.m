@@ -91,7 +91,7 @@
 
     uint8_t flag[] = "\x1b[<8;10;20M";
 
-    length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DOWN, ANSI_MOUSE_MODIFIER_FLAG_OPTION, 10, 20, true, bytes, sizeof(bytes));
+    length = ansi_mouse_all(ANSI_MOUSE_LEFT, ANSI_MOUSE_EVENT_DOWN, ANSI_MODIFIER_FLAG_OPTION, 10, 20, true, bytes, sizeof(bytes));
     XCTAssertEqual(length, sizeof(flag) - 1);
     XCTAssertEqual(memcmp(bytes, flag, sizeof(flag) - 1), 0);
 

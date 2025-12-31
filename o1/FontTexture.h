@@ -7,8 +7,6 @@
 
 #import <AppKit/AppKit.h>
 
-#include <stdint.h>
-
 typedef struct glyph_attributes_t {
     float advance_x;
     float bearing_x;

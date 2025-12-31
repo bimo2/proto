@@ -34,7 +34,7 @@ static void test_callback(void *, ansi_t *);
 
     ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
-    const char *input = "\x1b" "]8;;https://apple.com" "\x07";
+    const char *input = "\x1b]8;;https://apple.com\x07";
 
     ansi_reader_set_osc_capacity(reader, 12);
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
@@ -133,44 +133,44 @@ static void test_callback(void *, ansi_t *);
     ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
-    "\x1b" "[q"
-    "\x1b" "[1A"
-    "\x1b" "[1B"
-    "\x1b" "[1C"
-    "\x1b" "[1D"
-    "\x1b" "[1E"
-    "\x1b" "[1F"
-    "\x1b" "[1G"
-    "\x1b" "[1;1H"
-    "\x1b" "[1;1f"
-    "\x1b" "[1J"
-    "\x1b" "[1K"
-    "\x1b" "[1@"
-    "\x1b" "[1P"
-    "\x1b" "[1X"
-    "\x1b" "[1L"
-    "\x1b" "[1M"
-    "\x1b" "[1s"
-    "\x1b" "[1u"
-    "\x1b" "[?1J"
-    "\x1b" "[?1K"
-    "\x1b" "[1S"
-    "\x1b" "[1T"
-    "\x1b" "[1;2r"
-    "\x1b" "[1m"
-    "\x1b" "[1h"
-    "\x1b" "[1l"
-    "\x1b" "[?1h"
-    "\x1b" "[?1l"
-    "\x1b" "[1n"
-    "\x1b" "[?1n"
-    "\x1b" "[1c"
-    "\x1b" "[1b"
-    "\x1b" "[1g"
-    "\x1b" "[1I"
-    "\x1b" "[1O"
-    "\x1b" "[200~"
-    "\x1b" "[201~";
+    "\x1b[q"
+    "\x1b[1A"
+    "\x1b[1B"
+    "\x1b[1C"
+    "\x1b[1D"
+    "\x1b[1E"
+    "\x1b[1F"
+    "\x1b[1G"
+    "\x1b[1;1H"
+    "\x1b[1;1f"
+    "\x1b[1J"
+    "\x1b[1K"
+    "\x1b[1@"
+    "\x1b[1P"
+    "\x1b[1X"
+    "\x1b[1L"
+    "\x1b[1M"
+    "\x1b[1s"
+    "\x1b[1u"
+    "\x1b[?1J"
+    "\x1b[?1K"
+    "\x1b[1S"
+    "\x1b[1T"
+    "\x1b[1;2r"
+    "\x1b[1m"
+    "\x1b[1h"
+    "\x1b[1l"
+    "\x1b[?1h"
+    "\x1b[?1l"
+    "\x1b[1n"
+    "\x1b[?1n"
+    "\x1b[1c"
+    "\x1b[1b"
+    "\x1b[1g"
+    "\x1b[1I"
+    "\x1b[1O"
+    "\x1b[200~"
+    "\x1b[201~";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 38);
@@ -193,14 +193,14 @@ static void test_callback(void *, ansi_t *);
     ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
-    "\x1b" "[0m"
-    "\x1b" "[1m"
-    "\x1b" "[3m"
-    "\x1b" "[4m"
-    "\x1b" "[38;5;7m"
-    "\x1b" "[48;2;0;10;20m"
-    "\x1b" "[39m"
-    "\x1b" "[49m";
+    "\x1b[0m"
+    "\x1b[1m"
+    "\x1b[3m"
+    "\x1b[4m"
+    "\x1b[38;5;7m"
+    "\x1b[48;2;0;10;20m"
+    "\x1b[39m"
+    "\x1b[49m";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 8);
@@ -237,8 +237,8 @@ static void test_callback(void *, ansi_t *);
     ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
-    "\x1b" "[4h"
-    "\x1b" "[4l";
+    "\x1b[4h"
+    "\x1b[4l";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 2);
@@ -267,36 +267,36 @@ static void test_callback(void *, ansi_t *);
     ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
-    "\x1b" "[?6h"
-    "\x1b" "[?1h"
-    "\x1b" "[?7h"
-    "\x1b" "[?12h"
-    "\x1b" "[?25h"
-    "\x1b" "[?1000h"
-    "\x1b" "[?1002h"
-    "\x1b" "[?1003h"
-    "\x1b" "[?1004h"
-    "\x1b" "[?1006h"
-    "\x1b" "[?2004h"
-    "\x1b" "[?1047h"
-    "\x1b" "[?1048h"
-    "\x1b" "[?1049h"
-    "\x1b" "[?999h"
-    "\x1b" "[?6l"
-    "\x1b" "[?1l"
-    "\x1b" "[?7l"
-    "\x1b" "[?12l"
-    "\x1b" "[?25l"
-    "\x1b" "[?1000l"
-    "\x1b" "[?1002l"
-    "\x1b" "[?1003l"
-    "\x1b" "[?1004l"
-    "\x1b" "[?1006l"
-    "\x1b" "[?2004l"
-    "\x1b" "[?1047l"
-    "\x1b" "[?1048l"
-    "\x1b" "[?1049l"
-    "\x1b" "[?999l";
+    "\x1b[?6h"
+    "\x1b[?1h"
+    "\x1b[?7h"
+    "\x1b[?12h"
+    "\x1b[?25h"
+    "\x1b[?1000h"
+    "\x1b[?1002h"
+    "\x1b[?1003h"
+    "\x1b[?1004h"
+    "\x1b[?1006h"
+    "\x1b[?2004h"
+    "\x1b[?1047h"
+    "\x1b[?1048h"
+    "\x1b[?1049h"
+    "\x1b[?999h"
+    "\x1b[?6l"
+    "\x1b[?1l"
+    "\x1b[?7l"
+    "\x1b[?12l"
+    "\x1b[?25l"
+    "\x1b[?1000l"
+    "\x1b[?1002l"
+    "\x1b[?1003l"
+    "\x1b[?1004l"
+    "\x1b[?1006l"
+    "\x1b[?2004l"
+    "\x1b[?1047l"
+    "\x1b[?1048l"
+    "\x1b[?1049l"
+    "\x1b[?999l";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 30);
@@ -360,11 +360,11 @@ static void test_callback(void *, ansi_t *);
     ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
 
     const char *input =
-    "\x1b" "]999;unknown" "\x07"
-    "\x1b" "]0;title" "\x07"
-    "\x1b" "]2;title" "\x1b" "\\"
-    "\x1b" "]8;;https://apple.com" "\x07"
-    "\x1b" "]52;c;YmFzZTY0Cg==" "\x07";
+    "\x1b]999;unknown\x07"
+    "\x1b]0;title\x07"
+    "\x1b]2;title\x1b\\"
+    "\x1b]8;;https://apple.com\x07"
+    "\x1b]52;c;YmFzZTY0Cg==\x07";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
     XCTAssertEqual(self.output.count, 5);

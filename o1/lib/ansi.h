@@ -187,6 +187,36 @@ typedef enum ansi_color_t {
     ANSI_COLOR_RGB,
 } ansi_color_t;
 
+typedef enum ansi_keyboard_t {
+    ANSI_KEYBOARD_ESCAPE = 0,
+    ANSI_KEYBOARD_ENTER,
+    ANSI_KEYBOARD_TAB,
+    ANSI_KEYBOARD_BACKTAB,
+    ANSI_KEYBOARD_BACKSPACE,
+    ANSI_KEYBOARD_DELETE,
+    ANSI_KEYBOARD_INSERT,
+    ANSI_KEYBOARD_UP,
+    ANSI_KEYBOARD_DOWN,
+    ANSI_KEYBOARD_LEFT,
+    ANSI_KEYBOARD_RIGHT,
+    ANSI_KEYBOARD_HOME,
+    ANSI_KEYBOARD_END,
+    ANSI_KEYBOARD_PAGE_UP,
+    ANSI_KEYBOARD_PAGE_DOWN,
+    ANSI_KEYBOARD_F1,
+    ANSI_KEYBOARD_F2,
+    ANSI_KEYBOARD_F3,
+    ANSI_KEYBOARD_F4,
+    ANSI_KEYBOARD_F5,
+    ANSI_KEYBOARD_F6,
+    ANSI_KEYBOARD_F7,
+    ANSI_KEYBOARD_F8,
+    ANSI_KEYBOARD_F9,
+    ANSI_KEYBOARD_F10,
+    ANSI_KEYBOARD_F11,
+    ANSI_KEYBOARD_F12,
+} ansi_keyboard_t;
+
 typedef enum ansi_mouse_t {
     ANSI_MOUSE_LEFT = 0,
     ANSI_MOUSE_MIDDLE = 1,
@@ -203,18 +233,22 @@ typedef enum ansi_mouse_event_t {
     ANSI_MOUSE_EVENT_MOVE,
 } ansi_mouse_event_t;
 
-typedef enum ansi_mouse_modifier_flag_t {
-    ANSI_MOUSE_MODIFIER_FLAG_NONE = 0,
-    ANSI_MOUSE_MODIFIER_FLAG_SHIFT = 1 << 0,
-    ANSI_MOUSE_MODIFIER_FLAG_OPTION = 1 << 1,
-    ANSI_MOUSE_MODIFIER_FLAG_CONTROL = 1 << 2,
-} ansi_mouse_modifier_t;
+typedef enum ansi_modifier_flag_t {
+    ANSI_MODIFIER_FLAG_NONE = 0,
+    ANSI_MODIFIER_FLAG_SHIFT = 1 << 0,
+    ANSI_MODIFIER_FLAG_OPTION = 1 << 1,
+    ANSI_MODIFIER_FLAG_CONTROL = 1 << 2,
+} ansi_modifier_t;
 
 uint32_t ansi_color_pack_indexed(int index);
 
 uint32_t ansi_color_pack_rgb(uint8_t red, uint8_t green, uint8_t blue);
 
 ansi_color_t ansi_color_unpack(uint32_t color, int *index, uint8_t *red, uint8_t *green, uint8_t *blue);
+
+bool ansi_control(unsigned short code, uint8_t *byte);
+
+size_t ansi_keyboard(ansi_keyboard_t value, uint16_t flags, bool cursor, uint8_t *data, size_t length);
 
 size_t ansi_mouse_x10(ansi_mouse_t base, ansi_mouse_event_t event, uint16_t flags, uint32_t x, uint32_t y, bool sgr, uint8_t *data, size_t length);
 
