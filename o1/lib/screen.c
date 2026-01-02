@@ -471,6 +471,8 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         return;
     }
 
+    bool full_content = screen->scroll_top == 0 && screen->scroll_bottom == screen->rows - 1;
+
     if (columns == screen->columns) {
         if (rows > screen->rows) {
             size_t take = (size_t)rows - (size_t)screen->rows;
@@ -514,7 +516,6 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
             screen->scrollback.size -= take;
 
-            if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
             if (screen->cursor.row >= 0) screen->cursor.row += (int32_t)take;
             if (screen->cursor.row >= rows) screen->cursor.row = rows - 1;
             if (screen->cursor.column >= columns) screen->cursor.column = columns - 1;
@@ -580,8 +581,6 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
                 wide_wrap[i] = screen->wide_wrap[leading + i];
             }
 
-            if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
-
             if (screen->cursor.row >= leading) {
                 screen->cursor.row -= leading;
             } else {
@@ -600,6 +599,17 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         screen->columns = columns;
         screen->soft_wrap = soft_wrap;
         screen->wide_wrap = wide_wrap;
+
+        if (full_content) {
+            screen->scroll_top = 0;
+            screen->scroll_bottom = rows - 1;
+        } else {
+            if (screen->scroll_top < 0) screen->scroll_top = 0;
+            if (screen->scroll_top >= rows) screen->scroll_top = rows - 1;
+            if (screen->scroll_bottom < 0) screen->scroll_bottom = 0;
+            if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
+            if (screen->scroll_top > screen->scroll_bottom) screen->scroll_top = screen->scroll_bottom;
+        }
 
         if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 
@@ -829,8 +839,6 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         free(staging);
     }
 
-    if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
-
     if (screen->cursor.row >= rows) {
         screen->cursor.row = rows - 1;
     } else {
@@ -869,6 +877,17 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     screen->soft_wrap = soft_wrap;
     screen->wide_wrap = wide_wrap;
     screen->tab_stops = tab_stops;
+
+    if (full_content) {
+        screen->scroll_top = 0;
+        screen->scroll_bottom = rows - 1;
+    } else {
+        if (screen->scroll_top < 0) screen->scroll_top = 0;
+        if (screen->scroll_top >= rows) screen->scroll_top = rows - 1;
+        if (screen->scroll_bottom < 0) screen->scroll_bottom = 0;
+        if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
+        if (screen->scroll_top > screen->scroll_bottom) screen->scroll_top = screen->scroll_bottom;
+    }
 
     if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 

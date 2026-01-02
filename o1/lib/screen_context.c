@@ -292,7 +292,7 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
             if (csi->mode == ANSI_MODE_INSERT) screen_set_insert_mode(context->current, false);
 
             break;
-        case ANSI_CSI_DECSET: {
+        case ANSI_CSI_DECSET:
             switch (csi->dec_mode) {
                 case ANSI_DEC_MODE_CURSOR_KEYS:
                     context->cursor_keys = true;
@@ -337,14 +337,17 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
                     break;
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN:
-                case ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR: {
-                    if (!context->alternate) context->alternate = init_screen(screen_rows(context->main), screen_columns(context->main));
+                case ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR:
+                    if (!context->alternate) {
+                        context->alternate = init_screen(screen_rows(context->main), screen_columns(context->main));
+                        screen_set_scrollback_capacity(context->alternate, 0);
+                    }
+
                     if (csi->dec_mode == ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR) screen_save_cursor(context->main);
 
                     context->current = context->alternate;
 
                     break;
-                }
                 case ANSI_DEC_MODE_SAVE_CURSOR:
                     screen_save_cursor(context->current);
 
@@ -358,8 +361,7 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
             }
 
             break;
-        }
-        case ANSI_CSI_DECRST: {
+        case ANSI_CSI_DECRST:
             switch (csi->dec_mode) {
                 case ANSI_DEC_MODE_CURSOR_KEYS:
                     context->cursor_keys = false;
@@ -401,7 +403,7 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
                     break;
                 case ANSI_DEC_MODE_ALTERNATE_SCREEN:
-                case ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR: {
+                case ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR:
                     if (context->current == context->alternate) {
                         screen_clear(context->alternate);
                         context->current = context->main;
@@ -411,7 +413,6 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
                     }
 
                     break;
-                }
                 case ANSI_DEC_MODE_SAVE_CURSOR:
                     screen_restore_cursor(context->current);
 
@@ -425,9 +426,8 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
             }
 
             break;
-        }
         case ANSI_CSI_DSR:
-        case ANSI_CSI_DEC_DSR: {
+        case ANSI_CSI_DEC_DSR:
             if (context->on_response) {
                 int value = csi_parameter(csi, 0, 0);
 
@@ -453,12 +453,10 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
             }
 
             break;
-        }
-        case ANSI_CSI_DA: {
+        case ANSI_CSI_DA:
             if (context->on_response) context->on_response(context->response_user_data, "\x1b[?1;2c");
 
             break;
-        }
         case ANSI_CSI_REP: {
             int value = csi_parameter(csi, 0, 1);
 
@@ -688,6 +686,8 @@ void screen_context_update(screen_context_t *context, const ansi_t *ansi) {
         case ANSI_EVENT_UNKNOWN:
             break;
     }
+
+    if (context->current && screen_viewport_offset(context->current) != 0) screen_set_viewport_offset(context->current, 0);
 }
 
 void screen_context_scroll(screen_context_t *context, int32_t delta) {

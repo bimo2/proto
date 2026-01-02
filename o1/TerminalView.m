@@ -287,6 +287,7 @@
 
     if (string.length < 1) return;
 
+    self.queuedOffset = 0;
     [self.terminal write:[string dataUsingEncoding:NSUTF8StringEncoding]];
 }
 
