@@ -112,7 +112,11 @@ static void on_mouse_callback(void *, bool);
     }
 
     if (self.environment) [envpObjC addEntriesFromDictionary:self.environment];
-    if (!envpObjC[@"TERM"]) envpObjC[@"TERM"] = @"xterm-256color";
+
+    envpObjC[@"TERM"] = @"xterm-256color";
+    envpObjC[@"TERM_PROGRAM"] = @"o1";
+    envpObjC[@"TERM_PROGRAM_VERSION"] = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+    envpObjC[@"COLORTERM"] = @"truecolor";
 
     size_t envc = envpObjC.count;
     char **envp = (char **)calloc(envc + 1, sizeof(char *));

@@ -619,8 +619,14 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         return;
     }
 
-    for (int32_t j = 0; j < min(screen->columns, columns); j++) {
-        if (screen->tab_stops[j]) tab_stops[j] = true;
+    for (int32_t j = 0; j < columns; j++) {
+        if (j < screen->columns) {
+            if (screen->tab_stops[j]) tab_stops[j] = true;
+
+            continue;
+        }
+
+        if ((j % 8) == 0) tab_stops[j] = true;
     }
 
     staging_line_t current = {
@@ -824,7 +830,33 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     }
 
     if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
-    if (screen->cursor.row >= rows) screen->cursor.row = rows - 1;
+
+    if (screen->cursor.row >= rows) {
+        screen->cursor.row = rows - 1;
+    } else {
+        int32_t prompt = rows - 1;
+
+        for (int32_t i = rows - 1; i >= 0; i--) {
+            bool used = false;
+
+            for (int32_t j = 0; j < columns; j++) {
+                if (!blank_cell(&grid[i][j])) {
+                    used = true;
+
+                    break;
+                }
+            }
+
+            if (used) {
+                prompt = i;
+
+                break;
+            }
+        }
+
+        screen->cursor.row = prompt;
+    }
+
     if (screen->cursor.column >= columns) screen->cursor.column = columns - 1;
 
     free(screen->tab_stops);
@@ -1867,6 +1899,14 @@ int32_t screen_stage_viewport_scroll(screen_t *screen) {
     screen->viewport_delta = 0;
 
     return delta;
+}
+
+void screen_needs_display(screen_t *screen) {
+    for (int32_t i = 0; i < screen->rows; i++) {
+        for (int32_t j = 0; j < screen->columns; j++) screen->grid[i][j].dirty = true;
+    }
+
+    screen->needs_display = true;
 }
 
 bool screen_invalidate_needs_display(screen_t *screen) {

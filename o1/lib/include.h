@@ -8,6 +8,9 @@
 #ifndef INCLUDE_H
 #define INCLUDE_H
 
+#include <stddef.h>
+#include <stdint.h>
+
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define EVENTLOG_INFO "%s:%d "
 
@@ -58,5 +61,7 @@ int eventlog(int level);
 #define _KB(size) (size << 10)
 #define _MB(size) (size << 20)
 #define _GB(size) (size << 30)
+
+void printx(const uint8_t *bytes, size_t length);
 
 #endif // !INCLUDE_H

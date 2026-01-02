@@ -151,6 +151,8 @@ void screen_viewport_scroll(screen_t *screen, int32_t delta);
 
 int32_t screen_stage_viewport_scroll(screen_t *screen);
 
+void screen_needs_display(screen_t *screen);
+
 bool screen_invalidate_needs_display(screen_t *screen);
 
 #endif // !SCREEN_H

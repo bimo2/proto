@@ -487,6 +487,7 @@
         simd_float4 reverse = fg_color;
 
         fg_color = bg_color;
+        fg_color.w = 1.0f;
         bg_color = reverse;
     }
 

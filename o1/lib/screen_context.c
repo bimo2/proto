@@ -405,6 +405,7 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
                     if (context->current == context->alternate) {
                         screen_clear(context->alternate);
                         context->current = context->main;
+                        screen_needs_display(context->main);
 
                         if (csi->dec_mode == ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR) screen_restore_cursor(context->main);
                     }

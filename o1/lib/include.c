@@ -7,6 +7,10 @@
 
 #include "include.h"
 
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+
 #ifdef __APPLE__
 
 #include <dispatch/dispatch.h>
@@ -41,3 +45,17 @@ int eventlog(int level) {
 }
 
 #endif
+
+void printx(const uint8_t *bytes, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        uint8_t byte = bytes[i];
+
+        if (byte >= 32 && byte <= 126) {
+            putchar(byte);
+        } else {
+            printf("\\x%02X", byte);
+        }
+    }
+
+    printf("\n");
+}
