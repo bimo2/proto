@@ -32,6 +32,7 @@
 @property (nonatomic, assign) CGFloat cellHeight;
 @property (nonatomic, assign) CGFloat textBaseline;
 @property (nonatomic, assign) CGFloat queuedOffset;
+@property (nonatomic, strong) NSTrackingArea *trackingArea;
 
 @end
 
@@ -133,6 +134,25 @@
 
 - (BOOL)acceptsFirstResponder {
     return YES;
+}
+
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+
+    if (self.trackingArea) {
+        [self removeTrackingArea:self.trackingArea];
+        self.trackingArea = nil;
+        self.window.acceptsMouseMovedEvents = NO;
+    }
+
+    if (self.trackingAreasEnabled) {
+        self.window.acceptsMouseMovedEvents = YES;
+
+        NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect;
+
+        self.trackingArea = [[NSTrackingArea alloc] initWithRect:NSZeroRect options:options owner:self userInfo:nil];
+        [self addTrackingArea:self.trackingArea];
+    }
 }
 
 - (void)keyDown:(NSEvent *)event {
@@ -355,6 +375,47 @@
     [self.terminal keyboard:ANSI_KEYBOARD_PAGE_DOWN flags:0];
 }
 
+- (void)mouseDown:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_LEFT action:ANSI_MOUSE_EVENT_DOWN];
+}
+
+- (void)mouseUp:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_LEFT action:ANSI_MOUSE_EVENT_UP];
+}
+
+- (void)rightMouseDown:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_RIGHT action:ANSI_MOUSE_EVENT_DOWN];
+}
+
+- (void)rightMouseUp:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_RIGHT action:ANSI_MOUSE_EVENT_UP];
+}
+
+- (void)otherMouseDown:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_MIDDLE action:ANSI_MOUSE_EVENT_DOWN];
+}
+
+- (void)otherMouseUp:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_MIDDLE action:ANSI_MOUSE_EVENT_UP];
+}
+
+- (void)mouseDragged:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_LEFT action:ANSI_MOUSE_EVENT_DRAG];
+}
+
+- (void)rightMouseDragged:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_RIGHT action:ANSI_MOUSE_EVENT_DRAG];
+}
+
+- (void)otherMouseDragged:(NSEvent *)event {
+    [self mouse:event button:ANSI_MOUSE_MIDDLE action:ANSI_MOUSE_EVENT_DRAG];
+}
+
+- (void)mouseMoved:(NSEvent *)event {
+    NSLog(@"move: %f %f", event.locationInWindow.x, event.locationInWindow.y);
+    [self mouse:event button:ANSI_MOUSE_RELEASE action:ANSI_MOUSE_EVENT_MOVE];
+}
+
 - (void)scrollWheel:(NSEvent *)event {
     CGFloat delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.deltaY;
     CGFloat lines = event.hasPreciseScrollingDeltas && self.cellHeight > 0.0 ? (delta / self.cellHeight) : delta;
@@ -366,8 +427,18 @@
 
     if (offset != 0) {
         self.queuedOffset -= offset;
-        [self.terminal scroll:offset];
+
+        if (self.trackingAreasEnabled) {
+            NSLog(@"scroll: %lu", offset);
+            ansi_mouse_t button = offset > 0 ? ANSI_MOUSE_WHEEL_UP : ANSI_MOUSE_WHEEL_DOWN;
+
+            for (NSInteger i = 0; i < labs(offset); i++) [self mouse:event button:button action:ANSI_MOUSE_EVENT_DOWN];
+        } else {
+            [self.terminal scroll:offset];
+        }
     }
+
+    if (fabs(self.queuedOffset) < 0.1) self.queuedOffset = 0;
 }
 
 - (void)paste:(id)sender {
@@ -376,6 +447,11 @@
     if (string.length < 1) return;
 
     [self.terminal paste:[string dataUsingEncoding:NSUTF8StringEncoding]];
+}
+
+- (void)setTrackingAreasEnabled:(BOOL)trackingAreasEnabled {
+    _trackingAreasEnabled = trackingAreasEnabled;
+    [self updateTrackingAreas];
 }
 
 - (void)render:(const render_t *)ops count:(size_t)count {
@@ -576,6 +652,23 @@
             }
         }
     }
+}
+
+- (void)mouse:(NSEvent *)event button:(ansi_mouse_t)button action:(ansi_mouse_event_t)action {
+    NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
+
+    if (!NSPointInRect(point, self.bounds)) {
+        return;
+    }
+
+    if (!isfinite(point.x) || !isfinite(point.y)) return;
+
+    CGFloat x = MAX(0.0, MIN(point.x * self.scale, self.drawableSize.width - 1.0));
+    CGFloat y = MAX(0.0, MIN(point.y * self.scale, self.drawableSize.height - 1.0));
+    NSUInteger row = floor(((CGFloat)self.drawableSize.height - 1.0 - y) / self.cellHeight) + 1;
+    NSUInteger column = floor(x / self.cellWidth) + 1;
+
+    [self.terminal mouse:button event:action flags:event.modifierFlags row:MAX(1, MIN(self.rows, row)) column:MAX(1, MIN(self.columns, column))];
 }
 
 @end

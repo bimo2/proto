@@ -566,6 +566,16 @@ static void test_mouse_callback(void *, bool);
     screen_context_update(context, &dec_set);
     XCTAssertTrue(screen_context_cursor_keys(context));
 
+    dec_set.csi.dec_mode = ANSI_DEC_MODE_MOUSE_X10;
+    screen_context_update(context, &dec_set);
+    XCTAssertEqual(screen_context_mouse_mode(context), SCREEN_CONTEXT_MOUSE_X10);
+    XCTAssertFalse(self.isMouseEnabled);
+
+    dec_set.csi.dec_mode = ANSI_DEC_MODE_MOUSE_NORMAL;
+    screen_context_update(context, &dec_set);
+    XCTAssertEqual(screen_context_mouse_mode(context), SCREEN_CONTEXT_MOUSE_NORMAL);
+    XCTAssertTrue(self.isMouseEnabled);
+
     dec_set.csi.dec_mode = ANSI_DEC_MODE_MOUSE_ALL;
     screen_context_update(context, &dec_set);
     XCTAssertEqual(screen_context_mouse_mode(context), SCREEN_CONTEXT_MOUSE_ALL);
@@ -619,6 +629,11 @@ static void test_mouse_callback(void *, bool);
     dec_reset.csi.dec_mode = ANSI_DEC_MODE_CURSOR_VISIBLE;
     screen_context_update(context, &dec_reset);
     XCTAssertFalse(screen_cursor(screen)->visible);
+
+    dec_reset.csi.dec_mode = ANSI_DEC_MODE_MOUSE_NORMAL;
+    screen_context_update(context, &dec_reset);
+    XCTAssertEqual(screen_context_mouse_mode(context), SCREEN_CONTEXT_MOUSE_NONE);
+    XCTAssertFalse(self.isMouseEnabled);
 
     dec_reset.csi.dec_mode = ANSI_DEC_MODE_MOUSE_ALL;
     screen_context_update(context, &dec_reset);

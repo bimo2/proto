@@ -317,9 +317,13 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
                 case ANSI_DEC_MODE_MOUSE_X10:
                     context->mouse_mode = SCREEN_CONTEXT_MOUSE_X10;
 
+                    if (context->on_mouse) context->on_mouse(context->mouse_user_data, false);
+
                     break;
                 case ANSI_DEC_MODE_MOUSE_NORMAL:
                     context->mouse_mode = SCREEN_CONTEXT_MOUSE_NORMAL;
+
+                    if (context->on_mouse) context->on_mouse(context->mouse_user_data, true);
 
                     break;
                 case ANSI_DEC_MODE_MOUSE_ALL:
@@ -385,9 +389,6 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
                     break;
                 case ANSI_DEC_MODE_MOUSE_X10:
                 case ANSI_DEC_MODE_MOUSE_NORMAL:
-                    context->mouse_mode = SCREEN_CONTEXT_MOUSE_NONE;
-
-                    break;
                 case ANSI_DEC_MODE_MOUSE_ALL:
                     context->mouse_mode = SCREEN_CONTEXT_MOUSE_NONE;
 

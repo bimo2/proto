@@ -119,6 +119,14 @@
         NSLog(@"bell");
     };
 
+    terminal.mouseBlock = ^(bool enabled) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        strongSelf.terminalView.trackingAreasEnabled = enabled;
+    };
+
     terminal.exitBlock = ^(int status) {
         NSLog(@"exit: %d", status);
     };

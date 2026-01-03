@@ -15,6 +15,7 @@
 @interface TerminalView : MTKView <MTKViewDelegate>
 
 @property (nonatomic, weak) Terminal *terminal;
+@property (nonatomic, assign, getter=isTrackingAreasEnabled) BOOL trackingAreasEnabled;
 
 - (void)render:(const render_t *)ops count:(size_t)count;
 
