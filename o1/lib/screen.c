@@ -58,6 +58,7 @@ struct screen_t {
     screen_cell_t **grid;
     int32_t rows;
     int32_t columns;
+    bool should_wrap;
     bool *soft_wrap;
     bool *wide_wrap;
     bool *tab_stops;
@@ -66,6 +67,7 @@ struct screen_t {
     link_table_t links;
     bool auto_wrap;
     bool insert_mode;
+    bool new_line_mode;
     bool origin_mode;
     int32_t scroll_top;
     int32_t scroll_bottom;
@@ -323,6 +325,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
 
     screen->rows = rows;
     screen->columns = columns;
+    screen->should_wrap = false;
     screen->soft_wrap = (bool *)calloc((size_t)rows, sizeof(bool));
 
     if (!screen->soft_wrap) {
@@ -374,6 +377,7 @@ screen_t *init_screen(int32_t rows, int32_t columns) {
     screen->links.size = 1;
     screen->auto_wrap = true;
     screen->insert_mode = false;
+    screen->new_line_mode = false;
     screen->origin_mode = false;
     screen->scroll_top = 0;
     screen->scroll_bottom = rows - 1;
@@ -874,6 +878,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     screen->grid = grid;
     screen->rows = rows;
     screen->columns = columns;
+    screen->should_wrap = false;
     screen->soft_wrap = soft_wrap;
     screen->wide_wrap = wide_wrap;
     screen->tab_stops = tab_stops;
@@ -1014,6 +1019,14 @@ void screen_set_insert_mode(screen_t *screen, bool enabled) {
     screen->insert_mode = enabled;
 }
 
+bool screen_new_line_mode(screen_t *screen) {
+    return screen->new_line_mode;
+}
+
+void screen_set_new_line_mode(screen_t *screen, bool enabled) {
+    screen->new_line_mode = enabled;
+}
+
 bool screen_origin_mode(screen_t *screen) {
     return screen->origin_mode;
 }
@@ -1037,31 +1050,34 @@ screen_cursor_t *screen_cursor(screen_t *screen) {
 }
 
 void screen_set_cursor_position(screen_t *screen, int32_t row, int32_t column) {
+    screen->should_wrap = false;
     screen->cursor.row = row;
     screen->cursor.column = column;
     fix_cursor(screen);
 }
 
 void screen_move_cursor_absolute(screen_t *screen, int32_t row, int32_t column) {
+    screen->should_wrap = false;
+
     if (row > 0) row--;
     if (column > 0) column--;
+    if (row < 0) row = 0;
+    if (column < 0) column = 0;
 
     int32_t top = screen->origin_mode ? screen->scroll_top : 0;
     int32_t bottom = screen->origin_mode ? screen->scroll_bottom : screen->rows - 1;
 
-    if (row < 0) row = 0;
-    if (column < 0) column = 0;
-
     screen->cursor.row = top + row;
-    screen->cursor.column = column;
 
     if (screen->cursor.row < top) screen->cursor.row = top;
     if (screen->cursor.row > bottom) screen->cursor.row = bottom;
 
+    screen->cursor.column = column;
     fix_cursor(screen);
 }
 
 void screen_move_cursor_relative(screen_t *screen, int32_t rows, int32_t columns) {
+    screen->should_wrap = false;
     screen->cursor.row += rows;
     screen->cursor.column += columns;
     fix_cursor(screen);
@@ -1103,11 +1119,7 @@ void screen_write_text(screen_t *screen, const uint8_t *text, size_t length) {
 void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
     switch (codepoint) {
         case '\n':
-            if (screen->cursor.row > -1 && screen->cursor.row < screen->rows) {
-                screen->soft_wrap[screen->cursor.row] = false;
-                screen->wide_wrap[screen->cursor.row] = false;
-                screen_newline(screen);
-            }
+            screen_newline(screen);
 
             return;
         case '\r':
@@ -1128,6 +1140,18 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
             return;
     }
 
+    if (screen->should_wrap) {
+        screen->should_wrap = false;
+        screen->cursor.row++;
+
+        if (screen->cursor.row > screen->scroll_bottom) {
+            screen_scroll_up(screen, 1);
+            screen->cursor.row = screen->scroll_bottom;
+        }
+
+        screen->cursor.column = 0;
+    }
+
     if (screen->cursor.row > -1 && screen->cursor.row < screen->rows && screen->cursor.column > 0 && screen->cursor.column < screen->columns && screen->grid[screen->cursor.row][screen->cursor.column].width == 0) screen->cursor.column--;
 
     int width = unicode_codepoint_width(codepoint);
@@ -1141,7 +1165,13 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
             if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows) screen->soft_wrap[screen->cursor.row] = true;
             if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows) screen->wide_wrap[screen->cursor.row] = false;
 
-            screen_newline(screen);
+            screen->cursor.row++;
+
+            if (screen->cursor.row > screen->scroll_bottom) {
+                screen_scroll_up(screen, 1);
+                screen->cursor.row = screen->scroll_bottom;
+            }
+
             screen->cursor.column = 0;
         } else {
             screen->cursor.column = screen->columns - 1;
@@ -1153,7 +1183,13 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
             if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows) screen->soft_wrap[screen->cursor.row] = true;
             if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows) screen->wide_wrap[screen->cursor.row] = true;
 
-            screen_newline(screen);
+            screen->cursor.row++;
+
+            if (screen->cursor.row > screen->scroll_bottom) {
+                screen_scroll_up(screen, 1);
+                screen->cursor.row = screen->scroll_bottom;
+            }
+
             screen->cursor.column = 0;
             wide_wrap = true;
         } else {
@@ -1209,18 +1245,10 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
 
     if (!wide_wrap && screen->cursor.column >= screen->columns) {
         if (screen->auto_wrap) {
-            screen->cursor.column = 0;
-            screen->cursor.row++;
+            screen->should_wrap = true;
+            screen->cursor.column = screen->columns - 1;
 
-            if (screen->cursor.row > screen->scroll_bottom) {
-                screen_scroll_up(screen, 1);
-                screen->cursor.row = screen->scroll_bottom;
-            }
-
-            int32_t last = screen->cursor.row - 1;
-
-            if (last > -1 && last < screen->rows) screen->soft_wrap[last] = true;
-            if (last > -1 && last < screen->rows) screen->wide_wrap[last] = false;
+            if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows) screen->soft_wrap[screen->cursor.row] = true;
         } else {
             screen->cursor.column = screen->columns - 1;
         }
@@ -1271,6 +1299,8 @@ void screen_insert_utf32(screen_t *screen, uint32_t codepoint) {
 }
 
 void screen_delete_utf32(screen_t *screen) {
+    screen->should_wrap = false;
+
     if (screen->cursor.row > 0 && screen->cursor.column == 2) {
         int32_t row = screen->cursor.row;
 
@@ -1323,6 +1353,8 @@ void screen_delete_utf32(screen_t *screen) {
 }
 
 void screen_backspace(screen_t *screen) {
+    screen->should_wrap = false;
+
     if (screen->cursor.column < 1) return;
 
     int32_t column = screen->cursor.column - 1;
@@ -1336,7 +1368,8 @@ void screen_newline(screen_t *screen) {
     int32_t last = screen->cursor.row;
 
     screen->cursor.row++;
-    screen->cursor.column = 0;
+
+    if (screen->new_line_mode) screen->cursor.column = 0;
 
     if (screen->cursor.row > screen->scroll_bottom) {
         screen_scroll_up(screen, 1);
@@ -1350,10 +1383,13 @@ void screen_newline(screen_t *screen) {
 }
 
 void screen_carriage_return(screen_t *screen) {
+    screen->should_wrap = false;
     screen->cursor.column = 0;
 }
 
 void screen_tab(screen_t *screen) {
+    screen->should_wrap = false;
+
     int32_t next = screen->cursor.column + 1;
 
     while (next < screen->columns && !screen->tab_stops[next]) next++;
@@ -1496,9 +1532,12 @@ void screen_erase_line(screen_t *screen, int32_t mode) {
 }
 
 void screen_set_scroll_area(screen_t *screen, int32_t top, int32_t bottom) {
-    if (top > 0) top--;
-    if (bottom > 0) bottom--;
+    top = top > 0 ? top - 1 : 0;
+    bottom = bottom > 0 ? bottom - 1 : screen->rows - 1;
+
     if (top < 0) top = 0;
+    if (top >= screen->rows) top = screen->rows - 1;
+    if (bottom < 0) bottom = 0;
     if (bottom >= screen->rows) bottom = screen->rows - 1;
     if (top > bottom) top = bottom;
 
@@ -1508,6 +1547,10 @@ void screen_set_scroll_area(screen_t *screen, int32_t top, int32_t bottom) {
 
 void screen_scroll_up(screen_t *screen, int32_t lines) {
     if (lines < 1) return;
+
+    int32_t area = screen->scroll_bottom - screen->scroll_top + 1;
+
+    if (lines > area) lines = area;
 
     if (screen->scroll_top == 0 && screen->scroll_bottom == screen->rows - 1) {
         if (screen->scrollback.lines) {
@@ -1548,7 +1591,7 @@ void screen_scroll_up(screen_t *screen, int32_t lines) {
         }
     }
 
-    for (int32_t i = screen->scroll_top; i <= screen->scroll_bottom - lines; i++) {
+    for (int32_t i = screen->scroll_top; i < screen->scroll_bottom - lines + 1; i++) {
         for (int32_t j = 0; j < screen->columns; j++) {
             screen->grid[i][j] = screen->grid[i + lines][j];
             screen->grid[i][j].dirty = true;
@@ -1572,7 +1615,11 @@ void screen_scroll_up(screen_t *screen, int32_t lines) {
 void screen_scroll_down(screen_t *screen, int32_t lines) {
     if (lines < 1) return;
 
-    for (int32_t i = screen->scroll_bottom; i >= screen->scroll_top + lines; i--) {
+    int32_t area = screen->scroll_bottom - screen->scroll_top + 1;
+
+    if (lines > area) lines = area;
+
+    for (int32_t i = screen->scroll_bottom; i > screen->scroll_top + lines - 1; i--) {
         for (int32_t j = 0; j < screen->columns; j++) {
             screen->grid[i][j] = screen->grid[i - lines][j];
             screen->grid[i][j].dirty = true;

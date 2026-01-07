@@ -225,6 +225,8 @@ static inline ansi_mode_t csi_mode(int code) {
     switch (code) {
         case 4:
             return ANSI_MODE_INSERT;
+        case 20:
+            return ANSI_MODE_NEW_LINE;
         default:
             return ANSI_MODE_UNKNOWN;
     }
@@ -240,6 +242,8 @@ static inline ansi_dec_mode_t dec_mode(int code) {
             return ANSI_DEC_MODE_AUTO_WRAP;
         case 12:
             return ANSI_DEC_MODE_CURSOR_BLINK;
+        case 20:
+            return ANSI_DEC_MODE_NEW_LINE;
         case 25:
             return ANSI_DEC_MODE_CURSOR_VISIBLE;
         case 1000:
@@ -362,20 +366,20 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
             event = ANSI_CSI_CHA;
 
             break;
+        case '`':
+            event = ANSI_CSI_HPA;
+
+            break;
         case 'H':
             event = ANSI_CSI_CUP;
 
             break;
-        case 'I':
-            event = ANSI_CSI_FCS_IN;
-
-            break;
-        case 'O':
-            event = ANSI_CSI_FCS_OUT;
-
-            break;
         case 'f':
             event = ANSI_CSI_HVP;
+
+            break;
+        case 'd':
+            event = ANSI_CSI_VPA;
 
             break;
         case 'J':
@@ -386,16 +390,16 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
             event = reader->csi_dec_private ? ANSI_CSI_DECSEL : ANSI_CSI_EL;
 
             break;
+        case 'X':
+            event = ANSI_CSI_ECH;
+
+            break;
         case '@':
             event = ANSI_CSI_ICH;
 
             break;
         case 'P':
             event = ANSI_CSI_DCH;
-
-            break;
-        case 'X':
-            event = ANSI_CSI_ECH;
 
             break;
         case 'L':
@@ -406,24 +410,12 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
             event = ANSI_CSI_DL;
 
             break;
-        case 's':
-            event = ANSI_CSI_SCP;
-
-            break;
-        case 'u':
-            event = ANSI_CSI_RCP;
-
-            break;
         case 'S':
             event = ANSI_CSI_SU;
 
             break;
         case 'T':
             event = ANSI_CSI_SD;
-
-            break;
-        case 'r':
-            event = ANSI_CSI_DECSTBM;
 
             break;
         case 'm':
@@ -439,7 +431,7 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
 
             break;
         case 'n':
-            event = reader->csi_dec_private ? ANSI_CSI_DEC_DSR : ANSI_CSI_DSR;
+            event = reader->csi_dec_private ? ANSI_CSI_DECDSR : ANSI_CSI_DSR;
 
             break;
         case 'c':
@@ -452,6 +444,26 @@ static void send_csi(ansi_reader_t *reader, char final_byte) {
             break;
         case 'g':
             event = ANSI_CSI_TBC;
+
+            break;
+        case 's':
+            event = ANSI_CSI_SCP;
+
+            break;
+        case 'u':
+            event = ANSI_CSI_RCP;
+
+            break;
+        case 'r':
+            event = ANSI_CSI_DECSTBM;
+
+            break;
+        case 'I':
+            event = ANSI_CSI_FCS_IN;
+
+            break;
+        case 'O':
+            event = ANSI_CSI_FCS_OUT;
 
             break;
         case '~':
@@ -756,6 +768,16 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                     reader->state = STATE_OSC;
                     reset_osc(reader);
                     i++;
+                    start = bytes + i;
+
+                    continue;
+                }
+
+                if (byte == '(' || byte == ')') {
+                    reader->state = STATE_GROUND;
+
+                    if (++i < length) i++;
+
                     start = bytes + i;
 
                     continue;

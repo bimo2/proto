@@ -141,39 +141,41 @@ static void test_callback(void *, ansi_t *);
     "\x1b[1E"
     "\x1b[1F"
     "\x1b[1G"
+    "\x1b[1`"
     "\x1b[1;1H"
     "\x1b[1;1f"
+    "\x1b[1d"
     "\x1b[1J"
     "\x1b[1K"
+    "\x1b[1X"
     "\x1b[1@"
     "\x1b[1P"
-    "\x1b[1X"
     "\x1b[1L"
     "\x1b[1M"
-    "\x1b[1s"
-    "\x1b[1u"
-    "\x1b[?1J"
-    "\x1b[?1K"
     "\x1b[1S"
     "\x1b[1T"
-    "\x1b[1;2r"
     "\x1b[1m"
     "\x1b[1h"
     "\x1b[1l"
-    "\x1b[?1h"
-    "\x1b[?1l"
     "\x1b[1n"
-    "\x1b[?1n"
     "\x1b[1c"
     "\x1b[1b"
     "\x1b[1g"
+    "\x1b[1s"
+    "\x1b[1u"
+    "\x1b[1;2r"
+    "\x1b[?1h"
+    "\x1b[?1l"
+    "\x1b[?1n"
+    "\x1b[?1J"
+    "\x1b[?1K"
     "\x1b[1I"
     "\x1b[1O"
     "\x1b[200~"
     "\x1b[201~";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
-    XCTAssertEqual(self.output.count, 38);
+    XCTAssertEqual(self.output.count, 40);
 
     for (NSUInteger i = 0; i < self.output.count; i++) {
         ansi_t ansi;
@@ -238,10 +240,12 @@ static void test_callback(void *, ansi_t *);
 
     const char *input =
     "\x1b[4h"
-    "\x1b[4l";
+    "\x1b[4l"
+    "\x1b[20h"
+    "\x1b[20l";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
-    XCTAssertEqual(self.output.count, 2);
+    XCTAssertEqual(self.output.count, 4);
 
     ansi_t ansi;
 
@@ -257,6 +261,18 @@ static void test_callback(void *, ansi_t *);
     XCTAssertFalse(ansi.csi.dec_private);
     XCTAssertEqual(ansi.csi.mode, ANSI_MODE_INSERT);
 
+    [self.output[2] getValue:&ansi];
+    XCTAssertEqual(ansi.event, ANSI_EVENT_CSI);
+    XCTAssertEqual(ansi.csi.event, ANSI_CSI_SM);
+    XCTAssertFalse(ansi.csi.dec_private);
+    XCTAssertEqual(ansi.csi.mode, ANSI_MODE_NEW_LINE);
+
+    [self.output[3] getValue:&ansi];
+    XCTAssertEqual(ansi.event, ANSI_EVENT_CSI);
+    XCTAssertEqual(ansi.csi.event, ANSI_CSI_RM);
+    XCTAssertFalse(ansi.csi.dec_private);
+    XCTAssertEqual(ansi.csi.mode, ANSI_MODE_NEW_LINE);
+
     free_ansi_reader(reader);
 }
 
@@ -271,6 +287,7 @@ static void test_callback(void *, ansi_t *);
     "\x1b[?1h"
     "\x1b[?7h"
     "\x1b[?12h"
+    "\x1b[?20h"
     "\x1b[?25h"
     "\x1b[?1000h"
     "\x1b[?1002h"
@@ -286,6 +303,7 @@ static void test_callback(void *, ansi_t *);
     "\x1b[?1l"
     "\x1b[?7l"
     "\x1b[?12l"
+    "\x1b[?20l"
     "\x1b[?25l"
     "\x1b[?1000l"
     "\x1b[?1002l"
@@ -299,13 +317,14 @@ static void test_callback(void *, ansi_t *);
     "\x1b[?999l";
 
     ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
-    XCTAssertEqual(self.output.count, 30);
+    XCTAssertEqual(self.output.count, 32);
 
     ansi_dec_mode_t expected[] = {
         ANSI_DEC_MODE_ORIGIN,
         ANSI_DEC_MODE_CURSOR_KEYS,
         ANSI_DEC_MODE_AUTO_WRAP,
         ANSI_DEC_MODE_CURSOR_BLINK,
+        ANSI_DEC_MODE_NEW_LINE,
         ANSI_DEC_MODE_CURSOR_VISIBLE,
         ANSI_DEC_MODE_MOUSE_X10,
         ANSI_DEC_MODE_MOUSE_NORMAL,
@@ -321,6 +340,7 @@ static void test_callback(void *, ansi_t *);
         ANSI_DEC_MODE_CURSOR_KEYS,
         ANSI_DEC_MODE_AUTO_WRAP,
         ANSI_DEC_MODE_CURSOR_BLINK,
+        ANSI_DEC_MODE_NEW_LINE,
         ANSI_DEC_MODE_CURSOR_VISIBLE,
         ANSI_DEC_MODE_MOUSE_X10,
         ANSI_DEC_MODE_MOUSE_NORMAL,

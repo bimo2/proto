@@ -682,7 +682,7 @@ static void test_mouse_callback(void *, bool);
     screen_move_cursor_absolute(screen, 2, 4);
     status.csi.dec_private = true;
     status.csi.parameters[0] = 6;
-    status.csi.event = ANSI_CSI_DEC_DSR;
+    status.csi.event = ANSI_CSI_DECDSR;
     screen_context_update(context, &status);
     XCTAssertEqualObjects(self.response, @"\x1b[2;4R");
 

@@ -109,6 +109,7 @@ static inline void apply_esc(screen_context_t *context, const ansi_esc_t *esc) {
             screen_set_attributes(context->current, NULL);
             screen_set_auto_wrap(context->current, true);
             screen_set_insert_mode(context->current, false);
+            screen_set_new_line_mode(context->current, false);
             screen_set_origin_mode(context->current, false);
             screen_set_cursor_position(context->current, 0, 0);
             screen_set_scroll_area(context->current, 1, screen_rows(context->current));
@@ -161,6 +162,8 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
             for (int i = 0; i < value; i++) screen_newline(context->current);
 
+            screen_carriage_return(context->current);
+
             break;
         }
         case ANSI_CSI_CPL: {
@@ -171,7 +174,8 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
             break;
         }
-        case ANSI_CSI_CHA: {
+        case ANSI_CSI_CHA:
+        case ANSI_CSI_HPA: {
             int column = csi_parameter(csi, 0, 1);
 
             screen_move_cursor_absolute(context->current, screen_cursor(context->current)->row + 1, column);
@@ -182,6 +186,14 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
         case ANSI_CSI_HVP: {
             int row = csi_parameter(csi, 0, 1);
             int column = csi_parameter(csi, 1, 1);
+
+            screen_move_cursor_absolute(context->current, row, column);
+
+            break;
+        }
+        case ANSI_CSI_VPA: {
+            int row = csi_parameter(csi, 0, 1);
+            int column = screen_cursor(context->current)->column + 1;
 
             screen_move_cursor_absolute(context->current, row, column);
 
@@ -201,6 +213,13 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
             break;
         }
+        case ANSI_CSI_ECH: {
+            int value = csi_parameter(csi, 0, 1);
+
+            screen_erase_inline(context->current, value);
+
+            break;
+        }
         case ANSI_CSI_ICH: {
             int value = csi_parameter(csi, 0, 1);
 
@@ -212,13 +231,6 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
             int value = csi_parameter(csi, 0, 1);
 
             screen_delete_inline(context->current, value);
-
-            break;
-        }
-        case ANSI_CSI_ECH: {
-            int value = csi_parameter(csi, 0, 1);
-
-            screen_erase_inline(context->current, value);
 
             break;
         }
@@ -236,28 +248,6 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
             break;
         }
-        case ANSI_CSI_SCP:
-            screen_save_cursor(context->current);
-
-            break;
-        case ANSI_CSI_RCP:
-            screen_restore_cursor(context->current);
-
-            break;
-        case ANSI_CSI_DECSED: {
-            int mode = csi_parameter(csi, 0, 0);
-
-            screen_erase(context->current, mode);
-
-            break;
-        }
-        case ANSI_CSI_DECSEL: {
-            int mode = csi_parameter(csi, 0, 0);
-
-            screen_erase_line(context->current, mode);
-
-            break;
-        }
         case ANSI_CSI_SU: {
             int value = csi_parameter(csi, 0, 1);
 
@@ -272,6 +262,101 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
             break;
         }
+        case ANSI_CSI_SGR:
+            screen_set_attributes(context->current, &csi->attributes);
+
+            break;
+        case ANSI_CSI_SM:
+            switch (csi->mode) {
+                case ANSI_MODE_INSERT:
+                    screen_set_insert_mode(context->current, true);
+
+                    break;
+                case ANSI_MODE_NEW_LINE:
+                    screen_set_new_line_mode(context->current, true);
+
+                    break;
+                case ANSI_MODE_UNKNOWN:
+                    break;
+            }
+
+            break;
+        case ANSI_CSI_RM:
+            switch (csi->mode) {
+                case ANSI_MODE_INSERT:
+                    screen_set_insert_mode(context->current, false);
+
+                    break;
+                case ANSI_MODE_NEW_LINE:
+                    screen_set_new_line_mode(context->current, false);
+
+                    break;
+                case ANSI_MODE_UNKNOWN:
+                    break;
+            }
+
+            break;
+        case ANSI_CSI_DSR:
+        case ANSI_CSI_DECDSR:
+            if (context->on_response) {
+                int value = csi_parameter(csi, 0, 0);
+
+                switch (value) {
+                    case 5:
+                        if (csi->dec_private) break;
+
+                        context->on_response(context->response_user_data, "\x1b[0n");
+
+                        break;
+                    case 6: {
+                        screen_cursor_t *cursor = screen_cursor(context->current);
+                        int row = cursor->row + 1;
+                        int column = cursor->column + 1;
+                        char buffer[32];
+
+                        snprintf(buffer, sizeof(buffer), "\x1b[%d;%dR", row, column);
+                        context->on_response(context->response_user_data, buffer);
+
+                        break;
+                    }
+                }
+            }
+
+            break;
+        case ANSI_CSI_DA:
+            if (context->on_response) {
+                if (csi->intermediates_count > 0 && csi->intermediates[0] == '>') {
+                    context->on_response(context->response_user_data, "\x1b[>0;0;0c");
+                } else {
+                    context->on_response(context->response_user_data, "\x1b[?1;2c");
+                }
+            }
+
+            break;
+        case ANSI_CSI_REP: {
+            int value = csi_parameter(csi, 0, 1);
+
+            if (context->last_codepoint != 0) {
+                for (int i = 0; i < value; i++) write_codepoint(context, context->last_codepoint);
+            }
+
+            break;
+        }
+        case ANSI_CSI_TBC: {
+            int mode = csi_parameter(csi, 0, 0);
+
+            screen_clear_tab_stops(context->current, mode);
+
+            break;
+        }
+        case ANSI_CSI_SCP:
+            screen_save_cursor(context->current);
+
+            break;
+        case ANSI_CSI_RCP:
+            screen_restore_cursor(context->current);
+
+            break;
         case ANSI_CSI_DECSTBM: {
             int top = csi_parameter(csi, 0, 1);
             int bottom = csi_parameter(csi, 1, screen_rows(context->current));
@@ -280,18 +365,6 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
 
             break;
         }
-        case ANSI_CSI_SGR:
-            screen_set_attributes(context->current, &csi->attributes);
-
-            break;
-        case ANSI_CSI_SM:
-            if (csi->mode == ANSI_MODE_INSERT) screen_set_insert_mode(context->current, true);
-
-            break;
-        case ANSI_CSI_RM:
-            if (csi->mode == ANSI_MODE_INSERT) screen_set_insert_mode(context->current, false);
-
-            break;
         case ANSI_CSI_DECSET:
             switch (csi->dec_mode) {
                 case ANSI_DEC_MODE_CURSOR_KEYS:
@@ -312,6 +385,10 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
                     break;
                 case ANSI_DEC_MODE_CURSOR_VISIBLE:
                     screen_cursor(context->current)->visible = true;
+
+                    break;
+                case ANSI_DEC_MODE_NEW_LINE:
+                    screen_set_new_line_mode(context->current, true);
 
                     break;
                 case ANSI_DEC_MODE_MOUSE_X10:
@@ -387,6 +464,10 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
                     screen_cursor(context->current)->visible = false;
 
                     break;
+                case ANSI_DEC_MODE_NEW_LINE:
+                    screen_set_new_line_mode(context->current, false);
+
+                    break;
                 case ANSI_DEC_MODE_MOUSE_X10:
                 case ANSI_DEC_MODE_MOUSE_NORMAL:
                 case ANSI_DEC_MODE_MOUSE_ALL:
@@ -427,50 +508,17 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
             }
 
             break;
-        case ANSI_CSI_DSR:
-        case ANSI_CSI_DEC_DSR:
-            if (context->on_response) {
-                int value = csi_parameter(csi, 0, 0);
+        case ANSI_CSI_DECSED: {
+            int mode = csi_parameter(csi, 0, 0);
 
-                switch (value) {
-                    case 5:
-                        if (csi->dec_private) break;
-
-                        context->on_response(context->response_user_data, "\x1b[0n");
-
-                        break;
-                    case 6: {
-                        screen_cursor_t *cursor = screen_cursor(context->current);
-                        int row = cursor->row + 1;
-                        int column = cursor->column + 1;
-                        char buffer[32];
-
-                        snprintf(buffer, sizeof(buffer), "\x1b[%d;%dR", row, column);
-                        context->on_response(context->response_user_data, buffer);
-
-                        break;
-                    }
-                }
-            }
-
-            break;
-        case ANSI_CSI_DA:
-            if (context->on_response) context->on_response(context->response_user_data, "\x1b[?1;2c");
-
-            break;
-        case ANSI_CSI_REP: {
-            int value = csi_parameter(csi, 0, 1);
-
-            if (context->last_codepoint != 0) {
-                for (int i = 0; i < value; i++) write_codepoint(context, context->last_codepoint);
-            }
+            screen_erase(context->current, mode);
 
             break;
         }
-        case ANSI_CSI_TBC: {
+        case ANSI_CSI_DECSEL: {
             int mode = csi_parameter(csi, 0, 0);
 
-            screen_clear_tab_stops(context->current, mode);
+            screen_erase_line(context->current, mode);
 
             break;
         }
@@ -584,6 +632,14 @@ void free_screen_context(screen_context_t *context) {
 
 void screen_context_reset(screen_context_t *context) {
     context->current = context->main;
+
+    if (context->main) {
+        screen_set_auto_wrap(context->main, true);
+        screen_set_insert_mode(context->main, false);
+        screen_set_new_line_mode(context->main, false);
+        screen_set_origin_mode(context->main, false);
+    }
+
     free_screen(context->alternate);
     context->alternate = NULL;
     context->utf_codepoint = unicode_default_codepoint;

@@ -49,8 +49,8 @@
     XCTAssertEqual(screen_cursor(screen)->column, 3);
 
     screen_write_utf32(screen, 0x2713u);
-    XCTAssertEqual(screen_cursor(screen)->row, 1);
-    XCTAssertEqual(screen_cursor(screen)->column, 0);
+    XCTAssertEqual(screen_cursor(screen)->row, 0);
+    XCTAssertEqual(screen_cursor(screen)->column, 4);
 
     screen_delete_utf32(screen);
     XCTAssertEqual(screen_cursor(screen)->row, 0);
@@ -192,6 +192,7 @@
     screen_set_scrollback_capacity(screen, 5);
 
     for (int k = 1; k < 6; k++) {
+        screen_write_utf32(screen, '\r');
         screen_write_utf32(screen, '\n');
 
         for (int i = 0; i < 6; i++) screen_write_utf32(screen, 'A' + k);
@@ -216,6 +217,7 @@
     XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 'F');
     XCTAssertEqual(screen_cell(screen, 4, 1)->codepoint, ' ');
 
+    screen_write_utf32(screen, '\r');
     screen_write_utf32(screen, '\n');
 
     for (int i = 0; i < 4; i++) screen_write_utf32(screen, i % 2 == 0 ? 'X' : ' ');
@@ -261,6 +263,7 @@
 
     screen_set_cursor_position(screen, 4, 4);
     screen_write_utf32(screen, 'X');
+    screen_write_utf32(screen, ' ');
     XCTAssertEqual(screen_cell(screen, 0, 0)->codepoint, 'B');
     XCTAssertEqual(screen_cell(screen, 3, 4)->codepoint, 'X');
     XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, ' ');

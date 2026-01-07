@@ -71,6 +71,10 @@ bool screen_insert_mode(screen_t *screen);
 
 void screen_set_insert_mode(screen_t *screen, bool enabled);
 
+bool screen_new_line_mode(screen_t *screen);
+
+void screen_set_new_line_mode(screen_t *screen, bool enabled);
+
 bool screen_origin_mode(screen_t *screen);
 
 void screen_set_origin_mode(screen_t *screen, bool enabled);
