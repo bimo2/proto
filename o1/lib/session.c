@@ -32,12 +32,36 @@
 #include <pty.h>
 #endif
 
+bool session_sandbox = false;
+
 struct session_t {
     pid_t pid;
     int fd;
     bool running;
     buffer_t *pending;
 };
+
+static void sandbox(int fd) {
+    struct termios options;
+
+    if (tcgetattr(fd, &options) != 0) {
+        log_error("tcgetattr error: %d", errno);
+
+        return;
+    }
+
+    cfmakeraw(&options);
+    options.c_lflag |= ISIG;
+    options.c_oflag |= OPOST | ONLCR;
+    options.c_cc[VMIN] = 1;
+    options.c_cc[VTIME] = 0;
+
+    if (tcsetattr(fd, TCSANOW, &options) != 0) {
+        log_error("tcsetattr error: %d", errno);
+
+        return;
+    }
+}
 
 session_t *init_session(void) {
     session_t *session = (session_t *)calloc(1, sizeof(session_t));
@@ -97,14 +121,6 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     if (session->running) return;
 
     int master_fd = -1;
-    struct termios tio;
-
-    if (tcgetattr(STDIN_FILENO, &tio) == -1) memset(&tio, 0, sizeof(tio));
-
-    cfmakeraw(&tio);
-    tio.c_cc[VMIN] = 1;
-    tio.c_cc[VTIME] = 0;
-
     struct winsize ws;
 
     memset(&ws, 0, sizeof(ws));
@@ -113,7 +129,7 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     ws.ws_xpixel = screen_default_width;
     ws.ws_ypixel = screen_default_height;
 
-    pid_t pid = forkpty(&master_fd, NULL, &tio, &ws);
+    pid_t pid = forkpty(&master_fd, NULL, NULL, &ws);
 
     if (pid < 0) {
         log_error("forkpty error: %d", errno);
@@ -122,6 +138,8 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     }
 
     if (pid == 0) {
+        if (session_sandbox) sandbox(STDIN_FILENO);
+
         execve(file, argv, envp);
         log_error("execve error: %d", errno);
         _exit(127);
@@ -138,8 +156,6 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     session->pid = pid;
     session->fd = master_fd;
     session->running = true;
-
-    return;
 }
 
 void session_stop(session_t *session) {

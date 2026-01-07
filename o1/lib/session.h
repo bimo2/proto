@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+extern bool session_sandbox;
+
 typedef struct session_t session_t;
 
 session_t *init_session(void);

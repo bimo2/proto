@@ -27,6 +27,14 @@ static char *const envp[] = {"TERM=xterm-256color", NULL};
 
 @implementation SessionTests
 
+- (void)setUp {
+    session_sandbox = true;
+}
+
+- (void)tearDown {
+    session_sandbox = false;
+}
+
 - (void)test_start_stop {
     session_t *session = init_session();
 
@@ -85,8 +93,8 @@ static char *const envp[] = {"TERM=xterm-256color", NULL};
     });
 
     [self waitForExpectations:@[expectation] timeout:1.0];
-    XCTAssertEqual(output.length, length);
-    XCTAssertEqual(memcmp(output.bytes, text, length), 0);
+    XCTAssertEqual(output.length, length + 1);
+    XCTAssertEqual(memcmp(output.bytes, "testing\r\n", length), 0);
 
     session_stop(session);
     free_session(session);

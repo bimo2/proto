@@ -148,7 +148,7 @@
 
     self.terminalView = terminalView;
 
-    CGFloat height = 80.0;
+    CGFloat height = 60.0;
     NSRect frame = NSMakeRect(0, self.view.bounds.size.height - height, self.view.bounds.size.width, height);
     NSView *subview = [[NSView alloc] initWithFrame:frame];
 
@@ -162,7 +162,7 @@
         (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.0].CGColor,
     ];
 
-    gradient.locations = @[@0.24, @1.0];
+    gradient.locations = @[@0.46, @1.0];
     gradient.startPoint = CGPointMake(0.5, 1.0);
     gradient.endPoint = CGPointMake(0.5, 0.0);
     gradient.frame = subview.bounds;
