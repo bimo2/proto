@@ -18,6 +18,10 @@
 
 @implementation ScreenTests
 
+- (void)setUp {
+    screen_default_offset = 0;
+}
+
 - (void)test_grid_cursor {
     screen_t *screen = init_screen(5, 5);
 
@@ -141,6 +145,14 @@
 
     screen_set_grid(screen, 10, 10);
     XCTAssertTrue(screen_invalidate_needs_display(screen));
+
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            XCTAssertTrue(screen_cell(screen, i, j)->dirty);
+
+            screen_cell(screen, i, j)->dirty = false;
+        }
+    }
 
     screen_erase_line(screen, 2);
     XCTAssertTrue(screen_cell(screen, 0, 0)->dirty);

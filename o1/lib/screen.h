@@ -18,6 +18,7 @@ extern uint32_t screen_default_rows;
 extern uint32_t screen_default_columns;
 extern uint32_t screen_default_width;
 extern uint32_t screen_default_height;
+extern uint32_t screen_default_offset;
 
 typedef struct screen_cell_t {
     uint32_t codepoint;

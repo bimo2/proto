@@ -15,6 +15,7 @@
 @property (class, assign) NSUInteger height;
 @property (class, assign) NSUInteger rows;
 @property (class, assign) NSUInteger columns;
+@property (class, assign) NSUInteger offset;
 @property (class, assign) NSUInteger codepoint;
 @property (class, copy) NSDictionary<NSNumber *, NSColor *> *colors;
 

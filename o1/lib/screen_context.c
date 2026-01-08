@@ -422,6 +422,7 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
                     if (!context->alternate) {
                         context->alternate = init_screen(screen_rows(context->main), screen_columns(context->main));
                         screen_set_scrollback_capacity(context->alternate, 0);
+                        screen_needs_display(context->alternate);
                     }
 
                     if (csi->dec_mode == ANSI_DEC_MODE_ALTERNATE_SCREEN_SAVE_CURSOR) screen_save_cursor(context->main);

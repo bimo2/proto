@@ -9,6 +9,7 @@
 #import <XCTest/XCTest.h>
 
 #include "include.h"
+#include "screen.h"
 #include "session.h"
 
 #include <dispatch/dispatch.h>
@@ -29,10 +30,7 @@ static char *const envp[] = {"TERM=xterm-256color", NULL};
 
 - (void)setUp {
     session_sandbox = true;
-}
-
-- (void)tearDown {
-    session_sandbox = false;
+    screen_default_offset = 0;
 }
 
 - (void)test_start_stop {

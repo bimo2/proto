@@ -27,6 +27,7 @@ uint32_t screen_default_rows = 24;
 uint32_t screen_default_columns = 80;
 uint32_t screen_default_width = 0;
 uint32_t screen_default_height = 0;
+uint32_t screen_default_offset = 0;
 
 typedef struct {
     screen_cell_t *cells;
@@ -101,7 +102,7 @@ static inline void reset_cell(screen_cell_t *cell) {
 static inline void reset_cursor(screen_cursor_t *cursor) {
     if (!cursor) return;
 
-    cursor->row = 0;
+    cursor->row = (int32_t)screen_default_offset;
     cursor->column = 0;
     cursor->visible = true;
     cursor->blink = false;
@@ -149,7 +150,7 @@ static inline bool valid_position(screen_t *screen, int32_t row, int32_t column)
 }
 
 static inline void fix_cursor(screen_t *screen) {
-    if (screen->cursor.row < 0) screen->cursor.row = 0;
+    if (screen->cursor.row < 0) screen->cursor.row = (int32_t)screen_default_offset;
     if (screen->cursor.row >= screen->rows) screen->cursor.row = screen->rows - 1;
     if (screen->cursor.column < 0) screen->cursor.column = 0;
     if (screen->cursor.column >= screen->columns) screen->cursor.column = screen->columns - 1;
@@ -475,7 +476,8 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         return;
     }
 
-    bool full_content = screen->scroll_top == 0 && screen->scroll_bottom == screen->rows - 1;
+    int32_t top = screen->scrollback.capacity > screen_default_offset ? 0 : screen_default_offset;
+    bool full_content = screen->scroll_top == top && screen->scroll_bottom == screen->rows - 1;
 
     if (columns == screen->columns) {
         if (rows > screen->rows) {
@@ -579,20 +581,44 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
                 }
             }
 
-            for (int32_t i = 0; i < rows; i++) {
+            if (top > 0) {
+                for (int32_t i = 0; i < top && i < rows; i++) {
+                    soft_wrap[i] = false;
+                    wide_wrap[i] = false;
+                }
+            }
+
+            int32_t start = top > 0 ? top : 0;
+
+            for (int32_t i = start; i < rows; i++) {
                 memcpy(grid[i], screen->grid[leading + i], (size_t)screen->columns * sizeof(screen_cell_t));
                 soft_wrap[i] = screen->soft_wrap[leading + i];
                 wide_wrap[i] = screen->wide_wrap[leading + i];
             }
 
-            if (screen->cursor.row >= leading) {
+            if (top > 0 && screen->cursor.row < top) {
+                screen->cursor.row = top;
+            } else if (screen->cursor.row >= leading + top) {
+                screen->cursor.row -= leading;
+            } else if (top > 0) {
+                screen->cursor.row = top;
+            } else if (screen->cursor.row >= leading) {
                 screen->cursor.row -= leading;
             } else {
-                screen->cursor.row = 0;
+                screen->cursor.row = screen_default_offset;
             }
 
             if (screen->cursor.row >= rows) screen->cursor.row = rows - 1;
             if (screen->cursor.column >= columns) screen->cursor.column = columns - 1;
+        }
+
+        if (top > 0) {
+            for (int32_t i = 0; i < (int32_t)min((size_t)top, (size_t)rows); i++) {
+                for (int32_t j = 0; j < columns; j++) reset_cell(&grid[i][j]);
+
+                soft_wrap[i] = false;
+                wide_wrap[i] = false;
+            }
         }
 
         free(screen->wide_wrap);
@@ -605,10 +631,10 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         screen->wide_wrap = wide_wrap;
 
         if (full_content) {
-            screen->scroll_top = 0;
+            screen->scroll_top = top;
             screen->scroll_bottom = rows - 1;
         } else {
-            if (screen->scroll_top < 0) screen->scroll_top = 0;
+            if (screen->scroll_top < top) screen->scroll_top = top;
             if (screen->scroll_top >= rows) screen->scroll_top = rows - 1;
             if (screen->scroll_bottom < 0) screen->scroll_bottom = 0;
             if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
@@ -617,7 +643,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
         if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 
-        screen->needs_display = true;
+        screen_needs_display(screen);
 
         return;
     }
@@ -871,6 +897,15 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
     if (screen->cursor.column >= columns) screen->cursor.column = columns - 1;
 
+    if (top > 0) {
+        for (int32_t i = 0; i < (int32_t)min((size_t)top, (size_t)rows); i++) {
+            for (int32_t j = 0; j < columns; j++) reset_cell(&grid[i][j]);
+
+            soft_wrap[i] = false;
+            wide_wrap[i] = false;
+        }
+    }
+
     free(screen->tab_stops);
     free(screen->wide_wrap);
     free(screen->soft_wrap);
@@ -884,10 +919,10 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     screen->tab_stops = tab_stops;
 
     if (full_content) {
-        screen->scroll_top = 0;
+        screen->scroll_top = top;
         screen->scroll_bottom = rows - 1;
     } else {
-        if (screen->scroll_top < 0) screen->scroll_top = 0;
+        if (screen->scroll_top < top) screen->scroll_top = top;
         if (screen->scroll_top >= rows) screen->scroll_top = rows - 1;
         if (screen->scroll_bottom < 0) screen->scroll_bottom = 0;
         if (screen->scroll_bottom >= rows) screen->scroll_bottom = rows - 1;
@@ -896,7 +931,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
     if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 
-    screen->needs_display = true;
+    screen_needs_display(screen);
 
     return;
 }
@@ -1038,7 +1073,7 @@ void screen_set_origin_mode(screen_t *screen, bool enabled) {
         screen->cursor.row = screen->scroll_top;
         screen->cursor.column = 0;
     } else {
-        screen->cursor.row = 0;
+        screen->cursor.row = (int32_t)screen_default_offset;
         screen->cursor.column = 0;
     }
 
@@ -1051,7 +1086,7 @@ screen_cursor_t *screen_cursor(screen_t *screen) {
 
 void screen_set_cursor_position(screen_t *screen, int32_t row, int32_t column) {
     screen->should_wrap = false;
-    screen->cursor.row = row;
+    screen->cursor.row = row + (int32_t)screen_default_offset;
     screen->cursor.column = column;
     fix_cursor(screen);
 }
@@ -1064,7 +1099,7 @@ void screen_move_cursor_absolute(screen_t *screen, int32_t row, int32_t column) 
     if (row < 0) row = 0;
     if (column < 0) column = 0;
 
-    int32_t top = screen->origin_mode ? screen->scroll_top : 0;
+    int32_t top = screen->origin_mode ? screen->scroll_top : (int32_t)screen_default_offset;
     int32_t bottom = screen->origin_mode ? screen->scroll_bottom : screen->rows - 1;
 
     screen->cursor.row = top + row;
@@ -1427,7 +1462,7 @@ void screen_reset_tab_stops(screen_t *screen) {
 }
 
 void screen_clear(screen_t *screen) {
-    for (int32_t i = 0; i < screen->rows; i++) {
+    for (int32_t i = (int32_t)screen_default_offset; i < screen->rows; i++) {
         for (int32_t j = 0; j < screen->columns; j++) reset_cell(&screen->grid[i][j]);
 
         screen->soft_wrap[i] = false;
@@ -1541,8 +1576,8 @@ void screen_set_scroll_area(screen_t *screen, int32_t top, int32_t bottom) {
     if (bottom >= screen->rows) bottom = screen->rows - 1;
     if (top > bottom) top = bottom;
 
-    screen->scroll_top = top;
-    screen->scroll_bottom = bottom;
+    screen->scroll_top = top + (int32_t)screen_default_offset;
+    screen->scroll_bottom = bottom + (int32_t)screen_default_offset;
 }
 
 void screen_scroll_up(screen_t *screen, int32_t lines) {

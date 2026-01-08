@@ -124,7 +124,7 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     struct winsize ws;
 
     memset(&ws, 0, sizeof(ws));
-    ws.ws_row = screen_default_rows;
+    ws.ws_row = screen_default_rows - screen_default_offset;
     ws.ws_col = screen_default_columns;
     ws.ws_xpixel = screen_default_width;
     ws.ws_ypixel = screen_default_height;
@@ -261,7 +261,7 @@ void session_update_window(session_t *session, uint32_t rows, uint32_t columns, 
     struct winsize ws;
 
     memset(&ws, 0, sizeof(ws));
-    ws.ws_row = rows;
+    ws.ws_row = rows - screen_default_offset;
     ws.ws_col = columns;
     ws.ws_xpixel = width;
     ws.ws_ypixel = height;

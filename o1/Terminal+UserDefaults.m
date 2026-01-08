@@ -45,6 +45,14 @@
     screen_default_columns = (uint32_t)columns;
 }
 
++ (NSUInteger)offset {
+    return screen_default_offset;
+}
+
++ (void)setOffset:(NSUInteger)offset {
+    screen_default_offset = (uint32_t)offset;
+}
+
 + (NSUInteger)codepoint {
     return (NSUInteger)unicode_default_codepoint;
 }

@@ -8,6 +8,7 @@
 #import "AppDelegate.h"
 
 #import "MainMenu.h"
+#import "Terminal+UserDefaults.h"
 #import "WindowController.h"
 
 @interface AppDelegate ()
@@ -22,6 +23,7 @@
     MainMenu *mainMenu = [[MainMenu alloc] init];
 
     [NSApp setMainMenu:mainMenu];
+    [Terminal setOffset:2];
     [self window:nil];
 }
 

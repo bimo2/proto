@@ -36,6 +36,7 @@ static void test_mouse_callback(void *, bool);
     self.title = nil;
     self.bells = 0;
     self.mouseEnabled = false;
+    screen_default_offset = 0;
 }
 
 - (void)test_codepoint_dynamic {
