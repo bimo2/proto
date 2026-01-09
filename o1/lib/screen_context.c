@@ -112,6 +112,8 @@ static inline void apply_esc(screen_context_t *context, const ansi_esc_t *esc) {
             screen_set_new_line_mode(context->current, false);
             screen_set_origin_mode(context->current, false);
             screen_set_cursor_position(context->current, 0, 0);
+            screen_cursor(context->current)->visible = true;
+            screen_cursor(context->current)->blink = true;
             screen_set_scroll_area(context->current, 1, screen_rows(context->current));
             screen_reset_tab_stops(context->current);
 

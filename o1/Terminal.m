@@ -165,13 +165,13 @@ static void on_mouse_callback(void *, bool);
             }
 
             dispatch_source_cancel(strongSelf->write_source);
-            strongSelf->write_source = nil;
+            strongSelf->write_source = NULL;
             strongSelf->write_source_suspended = true;
         }
 
         if (strongSelf->read_source) {
             dispatch_source_cancel(strongSelf->read_source);
-            strongSelf->read_source = nil;
+            strongSelf->read_source = NULL;
         }
 
         ansi_reader_reset(strongSelf->reader);
@@ -438,7 +438,7 @@ static void on_mouse_callback(void *, bool);
         }
 
         dispatch_source_cancel(strongSelf->proc_source);
-        strongSelf->proc_source = nil;
+        strongSelf->proc_source = NULL;
         [strongSelf stop];
     });
 

@@ -11,6 +11,7 @@
 #import <MetalKit/MetalKit.h>
 
 #include "render.h"
+#include "screen.h"
 
 @interface TerminalView : MTKView <MTKViewDelegate>
 
@@ -18,5 +19,7 @@
 @property (nonatomic, assign, getter=isTrackingAreasEnabled) BOOL trackingAreasEnabled;
 
 - (void)render:(const render_t *)ops count:(size_t)count;
+
+- (void)cursor:(screen_t *)screen;
 
 @end

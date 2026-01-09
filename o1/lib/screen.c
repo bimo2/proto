@@ -105,7 +105,7 @@ static inline void reset_cursor(screen_cursor_t *cursor) {
     cursor->row = (int32_t)screen_default_offset;
     cursor->column = 0;
     cursor->visible = true;
-    cursor->blink = false;
+    cursor->blink = true;
     cursor->attributes = default_attributes;
 }
 

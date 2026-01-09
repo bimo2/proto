@@ -13,10 +13,15 @@
 #include "render.h"
 #include "shaders_cpu.h"
 
+#include <dispatch/dispatch.h>
 #include <math.h>
 #include <string.h>
 
-@interface TerminalView ()
+@interface TerminalView () {
+    cpu_cursor_uniforms_t next_cursor;
+    dispatch_source_t blink_timer;
+    dispatch_source_t blink_pause_timer;
+}
 
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, FontTexture *> *typesets;
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
@@ -33,6 +38,10 @@
 @property (nonatomic, assign) CGFloat textBaseline;
 @property (nonatomic, assign) CGFloat queuedOffset;
 @property (nonatomic, strong) NSTrackingArea *trackingArea;
+@property (nonatomic, assign) BOOL shouldDrawCursor;
+@property (nonatomic, assign) BOOL isCursorBlinkEnabled;
+@property (nonatomic, assign) NSUInteger cursorBlinkPhase;
+@property (nonatomic, assign) BOOL isCursorBlinkPaused;
 
 @end
 
@@ -78,9 +87,18 @@
         samplerDescriptor.sAddressMode = MTLSamplerAddressModeClampToEdge;
         samplerDescriptor.tAddressMode = MTLSamplerAddressModeClampToEdge;
         _sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
+        _shouldDrawCursor = NO;
+        _isCursorBlinkEnabled = NO;
+        _cursorBlinkPhase = 1;
+        _isCursorBlinkPaused = NO;
     }
 
     return self;
+}
+
+- (void)dealloc {
+    [self stopCursorBlinkTimer];
+    [self stopCursorBlinkPauseTimer];
 }
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
@@ -122,8 +140,10 @@
         .cell_size = simd_make_float2((float)self.cellWidth, (float)self.cellHeight)
     };
 
-    [encoder setVertexBytes:&uniforms length:sizeof(uniforms) atIndex:0];
-    [encoder setVertexBuffer:self.buffer offset:0 atIndex:1];
+    [encoder setVertexBuffer:self.buffer offset:0 atIndex:0];
+    [encoder setVertexBytes:&uniforms length:sizeof(cpu_grid_uniforms_t) atIndex:1];
+    [encoder setVertexBytes:&next_cursor length:sizeof(cpu_cursor_uniforms_t) atIndex:2];
+    [encoder setFragmentBytes:&next_cursor length:sizeof(cpu_cursor_uniforms_t) atIndex:0];
     [encoder setFragmentTexture:self.texture atIndex:0];
     [encoder setFragmentSamplerState:self.sampler atIndex:0];
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:CPU_TERMINAL_VERTEX_COUNT instanceCount:self.instanceCount];
@@ -161,6 +181,8 @@
 
         return;
     }
+
+    [self skipCursorBlink];
 
     if (event.charactersIgnoringModifiers.length == 1) {
         unichar key = [event.charactersIgnoringModifiers characterAtIndex:0];
@@ -412,7 +434,6 @@
 }
 
 - (void)mouseMoved:(NSEvent *)event {
-    NSLog(@"move: %f %f", event.locationInWindow.x, event.locationInWindow.y);
     [self mouse:event button:ANSI_MOUSE_RELEASE action:ANSI_MOUSE_EVENT_MOVE];
 }
 
@@ -429,7 +450,6 @@
         self.queuedOffset -= offset;
 
         if (self.trackingAreasEnabled) {
-            NSLog(@"scroll: %lu", offset);
             ansi_mouse_t button = offset > 0 ? ANSI_MOUSE_WHEEL_UP : ANSI_MOUSE_WHEEL_DOWN;
 
             for (NSInteger i = 0; i < labs(offset); i++) [self mouse:event button:button action:ANSI_MOUSE_EVENT_DOWN];
@@ -446,6 +466,7 @@
 
     if (string.length < 1) return;
 
+    [self skipCursorBlink];
     [self.terminal paste:[string dataUsingEncoding:NSUTF8StringEncoding]];
 }
 
@@ -471,6 +492,45 @@
                 break;
         }
     }
+
+    [self setNeedsDisplay:YES];
+}
+
+- (void)cursor:(screen_t *)screen {
+    if (!screen) return;
+
+    screen_cursor_t *cursor = screen_cursor(screen);
+    BOOL shouldDraw = cursor->visible;
+    int32_t row = cursor->row + screen_viewport_offset(screen);
+
+    if (row < 0 || row >= (int32_t)self.rows) shouldDraw = NO;
+    if (cursor->column < 0 || cursor->column >= (int32_t)self.columns) shouldDraw = NO;
+
+    if (shouldDraw) {
+        next_cursor.cell = simd_make_uint2((uint32_t)cursor->column, (uint32_t)((int32_t)self.rows - 1 - row));
+    } else {
+        next_cursor.cell = simd_make_uint2(0, 0);
+    }
+
+    self.shouldDrawCursor = shouldDraw;
+
+    if (cursor->blink && self.isCursorBlinkPaused) {
+        next_cursor.visible = (uint32_t)shouldDraw;
+    } else {
+        next_cursor.visible = (uint32_t)(shouldDraw && (!cursor->blink || self.cursorBlinkPhase > 0));
+    }
+
+    if (self.isCursorBlinkEnabled != cursor->blink) {
+        self.isCursorBlinkEnabled = cursor->blink;
+
+        if (!cursor->blink) {
+            self.isCursorBlinkPaused = NO;
+            [self stopCursorBlinkTimer];
+            [self stopCursorBlinkPauseTimer];
+        }
+    }
+
+    if (self.isCursorBlinkEnabled && !self.isCursorBlinkPaused) [self startCursorBlinkTimer];
 
     [self setNeedsDisplay:YES];
 }
@@ -518,7 +578,7 @@
     for (size_t i = 0; i < sizeof(samples) / sizeof(samples[0]); i++) {
         glyph_attributes_t glyph_attributes;
 
-        memset(&glyph_attributes, 0, sizeof(glyph_attributes));
+        memset(&glyph_attributes, 0, sizeof(glyph_attributes_t));
 
         if (![fontRegular find:samples[i] glyph:NULL attributes:&glyph_attributes]) continue;
 
@@ -548,7 +608,7 @@
 
     glyph_attributes_t glyph_attributes;
 
-    memset(&glyph_attributes, 0, sizeof(glyph_attributes));
+    memset(&glyph_attributes, 0, sizeof(glyph_attributes_t));
 
     uint32_t glyph = 0;
     BOOL hasGlyph = [typeset find:codepoint glyph:&glyph attributes:&glyph_attributes];
@@ -669,6 +729,81 @@
     NSUInteger column = floor(x / self.cellWidth) + 1;
 
     [self.terminal mouse:button event:action flags:event.modifierFlags row:MAX(1, MIN(self.rows, row)) column:MAX(1, MIN(self.columns, column))];
+}
+
+- (void)startCursorBlinkTimer {
+    if (blink_timer) return;
+
+    blink_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+
+    uint64_t interval = (uint64_t)(0.5 * NSEC_PER_SEC);
+
+    dispatch_source_set_timer(blink_timer, dispatch_time(DISPATCH_TIME_NOW, interval), interval, (uint64_t)(0.05 * NSEC_PER_SEC));
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_source_set_event_handler(blink_timer, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf || strongSelf.isCursorBlinkPaused) return;
+
+        strongSelf.cursorBlinkPhase = strongSelf.cursorBlinkPhase > 0 ? 0 : 1;
+        strongSelf->next_cursor.visible = (uint32_t)(strongSelf.shouldDrawCursor && strongSelf.cursorBlinkPhase);
+        [strongSelf setNeedsDisplay:YES];
+    });
+
+    dispatch_resume(blink_timer);
+}
+
+- (void)stopCursorBlinkTimer {
+    if (!blink_timer) return;
+
+    dispatch_source_cancel(blink_timer);
+    blink_timer = NULL;
+    self.cursorBlinkPhase = 1;
+}
+
+- (void)restartCursorBlinkPauseTimer {
+    [self stopCursorBlinkPauseTimer];
+
+    blink_pause_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+
+    dispatch_source_set_timer(blink_pause_timer, DISPATCH_TIME_NOW, DISPATCH_TIME_FOREVER, (uint64_t)(0.5 * NSEC_PER_SEC));
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_source_set_event_handler(blink_pause_timer, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        [strongSelf stopCursorBlinkPauseTimer];
+        strongSelf.isCursorBlinkPaused = NO;
+        strongSelf.cursorBlinkPhase = 1;
+
+        if (strongSelf.isCursorBlinkEnabled) [strongSelf startCursorBlinkTimer];
+
+        [strongSelf setNeedsDisplay:YES];
+    });
+
+    dispatch_resume(blink_pause_timer);
+}
+
+- (void)stopCursorBlinkPauseTimer {
+    if (!blink_pause_timer) return;
+
+    dispatch_source_cancel(blink_pause_timer);
+    blink_pause_timer = NULL;
+}
+
+- (void)skipCursorBlink {
+    if (!self.isCursorBlinkEnabled) return;
+
+    self.isCursorBlinkPaused = YES;
+    self.cursorBlinkPhase = 1;
+    [self stopCursorBlinkTimer];
+    next_cursor.visible = (uint32_t)self.shouldDrawCursor;
+    [self restartCursorBlinkPauseTimer];
 }
 
 @end

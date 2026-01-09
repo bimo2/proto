@@ -59,6 +59,11 @@ typedef struct cpu_grid_uniforms_t {
     simd_float2 cell_size;
 } cpu_grid_uniforms_t;
 
+typedef struct cpu_cursor_uniforms_t {
+    simd_uint2 cell;
+    uint32_t visible;
+} cpu_cursor_uniforms_t;
+
 simd_float4 cpu_rgba_color(uint32_t color, bool background);
 
 #endif // !SHADERS_CPU_H

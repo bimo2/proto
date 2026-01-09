@@ -79,6 +79,12 @@
     };
 
     terminal.updateBlock = ^(screen_t *screen) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        [strongSelf.terminalView cursor:screen];
+
         int32_t rows = screen_rows(screen);
         int32_t columns = screen_columns(screen);
         screen_cursor_t *cursor = screen_cursor(screen);
