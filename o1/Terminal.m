@@ -227,19 +227,18 @@ static void on_mouse_callback(void *, bool);
 
         screen_context_scroll(strongSelf->context, (int32_t)delta);
 
+        screen_t *screen = screen_context_current_screen(strongSelf->context);
+        render_t *ops = NULL;
+        size_t count = 0;
+
+        render_collect_ops(&ops, screen, &count);
+
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) strongSelf = weakSelf;
 
             if (!strongSelf) return;
 
-            screen_t *screen = screen_context_current_screen(strongSelf->context);
-
             if (strongSelf.renderBlock) {
-                render_t *ops = NULL;
-                size_t count = 0;
-
-                render_collect_ops(&ops, screen, &count);
-
                 if (count > 0) strongSelf.renderBlock(ops, count);
                 if (ops) render_clear_ops(ops, count);
             }
@@ -271,19 +270,18 @@ static void on_mouse_callback(void *, bool);
         screen_context_set_grid(strongSelf->context, (uint32_t)rows, (uint32_t)columns);
         session_update_window(strongSelf->session, (uint32_t)rows, (uint32_t)columns, width, height);
 
+        screen_t *screen = screen_context_current_screen(strongSelf->context);
+        render_t *ops = NULL;
+        size_t count = 0;
+
+        render_collect_ops(&ops, screen, &count);
+
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) strongSelf = weakSelf;
 
             if (!strongSelf) return;
 
-            screen_t *screen = screen_context_current_screen(strongSelf->context);
-
             if (strongSelf.renderBlock) {
-                render_t *ops = NULL;
-                size_t count = 0;
-
-                render_collect_ops(&ops, screen, &count);
-
                 if (count > 0) strongSelf.renderBlock(ops, count);
                 if (ops) render_clear_ops(ops, count);
             }
@@ -461,15 +459,14 @@ static void on_ansi_callback(void *user_data, ansi_t *ansi) {
     screen_context_t *context = [self _context];
     screen_context_update(context, ansi);
 
+    screen_t *screen = screen_context_current_screen(context);
+    render_t *ops = NULL;
+    size_t count = 0;
+
+    render_collect_ops(&ops, screen, &count);
+
     dispatch_async(dispatch_get_main_queue(), ^{
-        screen_t *screen = screen_context_current_screen(context);
-
         if (self.renderBlock) {
-            render_t *ops = NULL;
-            size_t count = 0;
-
-            render_collect_ops(&ops, screen, &count);
-
             if (count > 0) self.renderBlock(ops, count);
             if (ops) render_clear_ops(ops, count);
         }
