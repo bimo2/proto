@@ -83,7 +83,7 @@
 
         if (!strongSelf) return;
 
-        [strongSelf.terminalView cursor:screen];
+        [strongSelf.terminalView screen:screen];
 
         int32_t rows = screen_rows(screen);
         int32_t columns = screen_columns(screen);

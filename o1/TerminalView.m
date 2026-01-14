@@ -8,6 +8,9 @@
 #import "TerminalView.h"
 
 #import "FontTexture.h"
+#import "Terminal+UserDefaults.h"
+
+#import <QuartzCore/QuartzCore.h>
 
 #include "ansi.h"
 #include "render.h"
@@ -17,10 +20,26 @@
 #include <math.h>
 #include <string.h>
 
+typedef struct {
+    int32_t row;
+    int32_t column;
+} location_t;
+
+static inline location_t location(int32_t row, int32_t column) {
+    return (location_t){
+        .row = row,
+        .column = column,
+    };
+}
+
 @interface TerminalView () {
+    screen_t *screen;
     cpu_cursor_uniforms_t next_cursor;
     dispatch_source_t blink_timer;
     dispatch_source_t blink_pause_timer;
+    location_t selection_start;
+    location_t selection_end;
+    dispatch_source_t selection_timer;
 }
 
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, FontTexture *> *typesets;
@@ -38,10 +57,18 @@
 @property (nonatomic, assign) CGFloat textBaseline;
 @property (nonatomic, assign) CGFloat queuedOffset;
 @property (nonatomic, strong) NSTrackingArea *trackingArea;
-@property (nonatomic, assign) BOOL shouldDrawCursor;
-@property (nonatomic, assign) BOOL isCursorBlinkEnabled;
+@property (nonatomic, assign, getter=shouldDrawCursor) BOOL drawCursor;
+@property (nonatomic, assign, getter=isCursorBlinkEnabled) BOOL cursorBlinkEnabled;
 @property (nonatomic, assign) NSUInteger cursorBlinkPhase;
-@property (nonatomic, assign) BOOL isCursorBlinkPaused;
+@property (nonatomic, assign, getter=isCursorBlinkPaused) BOOL cursorBlinkPaused;
+@property (nonatomic, assign) NSPoint anchor;
+@property (nonatomic, assign, getter=isSelectPending) BOOL selectPending;
+@property (nonatomic, assign, getter=shouldSelect) BOOL select;
+@property (nonatomic, assign, getter=isSelecting) BOOL selecting;
+@property (readonly, getter=hasSelection) BOOL selection;
+@property (nonatomic, strong) CAShapeLayer *selectionLayer;
+@property (nonatomic, assign) NSPoint selectionAutoScrollPoint;
+@property (nonatomic, assign) NSInteger selectionAutoScrollDirection;
 
 @end
 
@@ -64,6 +91,8 @@
         self.clearColor = MTLClearColorMake(0, 0, 0, 0);
         self.enableSetNeedsDisplay = YES;
         self.paused = YES;
+        selection_start = location(-1, -1);
+        selection_end = location(-1, -1);
         _typesets = [NSMutableDictionary dictionary];
         _commandQueue = [device newCommandQueue];
 
@@ -87,18 +116,30 @@
         samplerDescriptor.sAddressMode = MTLSamplerAddressModeClampToEdge;
         samplerDescriptor.tAddressMode = MTLSamplerAddressModeClampToEdge;
         _sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
-        _shouldDrawCursor = NO;
-        _isCursorBlinkEnabled = NO;
         _cursorBlinkPhase = 1;
-        _isCursorBlinkPaused = NO;
+
+        CAShapeLayer *sublayer = [CAShapeLayer layer];
+
+        sublayer.fillColor = [NSColor selectedTextBackgroundColor].CGColor;
+        sublayer.opacity = 0.24;
+        sublayer.frame = self.bounds;
+        [self.layer addSublayer:sublayer];
+        _selectionLayer = sublayer;
     }
 
     return self;
 }
 
+- (void)layout {
+    [super layout];
+    [self updateSelectionLayer];
+    [self.window invalidateCursorRectsForView:self];
+}
+
 - (void)dealloc {
     [self stopCursorBlinkTimer];
     [self stopCursorBlinkPauseTimer];
+    [self stopSelectionTimer];
 }
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
@@ -122,6 +163,9 @@
         self.instanceCount = instanceCount;
         [self.terminal layout:NSMakeSize(size.width, size.height) rows:rows columns:columns];
     }
+
+    [self updateSelectionLayer];
+    [self.window invalidateCursorRectsForView:self];
 }
 
 - (void)drawInMTKView:(MTKView *)view {
@@ -156,6 +200,11 @@
     return YES;
 }
 
+- (void)resetCursorRects {
+    [super resetCursorRects];
+    [self addCursorRect:[self cursorRect] cursor:[NSCursor IBeamCursor]];
+}
+
 - (void)updateTrackingAreas {
     [super updateTrackingAreas];
 
@@ -165,7 +214,7 @@
         self.window.acceptsMouseMovedEvents = NO;
     }
 
-    if (self.trackingAreasEnabled) {
+    if (self.isTrackingAreasEnabled) {
         self.window.acceptsMouseMovedEvents = YES;
 
         NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect;
@@ -176,6 +225,8 @@
 }
 
 - (void)keyDown:(NSEvent *)event {
+    if (self.hasSelection && !(event.modifierFlags & NSEventModifierFlagCommand)) [self clearSelection];
+
     if (!self.terminal || event.modifierFlags & NSEventModifierFlagCommand) {
         [super keyDown:event];
 
@@ -328,6 +379,7 @@
     }
 
     if (string.length < 1) return;
+    if (self.hasSelection) [self clearSelection];
 
     self.queuedOffset = 0;
     [self.terminal write:[string dataUsingEncoding:NSUTF8StringEncoding]];
@@ -398,10 +450,14 @@
 }
 
 - (void)mouseDown:(NSEvent *)event {
+    if ([self updateSelection:event]) return;
+
     [self mouse:event button:ANSI_MOUSE_LEFT action:ANSI_MOUSE_EVENT_DOWN];
 }
 
 - (void)mouseUp:(NSEvent *)event {
+    if ([self endSelection:event]) return;
+
     [self mouse:event button:ANSI_MOUSE_LEFT action:ANSI_MOUSE_EVENT_UP];
 }
 
@@ -422,6 +478,8 @@
 }
 
 - (void)mouseDragged:(NSEvent *)event {
+    if ([self updateSelection:event]) return;
+
     [self mouse:event button:ANSI_MOUSE_LEFT action:ANSI_MOUSE_EVENT_DRAG];
 }
 
@@ -449,7 +507,7 @@
     if (offset != 0) {
         self.queuedOffset -= offset;
 
-        if (self.trackingAreasEnabled) {
+        if (self.isTrackingAreasEnabled) {
             ansi_mouse_t button = offset > 0 ? ANSI_MOUSE_WHEEL_UP : ANSI_MOUSE_WHEEL_DOWN;
 
             for (NSInteger i = 0; i < labs(offset); i++) [self mouse:event button:button action:ANSI_MOUSE_EVENT_DOWN];
@@ -465,14 +523,41 @@
     NSString *string = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
 
     if (string.length < 1) return;
+    if (self.hasSelection) [self clearSelection];
 
     [self skipCursorBlink];
     [self.terminal paste:[string dataUsingEncoding:NSUTF8StringEncoding]];
 }
 
+- (void)copy:(id)sender {
+    NSString *text = [self selectedText];
+
+    if (text.length < 1) return;
+
+    [[NSPasteboard generalPasteboard] clearContents];
+    [[NSPasteboard generalPasteboard] setString:text forType:NSPasteboardTypeString];
+}
+
+- (void)selectAll:(id)sender {
+    if (!screen) return;
+
+    int32_t index = screen_viewport_index(screen);
+
+    selection_start = location(index, 0);
+    selection_end = location(index + (int32_t)self.rows - 1, (int32_t)self.columns - 1);
+    [self updateSelectionLayer];
+}
+
 - (void)setTrackingAreasEnabled:(BOOL)trackingAreasEnabled {
     _trackingAreasEnabled = trackingAreasEnabled;
     [self updateTrackingAreas];
+
+    if (self.hasSelection && trackingAreasEnabled) [self clearSelection];
+
+    if (trackingAreasEnabled) {
+        self.selectionAutoScrollDirection = 0;
+        [self stopSelectionTimer];
+    }
 }
 
 - (void)render:(const render_t *)ops count:(size_t)count {
@@ -496,35 +581,35 @@
     [self setNeedsDisplay:YES];
 }
 
-- (void)cursor:(screen_t *)screen {
+- (void)screen:(screen_t *)screen {
     if (!screen) return;
 
     screen_cursor_t *cursor = screen_cursor(screen);
-    BOOL shouldDraw = cursor->visible;
+    BOOL drawCursor = cursor->visible;
     int32_t row = cursor->row + screen_viewport_offset(screen);
 
-    if (row < 0 || row >= (int32_t)self.rows) shouldDraw = NO;
-    if (cursor->column < 0 || cursor->column >= (int32_t)self.columns) shouldDraw = NO;
+    if (row < 0 || row >= (int32_t)self.rows) drawCursor = NO;
+    if (cursor->column < 0 || cursor->column >= (int32_t)self.columns) drawCursor = NO;
 
-    if (shouldDraw) {
+    if (drawCursor) {
         next_cursor.cell = simd_make_uint2((uint32_t)cursor->column, (uint32_t)((int32_t)self.rows - 1 - row));
     } else {
         next_cursor.cell = simd_make_uint2(0, 0);
     }
 
-    self.shouldDrawCursor = shouldDraw;
+    self.drawCursor = drawCursor;
 
     if (cursor->blink && self.isCursorBlinkPaused) {
-        next_cursor.visible = (uint32_t)shouldDraw;
+        next_cursor.visible = (uint32_t)drawCursor;
     } else {
-        next_cursor.visible = (uint32_t)(shouldDraw && (!cursor->blink || self.cursorBlinkPhase > 0));
+        next_cursor.visible = (uint32_t)(drawCursor && (!cursor->blink || self.cursorBlinkPhase > 0));
     }
 
     if (self.isCursorBlinkEnabled != cursor->blink) {
-        self.isCursorBlinkEnabled = cursor->blink;
+        self.cursorBlinkEnabled = cursor->blink;
 
         if (!cursor->blink) {
-            self.isCursorBlinkPaused = NO;
+            self.cursorBlinkPaused = NO;
             [self stopCursorBlinkTimer];
             [self stopCursorBlinkPauseTimer];
         }
@@ -532,7 +617,13 @@
 
     if (self.isCursorBlinkEnabled && !self.isCursorBlinkPaused) [self startCursorBlinkTimer];
 
+    self->screen = screen;
+    [self updateSelectionLayer];
     [self setNeedsDisplay:YES];
+}
+
+- (BOOL)hasSelection {
+    return selection_start.row > -1 && selection_start.column > -1 && selection_end.row > -1 && selection_end.column > -1;
 }
 
 - (void)setup:(CGFloat)scale {
@@ -717,11 +808,7 @@
 - (void)mouse:(NSEvent *)event button:(ansi_mouse_t)button action:(ansi_mouse_event_t)action {
     NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
 
-    if (!NSPointInRect(point, self.bounds)) {
-        return;
-    }
-
-    if (!isfinite(point.x) || !isfinite(point.y)) return;
+    if (!NSPointInRect(point, self.bounds) || !isfinite(point.x) || !isfinite(point.y)) return;
 
     CGFloat x = MAX(0.0, MIN(point.x * self.scale, self.drawableSize.width - 1.0));
     CGFloat y = MAX(0.0, MIN(point.y * self.scale, self.drawableSize.height - 1.0));
@@ -778,7 +865,7 @@
         if (!strongSelf) return;
 
         [strongSelf stopCursorBlinkPauseTimer];
-        strongSelf.isCursorBlinkPaused = NO;
+        strongSelf.cursorBlinkPaused = NO;
         strongSelf.cursorBlinkPhase = 1;
 
         if (strongSelf.isCursorBlinkEnabled) [strongSelf startCursorBlinkTimer];
@@ -799,11 +886,402 @@
 - (void)skipCursorBlink {
     if (!self.isCursorBlinkEnabled) return;
 
-    self.isCursorBlinkPaused = YES;
+    self.cursorBlinkPaused = YES;
     self.cursorBlinkPhase = 1;
     [self stopCursorBlinkTimer];
     next_cursor.visible = (uint32_t)self.shouldDrawCursor;
     [self restartCursorBlinkPauseTimer];
+}
+
+- (NSRect)cursorRect {
+    CGFloat cellWidth = self.cellWidth / self.scale;
+    CGFloat cellHeight = self.cellHeight / self.scale;
+
+    if (cellWidth <= 0.0 || cellHeight <= 0.0) return NSZeroRect;
+
+    CGFloat width = (CGFloat)self.columns * cellWidth;
+    CGFloat height = (CGFloat)(self.rows - [Terminal offset]) * cellHeight;
+    NSRect rect = NSMakeRect(0.0, 0.0, width, height);
+
+    if (rect.size.width > self.bounds.size.width) rect.size.width = self.bounds.size.width;
+    if (rect.size.height > self.bounds.size.height) rect.size.height = self.bounds.size.height;
+
+    if (rect.origin.x < self.bounds.origin.x) {
+        rect.size.width -= self.bounds.origin.x - rect.origin.x;
+        rect.origin.x = self.bounds.origin.x;
+    }
+
+    if (rect.origin.y < self.bounds.origin.y) {
+        rect.size.height -= self.bounds.origin.y - rect.origin.y;
+        rect.origin.y = self.bounds.origin.y;
+    }
+
+    return rect;
+}
+
+- (NSPoint)ibeamPoint:(NSPoint)point {
+    NSCursor *cursor = [NSCursor IBeamCursor];
+
+    if (!cursor.image) return point;
+
+    NSPoint delta = NSMakePoint(cursor.image.size.width * 0.5 - cursor.hotSpot.x, cursor.image.size.height * 0.5 - cursor.hotSpot.y);
+
+    point.x += delta.x;
+    point.y += delta.y;
+
+    return point;
+}
+
+- (void)startSelectionTimer {
+    if (selection_timer) return;
+
+    selection_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+
+    uint64_t interval = (uint64_t)(1.0 / 60.0 * NSEC_PER_SEC);
+
+    dispatch_source_set_timer(selection_timer, dispatch_time(DISPATCH_TIME_NOW, interval), interval, (uint64_t)(0.01 * NSEC_PER_SEC));
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_source_set_event_handler(selection_timer, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        if (!strongSelf->screen || !strongSelf.isSelecting || strongSelf.selectionAutoScrollDirection == 0) {
+            [strongSelf stopSelectionTimer];
+
+            return;
+        }
+
+        [strongSelf.terminal scroll:strongSelf.selectionAutoScrollDirection];
+
+        location_t end = strongSelf->selection_end;
+        int32_t total = screen_total_rows(strongSelf->screen);
+
+        end.row -= (int32_t)strongSelf.selectionAutoScrollDirection;
+
+        if (end.row < 0) end.row = 0;
+        if (total > 0 && end.row >= total) end.row = total - 1;
+
+        NSRect rect = [strongSelf cursorRect];
+        NSPoint point = [strongSelf ibeamPoint:[strongSelf convertPoint:strongSelf.selectionAutoScrollPoint fromView:nil]];
+        CGFloat localX = MAX(0.0, point.x - rect.origin.x);
+
+        if (localX > rect.size.width - 0.0001) localX = MAX(0.0, rect.size.width - 0.0001);
+
+        CGFloat cellWidth = strongSelf.cellWidth / strongSelf.scale;
+        NSInteger column = cellWidth > 0.0 ? (NSInteger)floor(localX / cellWidth) : 0;
+
+        if (column < 0) column = 0;
+        if (column >= (NSInteger)strongSelf.columns) column = (NSInteger)strongSelf.columns - 1;
+
+        if (end.row > -1 && column > -1) {
+            const screen_cell_t *cells = screen_absolute_row(strongSelf->screen, (int32_t)end.row, NULL, NULL);
+
+            if (cells && column > 0 && cells[column].width == 0) column--;
+        }
+
+        end.column = (int32_t)column;
+        strongSelf->selection_end = end;
+        [strongSelf updateSelectionLayer];
+    });
+
+    dispatch_resume(selection_timer);
+}
+
+- (void)stopSelectionTimer {
+    if (!selection_timer) return;
+
+    dispatch_source_cancel(selection_timer);
+    selection_timer = NULL;
+}
+
+- (BOOL)select:(NSEvent *)event cell:(location_t *)cell direction:(NSInteger *)direction {
+    if (!screen || !cell || !direction) return NO;
+
+    NSRect rect = [self cursorRect];
+    NSPoint point = [self ibeamPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+    BOOL allowOutside = event.type == NSEventTypeLeftMouseDragged;
+
+    if (!allowOutside && !NSPointInRect(point, rect)) return NO;
+    if (!isfinite(point.x) || !isfinite(point.y)) return NO;
+
+    *direction = 0;
+
+    if (allowOutside) {
+        if (point.y < NSMinY(rect)) {
+            *direction = -1;
+        } else if (point.y > NSMaxY(rect)) {
+            *direction = 1;
+        }
+    }
+
+    if (point.x < NSMinX(rect)) point.x = NSMinX(rect);
+    if (point.y < NSMinY(rect)) point.y = NSMinY(rect);
+    if (point.x > NSMaxX(rect) - 0.0001) point.x = NSMaxX(rect) - 0.0001;
+    if (point.y > NSMaxY(rect) - 0.0001) point.y = NSMaxY(rect) - 0.0001;
+
+    CGFloat cellWidth = self.cellWidth / self.scale;
+    CGFloat cellHeight = self.cellHeight / self.scale;
+
+    if (cellWidth <= 0.0 || cellHeight <= 0.0) return NO;
+
+    CGFloat localX = point.x - rect.origin.x;
+    CGFloat localY = point.y - rect.origin.y;
+    NSInteger row = cellHeight > 0.0 ? (NSInteger)floor((rect.size.height - 0.0001 - localY) / cellHeight) : 0;
+    NSInteger column = cellWidth > 0.0 ? (NSInteger)floor(localX / cellWidth) : 0;
+
+    if (row < 0) row = 0;
+    if (row >= self.rows) row = (NSInteger)self.rows - 1;
+    if (column < 0) column = 0;
+    if (column >= self.columns) column = (NSInteger)self.columns - 1;
+
+    int32_t index = screen_viewport_index(screen) + (int32_t)row;
+    const screen_cell_t *cells = screen_absolute_row(screen, index, NULL, NULL);
+
+    if (cells && column > 0 && cells[column].width == 0) column--;
+
+    *cell = location(index, (int32_t)column);
+
+    return YES;
+}
+
+- (void)selection:(location_t *)start end:(location_t *)end {
+    if (!self.hasSelection) {
+        if (start) *start = location(-1, -1);
+        if (end) *end = location(-1, -1);
+
+        return;
+    }
+
+    BOOL inverse = (self->selection_start.row > self->selection_end.row) || (self->selection_start.row == self->selection_end.row && self->selection_start.column > self->selection_end.column);
+
+    if (inverse) {
+        if (start) *start = self->selection_end;
+        if (end) *end = self->selection_start;
+    } else {
+        if (start) *start = self->selection_start;
+        if (end) *end = self->selection_end;
+    }
+}
+
+- (BOOL)updateSelection:(NSEvent *)event {
+    if (self.isTrackingAreasEnabled) return NO;
+
+    location_t cell;
+    NSInteger direction;
+
+    if (![self select:event cell:&cell direction:&direction]) return NO;
+
+    self.selectionAutoScrollPoint = event.locationInWindow;
+    self.selectionAutoScrollDirection = direction;
+
+    if (self.selectionAutoScrollDirection != 0) {
+        [self startSelectionTimer];
+    } else {
+        [self stopSelectionTimer];
+    }
+
+    if (event.type != NSEventTypeLeftMouseDragged) {
+        self.anchor = event.locationInWindow;
+        self.selectPending = YES;
+        self.select = NO;
+
+        return YES;
+    }
+
+    if (self.isSelectPending) {
+        NSPoint current = event.locationInWindow;
+        CGFloat dx = current.x - self.anchor.x;
+        CGFloat dy = current.y - self.anchor.y;
+        CGFloat distance = sqrt(dx * dx + dy * dy);
+        CGFloat threshold = 3.0;
+
+        if (distance >= threshold) {
+            self.selectPending = NO;
+            self.select = YES;
+            self.selecting = YES;
+
+            if (self.hasSelection && (event.modifierFlags & NSEventModifierFlagShift)) {
+                self->selection_end = cell;
+            } else {
+                self->selection_start = cell;
+                self->selection_end = cell;
+            }
+
+            [self updateSelectionLayer];
+
+            return YES;
+        }
+
+        return YES;
+    }
+
+    if (self.isSelecting) {
+        self.select = YES;
+        self->selection_end = cell;
+        [self updateSelectionLayer];
+
+        return YES;
+    }
+
+    return NO;
+}
+
+- (BOOL)endSelection:(NSEvent *)event {
+    if (self.isTrackingAreasEnabled) return NO;
+
+    if (self.isSelectPending) {
+        self.selectPending = NO;
+        [self clearSelection];
+
+        return YES;
+    }
+
+    if (!self.isSelecting) return NO;
+
+    self.selecting = NO;
+    self.selectionAutoScrollDirection = 0;
+    [self stopSelectionTimer];
+
+    if (!self.shouldSelect && !(event.modifierFlags & NSEventModifierFlagShift)) {
+        [self clearSelection];
+    } else {
+        [self updateSelectionLayer];
+    }
+
+    return YES;
+}
+
+- (void)clearSelection {
+    self->selection_start = location(-1, -1);
+    self->selection_end = location(-1, -1);
+    self.selectPending = NO;
+    self.select = NO;
+    self.selecting = NO;
+    self.selectionAutoScrollDirection = 0;
+    [self stopSelectionTimer];
+    [self updateSelectionLayer];
+}
+
+- (void)updateSelectionLayer {
+    self.selectionLayer.frame = self.bounds;
+
+    if (!screen || !self.hasSelection) {
+        self.selectionLayer.path = nil;
+
+        return;
+    }
+
+    location_t start;
+    location_t end;
+
+    [self selection:&start end:&end];
+
+    CGFloat cellWidth = self.cellWidth / self.scale;
+    CGFloat cellHeight = self.cellHeight / self.scale;
+
+    if (cellWidth <= 0.0 || cellHeight <= 0.0) {
+        self.selectionLayer.path = nil;
+
+        return;
+    }
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    int32_t index = screen_viewport_index(self->screen);
+
+    for (NSInteger row = MAX(index, start.row); row <= MIN(index + (int32_t)self.rows - 1, end.row); row++) {
+        NSInteger viewportRow = row - index;
+        NSInteger startColumn = MAX(0, MIN((NSInteger)self.columns - 1, row == start.row ? start.column : 0));
+        NSInteger endColumn = MAX(0, MIN((NSInteger)self.columns - 1, row == end.row ? end.column : (NSInteger)self.columns - 1));
+
+        if (endColumn < startColumn) continue;
+
+        CGFloat x = (CGFloat)startColumn * cellWidth;
+        CGFloat y = (CGFloat)((NSInteger)self.rows - 1 - viewportRow) * cellHeight;
+        CGFloat width = (CGFloat)(endColumn - startColumn + 1) * cellWidth;
+        CGRect rect = CGRectMake(x, y, width, cellHeight);
+
+        CGPathAddRect(path, NULL, rect);
+    }
+
+    self.selectionLayer.path = path;
+    CGPathRelease(path);
+}
+
+- (NSString *)selectedText {
+    if (!screen || !self.hasSelection) return @"";
+
+    location_t start;
+    location_t end;
+
+    [self selection:&start end:&end];
+
+    NSMutableString *text = [NSMutableString string];
+    int32_t total = screen_total_rows(screen);
+    NSInteger first = MAX(0, start.row);
+    NSInteger last = MIN(total - 1, end.row);
+
+    for (NSInteger row = first; row <= last; row++) {
+        NSInteger startColumn = MAX(0, MIN((NSInteger)self.columns - 1, row == start.row ? start.column : 0));
+        NSInteger endColumn = MAX(0, MIN((NSInteger)self.columns - 1, row == end.row ? end.column : (NSInteger)self.columns - 1));
+
+        if (endColumn < startColumn) continue;
+
+        bool soft_wrap = false;
+        const screen_cell_t *cells = screen_absolute_row(screen, (int32_t)row, &soft_wrap, NULL);
+
+        if (!cells) continue;
+
+        NSMutableString *line = [NSMutableString stringWithCapacity:(NSUInteger)(endColumn - startColumn + 1)];
+
+        for (NSInteger column = startColumn; column <= endColumn; column++) {
+            const screen_cell_t *cell = &cells[column];
+            uint32_t codepoint = cell->codepoint;
+
+            if (cell->width == 0) continue;
+            if (codepoint == 0) codepoint = ' ';
+
+            if (codepoint <= 0xFFFFu) {
+                [text appendFormat:@"%C", (unichar)codepoint];
+
+                continue;
+            }
+
+            if (codepoint <= 0x10FFFFu) {
+                uint32_t offset = codepoint - 0x10000u;
+                unichar pair[2];
+
+                pair[0] = (unichar)(0xD800u + ((offset >> 10) & 0x3FFu));
+                pair[1] = (unichar)(0xDC00u + (offset & 0x3FFu));
+
+                [text appendString:[NSString stringWithCharacters:pair length:2]];
+
+                continue;
+            }
+
+            [text appendString:@"\uFFFD"];
+        }
+
+        BOOL shouldJoin = row < last && soft_wrap && (endColumn == (NSInteger)self.columns - 1);
+        BOOL newline = row < last && !shouldJoin;
+        BOOL shouldTrim = (endColumn == (NSInteger)self.columns - 1) && !shouldJoin;
+
+        if (shouldTrim && line.length > 0) {
+            while (line.length > 0) {
+                if (![[NSCharacterSet whitespaceCharacterSet] characterIsMember:[line characterAtIndex:line.length - 1]]) break;
+
+                [line deleteCharactersInRange:NSMakeRange(line.length - 1, 1)];
+            }
+        }
+
+        [text appendString:line];
+
+        if (newline) [text appendString:@"\n"];
+    }
+
+    return [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 }
 
 @end

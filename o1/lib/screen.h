@@ -146,6 +146,12 @@ void screen_delete_column(screen_t *screen, int32_t count);
 
 void screen_set_scrollback_capacity(screen_t *screen, size_t capacity);
 
+int32_t screen_total_rows(screen_t *screen);
+
+screen_cell_t *screen_absolute_row(screen_t *screen, int32_t index, bool *soft_wrap, bool *wide_wrap);
+
+int32_t screen_viewport_index(screen_t *screen);
+
 screen_cell_t *screen_viewport_row(screen_t *screen, int32_t index, bool *mutable);
 
 int32_t screen_viewport_offset(screen_t *screen);

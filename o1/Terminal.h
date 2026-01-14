@@ -32,14 +32,14 @@
 
 - (void)paste:(NSData *)data;
 
-- (void)scroll:(NSInteger)delta;
+- (void)scroll:(NSInteger)value;
 
-- (void)focus:(BOOL)isFocused;
-
-- (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns;
+- (void)focus:(BOOL)value;
 
 - (void)keyboard:(ansi_keyboard_t)value flags:(NSEventModifierFlags)flags;
 
-- (void)mouse:(ansi_mouse_t)button event:(ansi_mouse_event_t)event flags:(NSEventModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column;
+- (void)mouse:(ansi_mouse_t)value event:(ansi_mouse_event_t)event flags:(NSEventModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column;
+
+- (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns;
 
 @end

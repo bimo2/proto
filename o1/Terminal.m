@@ -52,8 +52,8 @@ static void on_mouse_callback(void *, bool);
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
         write_source_suspended = true;
         _file = @"/bin/zsh";
-        _flags = @[];
-        _environment = @{};
+        _flags = [NSArray array];
+        _environment = [NSDictionary dictionary];
 
         __weak typeof(self) weakSelf = self;
 
@@ -79,7 +79,7 @@ static void on_mouse_callback(void *, bool);
 }
 
 - (BOOL)start:(__autoreleasing NSError **)error {
-    if (self.running) return YES;
+    if (self.isRunning) return YES;
 
     NSMutableArray<NSString *> *argvObjC = [NSMutableArray array];
 
@@ -137,7 +137,7 @@ static void on_mouse_callback(void *, bool);
     free(argv);
     free(envp);
 
-    if (self.running) {
+    if (self.isRunning) {
         [self setupReadSource];
         [self setupWriteSource];
         [self setupProcSource];
@@ -145,11 +145,11 @@ static void on_mouse_callback(void *, bool);
         *error = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"%s", strerror(errno)]}];
     }
 
-    return self.running;
+    return self.isRunning;
 }
 
 - (void)stop {
-    if (!self.running) return;
+    if (!self.isRunning) return;
 
     __weak typeof(self) weakSelf = self;
 
@@ -180,7 +180,7 @@ static void on_mouse_callback(void *, bool);
 }
 
 - (void)write:(NSData *)data {
-    if (!self.running || data.length < 1) return;
+    if (!self.isRunning || data.length < 1) return;
 
     __weak typeof(self) weakSelf = self;
 
@@ -217,7 +217,7 @@ static void on_mouse_callback(void *, bool);
     [self write:payload];
 }
 
-- (void)scroll:(NSInteger)delta {
+- (void)scroll:(NSInteger)value {
     __weak typeof(self) weakSelf = self;
 
     dispatch_async(io_queue, ^{
@@ -225,7 +225,7 @@ static void on_mouse_callback(void *, bool);
 
         if (!strongSelf) return;
 
-        screen_context_scroll(strongSelf->context, (int32_t)delta);
+        screen_context_scroll(strongSelf->context, (int32_t)value);
 
         screen_t *screen = screen_context_current_screen(strongSelf->context);
         render_t *ops = NULL;
@@ -248,12 +248,64 @@ static void on_mouse_callback(void *, bool);
     });
 }
 
-- (void)focus:(BOOL)isFocused {
+- (void)focus:(BOOL)value {
     if (!screen_context_focus_reporting(context)) return;
 
-    const char *sequence = isFocused ? ANSI_FOCUS_IN : ANSI_FOCUS_OUT;
+    const char *sequence = value ? ANSI_FOCUS_IN : ANSI_FOCUS_OUT;
 
     [self write:[NSData dataWithBytes:sequence length:strlen(sequence)]];
+}
+
+- (void)keyboard:(ansi_keyboard_t)value flags:(NSEventModifierFlags)flags {
+    uint16_t mods = 0;
+
+    if (flags & NSEventModifierFlagShift) mods |= ANSI_MODIFIER_FLAG_SHIFT;
+    if (flags & NSEventModifierFlagOption) mods |= ANSI_MODIFIER_FLAG_OPTION;
+    if (flags & NSEventModifierFlagControl) mods |= ANSI_MODIFIER_FLAG_CONTROL;
+
+    uint8_t bytes[64];
+    size_t length = ansi_keyboard(value, mods, screen_context_cursor_keys(context), bytes, sizeof(bytes));
+
+    if (length < 1) return;
+
+    [self write:[NSData dataWithBytes:bytes length:length]];
+}
+
+- (void)mouse:(ansi_mouse_t)value event:(ansi_mouse_event_t)event flags:(NSEventModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column {
+    screen_context_mouse_mode_t mode = screen_context_mouse_mode(context);
+
+    if (mode == SCREEN_CONTEXT_MOUSE_NONE) return;
+
+    uint16_t mods = 0;
+
+    if (flags & NSEventModifierFlagShift) mods |= ANSI_MODIFIER_FLAG_SHIFT;
+    if (flags & NSEventModifierFlagOption) mods |= ANSI_MODIFIER_FLAG_OPTION;
+    if (flags & NSEventModifierFlagControl) mods |= ANSI_MODIFIER_FLAG_CONTROL;
+
+    uint32_t x = MAX(1, (uint32_t)column);
+    uint32_t y = MAX(1, (uint32_t)row);
+    bool sgr = screen_context_mouse_sgr(context);
+    uint8_t bytes[64];
+    size_t length = 0;
+
+    switch (mode) {
+        case SCREEN_CONTEXT_MOUSE_X10:
+            length = ansi_mouse_x10(value, event, mods, x, y, sgr, bytes, sizeof(bytes));
+
+            break;
+        case SCREEN_CONTEXT_MOUSE_NORMAL:
+            length = ansi_mouse_normal(value, event, mods, x, y, sgr, bytes, sizeof(bytes));
+
+            break;
+        default:
+            length = ansi_mouse_all(value, event, mods, x, y, sgr, bytes, sizeof(bytes));
+
+            break;
+    }
+
+    if (length < 1) return;
+
+    [self write:[NSData dataWithBytes:bytes length:length]];
 }
 
 - (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns {
@@ -289,58 +341,6 @@ static void on_mouse_callback(void *, bool);
             if (strongSelf.updateBlock) strongSelf.updateBlock(screen);
         });
     });
-}
-
-- (void)keyboard:(ansi_keyboard_t)value flags:(NSEventModifierFlags)flags {
-    uint16_t mods = 0;
-
-    if (flags & NSEventModifierFlagShift) mods |= ANSI_MODIFIER_FLAG_SHIFT;
-    if (flags & NSEventModifierFlagOption) mods |= ANSI_MODIFIER_FLAG_OPTION;
-    if (flags & NSEventModifierFlagControl) mods |= ANSI_MODIFIER_FLAG_CONTROL;
-
-    uint8_t bytes[64];
-    size_t length = ansi_keyboard(value, mods, screen_context_cursor_keys(context), bytes, sizeof(bytes));
-
-    if (length < 1) return;
-
-    [self write:[NSData dataWithBytes:bytes length:length]];
-}
-
-- (void)mouse:(ansi_mouse_t)button event:(ansi_mouse_event_t)event flags:(NSEventModifierFlags)flags row:(NSUInteger)row column:(NSUInteger)column {
-    screen_context_mouse_mode_t mode = screen_context_mouse_mode(context);
-
-    if (mode == SCREEN_CONTEXT_MOUSE_NONE) return;
-
-    uint16_t mods = 0;
-
-    if (flags & NSEventModifierFlagShift) mods |= ANSI_MODIFIER_FLAG_SHIFT;
-    if (flags & NSEventModifierFlagOption) mods |= ANSI_MODIFIER_FLAG_OPTION;
-    if (flags & NSEventModifierFlagControl) mods |= ANSI_MODIFIER_FLAG_CONTROL;
-
-    uint32_t x = MAX(1, (uint32_t)column);
-    uint32_t y = MAX(1, (uint32_t)row);
-    bool sgr = screen_context_mouse_sgr(context);
-    uint8_t bytes[64];
-    size_t length = 0;
-
-    switch (mode) {
-        case SCREEN_CONTEXT_MOUSE_X10:
-            length = ansi_mouse_x10(button, event, mods, x, y, sgr, bytes, sizeof(bytes));
-
-            break;
-        case SCREEN_CONTEXT_MOUSE_NORMAL:
-            length = ansi_mouse_normal(button, event, mods, x, y, sgr, bytes, sizeof(bytes));
-
-            break;
-        default:
-            length = ansi_mouse_all(button, event, mods, x, y, sgr, bytes, sizeof(bytes));
-
-            break;
-    }
-
-    if (length < 1) return;
-
-    [self write:[NSData dataWithBytes:bytes length:length]];
 }
 
 - (void)setupReadSource {

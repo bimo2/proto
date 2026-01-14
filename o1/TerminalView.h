@@ -20,6 +20,6 @@
 
 - (void)render:(const render_t *)ops count:(size_t)count;
 
-- (void)cursor:(screen_t *)screen;
+- (void)screen:(screen_t *)screen;
 
 @end

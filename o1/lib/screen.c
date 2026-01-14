@@ -1946,6 +1946,47 @@ void screen_set_scrollback_capacity(screen_t *screen, size_t capacity) {
     if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 }
 
+int32_t screen_total_rows(screen_t *screen) {
+    if (screen->scrollback.size > (size_t)(INT32_MAX - screen->rows)) return INT32_MAX;
+
+    return  (int32_t)screen->scrollback.size + screen->rows;
+}
+
+screen_cell_t *screen_absolute_row(screen_t *screen, int32_t index, bool *soft_wrap, bool *wide_wrap) {
+    if (soft_wrap) *soft_wrap = false;
+    if (wide_wrap) *wide_wrap = false;
+    if (index < 0 || index >= screen_total_rows(screen)) return NULL;
+
+    int32_t scrollback = (screen->scrollback.size > (size_t)INT32_MAX) ? INT32_MAX : (int32_t)screen->scrollback.size;
+
+    if (index < scrollback) {
+        if (!screen->scrollback.lines || screen->scrollback.capacity < 1) return NULL;
+
+        size_t i = (screen->scrollback.head + (size_t)index) % screen->scrollback.capacity;
+        line_t *line = &screen->scrollback.lines[i];
+
+        if (soft_wrap) *soft_wrap = line->soft_wrap;
+        if (wide_wrap) *wide_wrap = line->wide_wrap;
+
+        return line->cells;
+    }
+
+    int32_t i = index - scrollback;
+
+    if (i < 0 || i >= screen->rows) return NULL;
+    if (soft_wrap) *soft_wrap = screen->soft_wrap[i];
+    if (wide_wrap) *wide_wrap = screen->wide_wrap[i];
+
+    return screen->grid[i];
+}
+
+int32_t screen_viewport_index(screen_t *screen) {
+    int32_t total = screen_total_rows(screen);
+    int32_t start = total - screen->rows - screen->viewport_offset;
+
+    return start < 0 ? 0 : start;
+}
+
 screen_cell_t *screen_viewport_row(screen_t *screen, int32_t index, bool *mutable) {
     if (index < 0 || index >= screen->rows) return NULL;
 
