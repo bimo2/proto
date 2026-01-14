@@ -21,14 +21,24 @@ typedef enum unicode_codepoint_t {
     UNICODE_CODEPOINT_UTF32 = 32,
 } unicode_codepoint_t;
 
+typedef enum {
+    UNICODE_CLASS_SPACE = 0,
+    UNICODE_CLASS_WORD,
+    UNICODE_CLASS_OTHER,
+} unicode_class_t;
+
 extern unicode_codepoint_t unicode_default_codepoint;
 
 int unicode_codepoint_width(uint32_t codepoint);
 
 size_t unicode_decode_utf8(const uint8_t *bytes, size_t length, uint32_t *codepoint);
 
+size_t unicode_encode_utf16(uint32_t codepoint, uint16_t out[2]);
+
 bool unicode_codepoint_supported(uint32_t codepoint, unicode_codepoint_t scalar);
 
 size_t unicode_codepoint_string(uint32_t codepoint, char *buffer, size_t length);
+
+unicode_class_t unicode_class(uint32_t codepoint);
 
 #endif // !UNICODE_H

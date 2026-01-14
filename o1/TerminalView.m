@@ -15,6 +15,7 @@
 #include "ansi.h"
 #include "render.h"
 #include "shaders_cpu.h"
+#include "unicode.h"
 
 #include <dispatch/dispatch.h>
 #include <math.h>
@@ -541,10 +542,8 @@ static inline location_t location(int32_t row, int32_t column) {
 - (void)selectAll:(id)sender {
     if (!screen) return;
 
-    int32_t index = screen_viewport_index(screen);
-
-    selection_start = location(index, 0);
-    selection_end = location(index + (int32_t)self.rows - 1, (int32_t)self.columns - 1);
+    selection_start = location(0, 0);
+    selection_end = location(screen_total_rows(screen) - 1, (int32_t)self.columns - 1);
     [self updateSelectionLayer];
 }
 
@@ -807,15 +806,20 @@ static inline location_t location(int32_t row, int32_t column) {
 
 - (void)mouse:(NSEvent *)event button:(ansi_mouse_t)button action:(ansi_mouse_event_t)action {
     NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
+    NSRect rect = [self cursorRect];
 
-    if (!NSPointInRect(point, self.bounds) || !isfinite(point.x) || !isfinite(point.y)) return;
+    if (!NSPointInRect(point, rect) || !isfinite(point.x) || !isfinite(point.y)) return;
 
-    CGFloat x = MAX(0.0, MIN(point.x * self.scale, self.drawableSize.width - 1.0));
-    CGFloat y = MAX(0.0, MIN(point.y * self.scale, self.drawableSize.height - 1.0));
-    NSUInteger row = floor(((CGFloat)self.drawableSize.height - 1.0 - y) / self.cellHeight) + 1;
-    NSUInteger column = floor(x / self.cellWidth) + 1;
+    NSInteger visibleRows = (NSInteger)self.rows - (NSInteger)[Terminal offset];
 
-    [self.terminal mouse:button event:action flags:event.modifierFlags row:MAX(1, MIN(self.rows, row)) column:MAX(1, MIN(self.columns, column))];
+    if (visibleRows < 1) return;
+
+    CGFloat x = MAX(0.0, MIN(point.x - rect.origin.x * self.scale, rect.size.width * self.scale - 1.0));
+    CGFloat y = MAX(0.0, MIN(point.y - rect.origin.y * self.scale, rect.size.height * self.scale - 1.0));
+    NSUInteger row = (NSUInteger)floor(((rect.size.height * self.scale) - 1.0 - y) / self.cellHeight) + 1;
+    NSUInteger column = (NSUInteger)floor(x / self.cellWidth) + 1;
+
+    [self.terminal mouse:button event:action flags:event.modifierFlags row:MAX(1, MIN((NSUInteger)visibleRows, row)) column:MAX(1, MIN(self.columns, column))];
 }
 
 - (void)startCursorBlinkTimer {
@@ -900,7 +904,7 @@ static inline location_t location(int32_t row, int32_t column) {
     if (cellWidth <= 0.0 || cellHeight <= 0.0) return NSZeroRect;
 
     CGFloat width = (CGFloat)self.columns * cellWidth;
-    CGFloat height = (CGFloat)(self.rows - [Terminal offset]) * cellHeight;
+    CGFloat height = MAX(0, (CGFloat)self.rows - (CGFloat)[Terminal offset]) * cellHeight;
     NSRect rect = NSMakeRect(0.0, 0.0, width, height);
 
     if (rect.size.width > self.bounds.size.width) rect.size.width = self.bounds.size.width;
@@ -1031,11 +1035,15 @@ static inline location_t location(int32_t row, int32_t column) {
     CGFloat localY = point.y - rect.origin.y;
     NSInteger row = cellHeight > 0.0 ? (NSInteger)floor((rect.size.height - 0.0001 - localY) / cellHeight) : 0;
     NSInteger column = cellWidth > 0.0 ? (NSInteger)floor(localX / cellWidth) : 0;
+    NSInteger visibleRows = (NSInteger)self.rows - (NSInteger)[Terminal offset];
 
+    if (visibleRows < 1) return NO;
     if (row < 0) row = 0;
-    if (row >= self.rows) row = (NSInteger)self.rows - 1;
+    if (row >= visibleRows) row = visibleRows - 1;
     if (column < 0) column = 0;
     if (column >= self.columns) column = (NSInteger)self.columns - 1;
+
+    row += [Terminal offset];
 
     int32_t index = screen_viewport_index(screen) + (int32_t)row;
     const screen_cell_t *cells = screen_absolute_row(screen, index, NULL, NULL);
@@ -1066,6 +1074,16 @@ static inline location_t location(int32_t row, int32_t column) {
     }
 }
 
+- (NSUInteger)classify:(const screen_cell_t *)cells column:(NSUInteger)column {
+    if (!cells || column < 0) return UNICODE_CLASS_OTHER;
+
+    NSInteger index = column;
+
+    while (index > 0 && cells[index].width == 0) index--;
+
+    return unicode_class(cells[index].codepoint);
+}
+
 - (BOOL)updateSelection:(NSEvent *)event {
     if (self.isTrackingAreasEnabled) return NO;
 
@@ -1084,6 +1102,74 @@ static inline location_t location(int32_t row, int32_t column) {
     }
 
     if (event.type != NSEventTypeLeftMouseDragged) {
+        if (event.clickCount >= 3) {
+            int32_t total = screen_total_rows(screen);
+            int32_t start = MIN(total - 1, MAX(0, cell.row));
+            int32_t end = MIN(total - 1, MAX(0, cell.row));
+
+            while (start > 0) {
+                bool soft_wrap = false;
+
+                if (!screen_absolute_row(screen, start - 1, &soft_wrap, NULL)) break;
+                if (!soft_wrap) break;
+
+                start--;
+            }
+
+            while (end < total - 1) {
+                bool soft_wrap = false;
+
+                if (!screen_absolute_row(screen, end, &soft_wrap, NULL)) break;
+                if (!soft_wrap) break;
+
+                end++;
+            }
+
+            self.selectPending = NO;
+            self.select = YES;
+            self.selecting = YES;
+            self->selection_start = location(start, 0);
+            self->selection_end = location(end, (int32_t)self.columns - 1);
+            [self updateSelectionLayer];
+
+            return YES;
+        }
+
+        if (event.clickCount == 2) {
+            const screen_cell_t *cells = screen_absolute_row(screen, cell.row, NULL, NULL);
+
+            if (!cells) return YES;
+
+            NSInteger anchor = MAX(0, cell.column);
+
+            if (anchor >= self.columns) anchor = (NSInteger)self.columns - 1;
+
+            NSUInteger basis = [self classify:cells column:anchor];
+            NSInteger left = anchor;
+            NSInteger right = anchor;
+
+            while (left > 0) {
+                if ([self classify:cells column:left - 1] != basis) break;
+
+                left--;
+            }
+
+            while (right + 1 < self.columns) {
+                if ([self classify:cells column:right + 1] != basis) break;
+
+                right++;
+            }
+
+            self.selectPending = NO;
+            self.select = YES;
+            self.selecting = YES;
+            self->selection_start = location(cell.row, (int32_t)left);
+            self->selection_end = location(cell.row, (int32_t)right);
+            [self updateSelectionLayer];
+
+            return YES;
+        }
+
         self.anchor = event.locationInWindow;
         self.selectPending = YES;
         self.select = NO;
@@ -1243,32 +1329,25 @@ static inline location_t location(int32_t row, int32_t column) {
             if (cell->width == 0) continue;
             if (codepoint == 0) codepoint = ' ';
 
-            if (codepoint <= 0xFFFFu) {
-                [text appendFormat:@"%C", (unichar)codepoint];
+            uint16_t units[2] = {0, 0};
+            size_t count = unicode_encode_utf16(codepoint, units);
 
-                continue;
-            }
-
-            if (codepoint <= 0x10FFFFu) {
-                uint32_t offset = codepoint - 0x10000u;
-                unichar pair[2];
-
-                pair[0] = (unichar)(0xD800u + ((offset >> 10) & 0x3FFu));
-                pair[1] = (unichar)(0xDC00u + (offset & 0x3FFu));
+            if (count == 1) {
+                [text appendFormat:@"%C", (unichar)units[0]];
+            } else if (count == 2) {
+                unichar pair[2] = {(unichar)units[0], (unichar)units[1]};
 
                 [text appendString:[NSString stringWithCharacters:pair length:2]];
-
-                continue;
+            } else {
+                [text appendString:@"\uFFFD"];
             }
-
-            [text appendString:@"\uFFFD"];
         }
 
-        BOOL shouldJoin = row < last && soft_wrap && (endColumn == (NSInteger)self.columns - 1);
-        BOOL newline = row < last && !shouldJoin;
-        BOOL shouldTrim = (endColumn == (NSInteger)self.columns - 1) && !shouldJoin;
+        BOOL wrap = row < last && soft_wrap && (endColumn == (NSInteger)self.columns - 1);
+        BOOL newline = row < last && !wrap;
+        BOOL trim = (endColumn == (NSInteger)self.columns - 1) && !wrap;
 
-        if (shouldTrim && line.length > 0) {
+        if (trim && line.length > 0) {
             while (line.length > 0) {
                 if (![[NSCharacterSet whitespaceCharacterSet] characterIsMember:[line characterAtIndex:line.length - 1]]) break;
 
