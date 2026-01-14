@@ -140,6 +140,10 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     if (pid == 0) {
         if (session_sandbox) sandbox(STDIN_FILENO);
 
+        const char *home = getenv("HOME");
+
+        if (home) chdir(home);
+
         execve(file, argv, envp);
         log_error("execve error: %d", errno);
         _exit(127);

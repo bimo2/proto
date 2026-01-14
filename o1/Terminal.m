@@ -52,7 +52,7 @@ static void on_mouse_callback(void *, bool);
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
         write_source_suspended = true;
         _file = @"/bin/zsh";
-        _flags = [NSArray array];
+        _flags = [NSArray arrayWithObject:@"-l"];
         _environment = [NSDictionary dictionary];
 
         __weak typeof(self) weakSelf = self;
