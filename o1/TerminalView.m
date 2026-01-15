@@ -118,6 +118,7 @@ static inline location_t location(int32_t row, int32_t column) {
         samplerDescriptor.tAddressMode = MTLSamplerAddressModeClampToEdge;
         _sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
         _cursorBlinkPhase = 1;
+        next_cursor.style = CPU_CURSOR_STYLE_BLOCK;
 
         CAShapeLayer *sublayer = [CAShapeLayer layer];
 
@@ -131,16 +132,32 @@ static inline location_t location(int32_t row, int32_t column) {
     return self;
 }
 
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [self stopCursorBlinkTimer];
+    [self stopCursorBlinkPauseTimer];
+    [self stopSelectionTimer];
+}
+
+- (void)viewDidMoveToWindow {
+    [super viewDidMoveToWindow];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+
+    if (self.window) {
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWindow:) name:NSWindowDidBecomeKeyNotification object:self.window];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWindow:) name:NSWindowDidResignKeyNotification object:self.window];
+    }
+
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWindow:) name:NSApplicationDidBecomeActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWindow:) name:NSApplicationDidResignActiveNotification object:nil];
+    [self updateNextCursor];
+    [self setNeedsDisplay:YES];
+}
+
 - (void)layout {
     [super layout];
     [self updateSelectionLayer];
     [self.window invalidateCursorRectsForView:self];
-}
-
-- (void)dealloc {
-    [self stopCursorBlinkTimer];
-    [self stopCursorBlinkPauseTimer];
-    [self stopSelectionTimer];
 }
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
@@ -188,7 +205,8 @@ static inline location_t location(int32_t row, int32_t column) {
     [encoder setVertexBuffer:self.buffer offset:0 atIndex:0];
     [encoder setVertexBytes:&uniforms length:sizeof(cpu_grid_uniforms_t) atIndex:1];
     [encoder setVertexBytes:&next_cursor length:sizeof(cpu_cursor_uniforms_t) atIndex:2];
-    [encoder setFragmentBytes:&next_cursor length:sizeof(cpu_cursor_uniforms_t) atIndex:0];
+    [encoder setFragmentBytes:&uniforms length:sizeof(cpu_grid_uniforms_t) atIndex:0];
+    [encoder setFragmentBytes:&next_cursor length:sizeof(cpu_cursor_uniforms_t) atIndex:1];
     [encoder setFragmentTexture:self.texture atIndex:0];
     [encoder setFragmentSamplerState:self.sampler atIndex:0];
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:CPU_TERMINAL_VERTEX_COUNT instanceCount:self.instanceCount];
@@ -583,40 +601,8 @@ static inline location_t location(int32_t row, int32_t column) {
 - (void)screen:(screen_t *)screen {
     if (!screen) return;
 
-    screen_cursor_t *cursor = screen_cursor(screen);
-    BOOL drawCursor = cursor->visible;
-    int32_t row = cursor->row + screen_viewport_offset(screen);
-
-    if (row < 0 || row >= (int32_t)self.rows) drawCursor = NO;
-    if (cursor->column < 0 || cursor->column >= (int32_t)self.columns) drawCursor = NO;
-
-    if (drawCursor) {
-        next_cursor.cell = simd_make_uint2((uint32_t)cursor->column, (uint32_t)((int32_t)self.rows - 1 - row));
-    } else {
-        next_cursor.cell = simd_make_uint2(0, 0);
-    }
-
-    self.drawCursor = drawCursor;
-
-    if (cursor->blink && self.isCursorBlinkPaused) {
-        next_cursor.visible = (uint32_t)drawCursor;
-    } else {
-        next_cursor.visible = (uint32_t)(drawCursor && (!cursor->blink || self.cursorBlinkPhase > 0));
-    }
-
-    if (self.isCursorBlinkEnabled != cursor->blink) {
-        self.cursorBlinkEnabled = cursor->blink;
-
-        if (!cursor->blink) {
-            self.cursorBlinkPaused = NO;
-            [self stopCursorBlinkTimer];
-            [self stopCursorBlinkPauseTimer];
-        }
-    }
-
-    if (self.isCursorBlinkEnabled && !self.isCursorBlinkPaused) [self startCursorBlinkTimer];
-
     self->screen = screen;
+    [self updateNextCursor];
     [self updateSelectionLayer];
     [self setNeedsDisplay:YES];
 }
@@ -684,6 +670,11 @@ static inline location_t location(int32_t row, int32_t column) {
     self.cellWidth = MAX(1.0, max_advance_x + pad_x);
     self.cellHeight = MAX(1.0, max_below_baseline + pad_bottom + max_above_baseline + pad_top);
     self.textBaseline = MAX(0.0, max_below_baseline + pad_bottom);
+}
+
+- (void)updateWindow:(NSNotification *)notification {
+    [self updateNextCursor];
+    [self setNeedsDisplay:YES];
 }
 
 - (void)update:(cpu_glyph_instance_t *)instance row:(NSUInteger)row column:(NSUInteger)column codepoint:(uint32_t)codepoint attributes:(const ansi_sgr_t *)attributes {
@@ -895,6 +886,67 @@ static inline location_t location(int32_t row, int32_t column) {
     [self stopCursorBlinkTimer];
     next_cursor.visible = (uint32_t)self.shouldDrawCursor;
     [self restartCursorBlinkPauseTimer];
+}
+
+- (void)updateNextCursor {
+    if (!screen) {
+        next_cursor.cell = simd_make_uint2(0, 0);
+        next_cursor.visible = 0;
+        next_cursor.style = CPU_CURSOR_STYLE_BLOCK;
+        self.drawCursor = NO;
+        [self stopCursorBlinkTimer];
+        [self stopCursorBlinkPauseTimer];
+
+        return;
+    }
+
+    screen_cursor_t *cursor = screen_cursor(screen);
+    BOOL drawCursor = cursor->visible;
+    int32_t row = cursor->row + screen_viewport_offset(screen);
+
+    if (row < 0 || row >= (int32_t)self.rows) drawCursor = NO;
+    if (cursor->column < 0 || cursor->column >= (int32_t)self.columns) drawCursor = NO;
+
+    if (drawCursor) {
+        next_cursor.cell = simd_make_uint2((uint32_t)cursor->column, (uint32_t)((int32_t)self.rows - 1 - row));
+    } else {
+        next_cursor.cell = simd_make_uint2(0, 0);
+    }
+
+    self.drawCursor = drawCursor;
+
+    BOOL active = NSApp.isActive && self.window && self.window.isKeyWindow;
+
+    next_cursor.style = active ? CPU_CURSOR_STYLE_BLOCK : CPU_CURSOR_STYLE_BLOCK_OUTLINE;
+
+    if (!active) {
+        next_cursor.visible = (uint32_t)drawCursor;
+        self.cursorBlinkPaused = NO;
+        self.cursorBlinkPhase = 1;
+        [self stopCursorBlinkTimer];
+        [self stopCursorBlinkPauseTimer];
+        self.cursorBlinkEnabled = cursor->blink;
+
+        return;
+    }
+
+    if (cursor->blink && self.isCursorBlinkPaused) {
+        next_cursor.visible = (uint32_t)drawCursor;
+    } else {
+        next_cursor.visible = (uint32_t)(drawCursor && (!cursor->blink || self.cursorBlinkPhase > 0));
+    }
+
+    if (self.isCursorBlinkEnabled != cursor->blink) {
+        self.cursorBlinkEnabled = cursor->blink;
+
+        if (!cursor->blink) {
+            self.cursorBlinkPaused = NO;
+            [self stopCursorBlinkTimer];
+            [self stopCursorBlinkPauseTimer];
+        }
+    }
+
+    if (self.isCursorBlinkEnabled && !self.isCursorBlinkPaused) [self startCursorBlinkTimer];
 }
 
 - (NSRect)cursorRect {

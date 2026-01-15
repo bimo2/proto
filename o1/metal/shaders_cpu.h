@@ -43,6 +43,11 @@ typedef enum cpu_font_index_t {
     CPU_FONT_INDEX_BOLD,
 } cpu_font_index_t;
 
+typedef enum cpu_cursor_style_t {
+    CPU_CURSOR_STYLE_BLOCK = 0,
+    CPU_CURSOR_STYLE_BLOCK_OUTLINE,
+} cpu_cursor_style_t;
+
 typedef struct cpu_glyph_instance_t {
     uint32_t glyph_id;
     uint32_t font_index;
@@ -62,6 +67,7 @@ typedef struct cpu_grid_uniforms_t {
 typedef struct cpu_cursor_uniforms_t {
     simd_uint2 cell;
     uint32_t visible;
+    cpu_cursor_style_t style;
 } cpu_cursor_uniforms_t;
 
 simd_float4 cpu_rgba_color(uint32_t color, bool background);

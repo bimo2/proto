@@ -28,6 +28,7 @@ struct GridUniforms {
 struct CursorUniforms {
     uint2 cell;
     uint visible;
+    uint style;
 };
 
 struct VertexOut {
@@ -38,6 +39,7 @@ struct VertexOut {
     float4 bg_color;
     bool background;
     uint2 cell;
+    float2 local;
 };
 
 vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]], constant GlyphInstance* instances [[buffer(0)]], constant GridUniforms& grid_uniforms [[buffer(1)]], constant CursorUniforms& cursor_uniforms [[buffer(2)]]) {
@@ -47,6 +49,7 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
     float2 point;
     float2 pixel;
     float2 uv_out;
+    float2 local = float2(0.0f);
     uint2 cell = uint2(uint(glyph.position.x), uint(glyph.position.y));
     bool cursor = cursor_uniforms.visible != 0 && all(cell == cursor_uniforms.cell);
 
@@ -61,8 +64,9 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
         };
 
         point = quad[local_vid];
+        local = point;
 
-        if (cursor) {
+        if (cursor && cursor_uniforms.style == 0) {
             constexpr float padding = 0.02f;
 
             point.x = point.x * (1.0f + 2.0f * padding) - padding;
@@ -97,15 +101,29 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
         .bg_color = glyph.bg_color,
         .background = background,
         .cell = cell,
+        .local = local,
     };
 
     return out;
 }
 
-fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<float> atlas [[texture(0)]], sampler s [[sampler(0)]], constant CursorUniforms& cursor_uniforms [[buffer(0)]]) {
+fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<float> atlas [[texture(0)]], sampler s [[sampler(0)]], constant GridUniforms& grid_uniforms [[buffer(0)]], constant CursorUniforms& cursor_uniforms [[buffer(1)]]) {
     bool cursor = cursor_uniforms.visible != 0 && all(in.cell == cursor_uniforms.cell);
 
-    if (cursor) {
+    if (cursor && cursor_uniforms.style == 1 && in.background) {
+        constexpr float width = 2.0f;
+        float2 local = in.local * grid_uniforms.cell_size;
+
+        bool border = (local.x < width) || (local.x > grid_uniforms.cell_size.x - width) || (local.y < width) || (local.y > grid_uniforms.cell_size.y - width);
+
+        if (border) {
+            float4 outline = float4(in.fg_color.rgb, 1.0f);
+
+            return float4(outline.rgb * outline.a, outline.a);
+        }
+    }
+
+    if (cursor && cursor_uniforms.style == 0) {
         float4 cursor_bg = float4(in.fg_color.rgb, 1.0f);
         float4 cursor_fg = in.bg_color;
 
