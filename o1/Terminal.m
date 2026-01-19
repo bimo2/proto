@@ -21,6 +21,7 @@
 #include <string.h>
 #include <sys/wait.h>
 
+static const void *kIOQueueKey = &kIOQueueKey;
 static void on_ansi_callback(void *, ansi_t *);
 static void on_title_callback(void *, const char *);
 static void on_response_callback(void *, const char *);
@@ -35,7 +36,7 @@ static void on_mouse_callback(void *, bool);
     dispatch_source_t read_source;
     dispatch_source_t write_source;
     dispatch_source_t proc_source;
-    bool write_source_suspended;
+    bool write_suspended;
 }
 
 @end
@@ -50,7 +51,10 @@ static void on_mouse_callback(void *, bool);
         reader = init_ansi_reader();
         context = init_screen_context();
         io_queue = dispatch_queue_create("com.github.o1.io_queue", DISPATCH_QUEUE_SERIAL);
-        write_source_suspended = true;
+
+        dispatch_queue_set_specific(io_queue, kIOQueueKey, (void *)kIOQueueKey, NULL);
+
+        write_suspended = true;
         _file = @"/bin/zsh";
         _flags = [NSArray arrayWithObject:@"-l"];
         _environment = [NSDictionary dictionary];
@@ -154,20 +158,20 @@ static void on_mouse_callback(void *, bool);
 
     __weak typeof(self) weakSelf = self;
 
-    dispatch_async(io_queue, ^{
+    void (^block)(void) = ^{
         __strong typeof(weakSelf) strongSelf = weakSelf;
 
         if (!strongSelf) return;
 
         if (strongSelf->write_source) {
-            if (strongSelf->write_source_suspended) {
+            if (strongSelf->write_suspended) {
                 dispatch_resume(strongSelf->write_source);
-                strongSelf->write_source_suspended = false;
+                strongSelf->write_suspended = false;
             }
 
             dispatch_source_cancel(strongSelf->write_source);
             strongSelf->write_source = NULL;
-            strongSelf->write_source_suspended = true;
+            strongSelf->write_suspended = true;
         }
 
         if (strongSelf->read_source) {
@@ -176,8 +180,15 @@ static void on_mouse_callback(void *, bool);
         }
 
         ansi_reader_reset(strongSelf->reader);
+        screen_context_reset(strongSelf->context);
         session_stop(strongSelf->session);
-    });
+    };
+
+    if (dispatch_get_specific(kIOQueueKey) == NULL) {
+        dispatch_sync(io_queue, block);
+    } else {
+        block();
+    }
 }
 
 - (void)write:(NSData *)data {
@@ -192,9 +203,9 @@ static void on_mouse_callback(void *, bool);
 
         session_write(strongSelf->session, (const uint8_t *)data.bytes, data.length, NULL);
 
-        if (strongSelf->write_source && strongSelf->write_source_suspended) {
+        if (strongSelf->write_source && strongSelf->write_suspended) {
             dispatch_resume(strongSelf->write_source);
-            strongSelf->write_source_suspended = false;
+            strongSelf->write_suspended = false;
         }
     });
 }
@@ -395,9 +406,9 @@ static void on_mouse_callback(void *, bool);
         if (!strongSelf) return;
 
         if (session_flush_write(strongSelf->session) > -1) {
-            if (!strongSelf->write_source_suspended) {
+            if (!strongSelf->write_suspended) {
                 dispatch_suspend(strongSelf->write_source);
-                strongSelf->write_source_suspended = true;
+                strongSelf->write_suspended = true;
             }
         }
     });

@@ -48,7 +48,7 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
     bool background = (local_vid < 6);
     float2 point;
     float2 pixel;
-    float2 uv_out;
+    float2 uv;
     float2 local = float2(0.0f);
     uint2 cell = uint2(uint(glyph.position.x), uint(glyph.position.y));
     bool cursor = cursor_uniforms.visible != 0 && all(cell == cursor_uniforms.cell);
@@ -73,7 +73,7 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
         }
 
         pixel = glyph.position * grid_uniforms.cell_size + point * grid_uniforms.cell_size;
-        uv_out = float2(0.0f);
+        uv = float2(0.0f);
     } else {
         uint text_vid = local_vid - 6;
 
@@ -88,14 +88,14 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
 
         point = quad[text_vid];
         pixel = glyph.position * grid_uniforms.cell_size + glyph.bearing + point * glyph.size;
-        uv_out = mix(glyph.uv.xy, glyph.uv.zw, point);
+        uv = mix(glyph.uv.xy, glyph.uv.zw, point);
     }
 
     float2 ndc = (pixel / grid_uniforms.viewport_size) * 2.0f - 1.0f;
 
     VertexOut out = {
         .position = float4(ndc, 0.0f, 1.0f),
-        .uv = uv_out,
+        .uv = uv,
         .font_index = glyph.font_index,
         .fg_color = glyph.fg_color,
         .bg_color = glyph.bg_color,
