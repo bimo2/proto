@@ -28,7 +28,6 @@ static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
 
     if (self) {
         window.restorable = NO;
-        window.title = @"github.com";
         window.titlebarAppearsTransparent = YES;
         window.backgroundColor = [NSColor colorWithDeviceWhite:0.0 alpha:0.94];
 
@@ -36,6 +35,7 @@ static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
 
         toolbar.delegate = self;
         toolbar.displayMode = NSToolbarDisplayModeIconOnly;
+        toolbar.allowsDisplayModeCustomization = NO;
         window.toolbar = toolbar;
         window.toolbarStyle = NSWindowToolbarStyleUnified;
         _viewController = [[ViewController alloc] init];
@@ -53,6 +53,7 @@ static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
         NSSearchField *searchField = search.searchField;
 
         searchField.delegate = self.viewController;
+        search.enabled = NO;
 
         return search;
     }

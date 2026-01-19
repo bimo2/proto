@@ -118,10 +118,19 @@
     };
 
     terminal.titleBlock = ^(const char *title) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+
+            if (!strongSelf) return;
+
+            strongSelf.view.window.title = [NSString stringWithCString:title encoding:NSUTF8StringEncoding];
+        });
+
         NSLog(@"title: %s", title);
     };
 
     terminal.bellBlock = ^() {
+        NSBeep();
         NSLog(@"bell");
     };
 

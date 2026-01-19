@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libproc.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -107,7 +108,7 @@ bool session_running(session_t *session) {
 }
 
 const char *session_process(session_t *session) {
-    static _Thread_local char buffer[PROC_PIDPATHINFO_MAXSIZE];
+    static _Thread_local char buffer[PROC_PIDPATHINFO_MAXSIZE + 1];
 
     if (proc_pidpath(session->pid, buffer, sizeof(buffer)) < 1) {
         log_error("proc_pidpath error: %d", errno);
@@ -273,4 +274,15 @@ void session_update_window(session_t *session, uint32_t rows, uint32_t columns, 
     if (ioctl(session->fd, TIOCSWINSZ, &ws) == -1) log_error("ioctl error: %d", errno);
 
     return;
+}
+
+const char *session_hostname(session_t *session) {
+    static _Thread_local char buffer[_POSIX_HOST_NAME_MAX + 1];
+
+    if (gethostname(buffer, sizeof(buffer)) < 0) {
+        log_error("gethostname error: %d", errno);
+        buffer[0] = '\0';
+    }
+
+    return buffer;
 }

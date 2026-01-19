@@ -40,4 +40,6 @@ ssize_t session_flush_write(session_t *session);
 
 void session_update_window(session_t *session, uint32_t rows, uint32_t columns, uint32_t width, uint32_t height);
 
+const char *session_hostname(session_t *session);
+
 #endif // !SESSION_H

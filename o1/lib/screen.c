@@ -748,7 +748,6 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
             size_t todo = line->width - start;
             size_t take = min(todo, (size_t)columns);
-
             bool wide_wrap = false;
 
             if (start + take < line->width && line->cells[start + take].width == 0 && take > 0) {
@@ -872,7 +871,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     if (screen->cursor.row >= rows) {
         screen->cursor.row = rows - 1;
     } else {
-        int32_t prompt = rows - 1;
+        int32_t prompt = (int32_t)min((size_t)rows - 1, max(0, (size_t)screen_default_offset));
 
         for (int32_t i = rows - 1; i >= 0; i--) {
             bool used = false;
