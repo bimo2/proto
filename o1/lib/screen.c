@@ -687,7 +687,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         if (line->soft_wrap) {
             if (line->wide_wrap && used > 0) used--;
         } else {
-            while (used > 0 && line->cells && line->cells[used - 1].codepoint == ' ') used--;
+            while (used > 0 && line->cells && blank_cell(&line->cells[used - 1])) used--;
         }
 
         if (line->cells && used > 0) add_staging_cells(&current, line->cells, used);
@@ -706,7 +706,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         if (screen->soft_wrap[i]) {
             if (screen->wide_wrap[i] && used > 0) used--;
         } else {
-            while (used > 0 && screen->grid[i][used - 1].codepoint == ' ') used--;
+            while (used > 0 && blank_cell(&screen->grid[i][used - 1])) used--;
         }
 
         if (used > 0) add_staging_cells(&current, screen->grid[i], used);
@@ -733,7 +733,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
     for (size_t i = 0; i < staging_count; i++) {
         staging_line_t *line = &staging[i];
 
-        while (line->width > 0 && line->cells[line->width - 1].codepoint == ' ') line->width--;
+        while (line->width > 0 && line->cells && blank_cell(&line->cells[line->width - 1])) line->width--;
 
         if (line->width < 1) {
             commit_staging_cells(&reflow, &reflow_count, &reflow_capacity, NULL, 0, false, false, columns);

@@ -31,8 +31,29 @@ simd_float3 cpu_default_colors[] = {
     rgb(255, 255, 255),
 };
 
+static simd_float3 indexed_color(int index) {
+    if (index < CPU_USER_COLOR_LENGTH) return cpu_default_colors[index];
+
+    if (index < 232) {
+        static const uint8_t levels[6] = {0, 95, 135, 175, 215, 255};
+        int base = index - 16;
+        int red = base / 36;
+        int green = (base % 36) / 6;
+        int blue = base % 6;
+
+        return rgb(levels[red], levels[green], levels[blue]);
+    }
+
+    uint8_t value = 8 + (index - 232) * 10;
+
+    return rgb(value, value, value);
+}
+
 static simd_float4 reset_color(bool background) {
-    return background ? simd_make_float4(cpu_default_colors[CPU_USER_COLOR_BLACK], 0.0f) : simd_make_float4(cpu_default_colors[CPU_USER_COLOR_BRIGHT_WHITE], 1.0f);
+    simd_float3 fg_color = rgb(255, 255, 255);
+    simd_float3 bg_color = rgb(0, 0, 0);
+
+    return background ? simd_make_float4(bg_color, 0.0f) : simd_make_float4(fg_color, 1.0f);
 }
 
 simd_float4 cpu_rgba_color(uint32_t color, bool background) {
@@ -44,7 +65,7 @@ simd_float4 cpu_rgba_color(uint32_t color, bool background) {
 
     switch (kind) {
         case ANSI_COLOR_INDEXED:
-            if (index < CPU_USER_COLOR_LENGTH) return simd_make_float4(cpu_default_colors[index], 1.0f);
+            if (index < 256) return simd_make_float4(indexed_color(index), 1.0f);
 
             return reset_color(background);
         case ANSI_COLOR_RGB:
