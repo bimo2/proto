@@ -17,6 +17,7 @@
 @property (class, assign) NSUInteger columns;
 @property (class, assign) NSUInteger offset;
 @property (class, assign) NSUInteger codepoint;
+@property (class, assign) BOOL monochrome;
 @property (class, copy) NSDictionary<NSNumber *, NSColor *> *colors;
 
 @end

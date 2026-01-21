@@ -12,10 +12,12 @@
 #define rgb(red, green, blue) \
     (simd_float3){(red) / 255.0f, (green) / 255.0f, (blue) / 255.0f}
 
+bool cpu_default_monochrome = false;
+
 simd_float3 cpu_default_colors[] = {
     rgb(0, 0, 0),
     rgb(255, 28, 62),
-    rgb(46, 217, 117),
+    rgb(29, 219, 108),
     rgb(245, 255, 46),
     rgb(46, 147, 255),
     rgb(255, 46, 248),
@@ -23,7 +25,7 @@ simd_float3 cpu_default_colors[] = {
     rgb(168, 168, 168),
     rgb(87, 87, 87),
     rgb(255, 128, 147),
-    rgb(134, 233, 175),
+    rgb(115, 237, 166),
     rgb(250, 255, 148),
     rgb(148, 200, 255),
     rgb(255, 148, 251),

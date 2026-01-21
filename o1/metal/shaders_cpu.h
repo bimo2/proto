@@ -17,6 +17,7 @@
 #define CPU_TERMINAL_FRAGMENT_SHADER "terminal_fragment"
 #define CPU_USER_COLOR_LENGTH 16
 
+extern bool cpu_default_monochrome;
 extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
 
 typedef enum cpu_user_color_t {
@@ -62,6 +63,7 @@ typedef struct cpu_glyph_instance_t {
 typedef struct cpu_grid_uniforms_t {
     simd_float2 viewport_size;
     simd_float2 cell_size;
+    bool monochrome;
 } cpu_grid_uniforms_t;
 
 typedef struct cpu_cursor_uniforms_t {

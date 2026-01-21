@@ -23,6 +23,7 @@ struct GlyphInstance {
 struct GridUniforms {
     float2 viewport_size;
     float2 cell_size;
+    bool monochrome;
 };
 
 struct CursorUniforms {
@@ -109,6 +110,17 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
 
 fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<float> atlas [[texture(0)]], sampler s [[sampler(0)]], constant GridUniforms& grid_uniforms [[buffer(0)]], constant CursorUniforms& cursor_uniforms [[buffer(1)]]) {
     bool cursor = cursor_uniforms.visible != 0 && all(in.cell == cursor_uniforms.cell);
+    float4 fg_color = in.fg_color;
+    float4 bg_color = in.bg_color;
+
+    if (grid_uniforms.monochrome) {
+        constexpr float3 luminance = float3(0.2126f, 0.7152f, 0.0722f);
+        float fg = dot(fg_color.rgb, luminance);
+        float bg = dot(bg_color.rgb, luminance);
+
+        fg_color.rgb = float3(fg);
+        bg_color.rgb = float3(bg);
+    }
 
     if (cursor && cursor_uniforms.style == 1 && in.background) {
         constexpr float width = 2.0f;
@@ -117,15 +129,15 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
         bool border = (local.x < width) || (local.x > grid_uniforms.cell_size.x - width) || (local.y < width) || (local.y > grid_uniforms.cell_size.y - width);
 
         if (border) {
-            float4 outline = float4(in.fg_color.rgb, 1.0f);
+            float4 outline = float4(fg_color.rgb, 1.0f);
 
             return float4(outline.rgb * outline.a, outline.a);
         }
     }
 
     if (cursor && cursor_uniforms.style == 0) {
-        float4 cursor_bg = float4(in.fg_color.rgb, 1.0f);
-        float4 cursor_fg = in.bg_color;
+        float4 cursor_bg = float4(fg_color.rgb, 1.0f);
+        float4 cursor_fg = bg_color;
 
         if (cursor_fg.a < 0.5f) {
             cursor_fg = float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -144,11 +156,11 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
         }
     }
 
-    if (in.background) return float4(in.bg_color.rgb * in.bg_color.a, in.bg_color.a);
+    if (in.background) return float4(bg_color.rgb * bg_color.a, bg_color.a);
 
     float mask = atlas.sample(s, in.uv, in.font_index).r;
-    float alpha = in.fg_color.a * mask;
-    float3 rgb = in.fg_color.rgb * alpha;
+    float alpha = fg_color.a * mask;
+    float3 rgb = fg_color.rgb * alpha;
 
     return float4(rgb, alpha);
 }

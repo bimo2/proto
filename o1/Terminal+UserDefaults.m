@@ -74,6 +74,14 @@
     }
 }
 
++ (BOOL)monochrome {
+    return cpu_default_monochrome;
+}
+
++ (void)setMonochrome:(BOOL)monochrome {
+    cpu_default_monochrome = (bool)monochrome;
+}
+
 + (NSDictionary<NSNumber *, NSColor *> *)colors {
     NSMutableDictionary *indexed = [NSMutableDictionary dictionary];
 

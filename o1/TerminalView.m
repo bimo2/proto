@@ -199,7 +199,8 @@ static inline location_t location(int32_t row, int32_t column) {
 
     cpu_grid_uniforms_t uniforms = {
         .viewport_size = simd_make_float2((float)self.drawableSize.width, (float)self.drawableSize.height),
-        .cell_size = simd_make_float2((float)self.cellWidth, (float)self.cellHeight)
+        .cell_size = simd_make_float2((float)self.cellWidth, (float)self.cellHeight),
+        .monochrome = (bool)[Terminal monochrome],
     };
 
     [encoder setVertexBuffer:self.buffer offset:0 atIndex:0];
