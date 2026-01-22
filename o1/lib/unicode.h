@@ -21,7 +21,7 @@ typedef enum unicode_codepoint_t {
     UNICODE_CODEPOINT_UTF32 = 32,
 } unicode_codepoint_t;
 
-typedef enum {
+typedef enum unicode_class_t {
     UNICODE_CLASS_SPACE = 0,
     UNICODE_CLASS_WORD,
     UNICODE_CLASS_OTHER,

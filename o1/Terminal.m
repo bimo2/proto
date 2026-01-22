@@ -78,6 +78,8 @@ static void on_mouse_callback(void *, bool);
     free_session(session);
 }
 
+#pragma mark - Public
+
 - (BOOL)isRunning {
     return session_running(session);
 }
@@ -354,6 +356,8 @@ static void on_mouse_callback(void *, bool);
         });
     });
 }
+
+#pragma mark - Private
 
 - (void)setupReadSource {
     int fd = session_fd(session);

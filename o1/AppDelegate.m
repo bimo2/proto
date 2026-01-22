@@ -8,22 +8,27 @@
 #import "AppDelegate.h"
 
 #import "MainMenu.h"
-#import "Terminal+UserDefaults.h"
 #import "WindowController.h"
+
+#include "screen.h"
 
 @interface AppDelegate ()
 
-@property (strong) NSMutableArray<NSWindowController *> *windowControllers;
+@property (nonatomic, strong) NSMutableArray<NSWindowController *> *windowControllers;
 
 @end
 
 @implementation AppDelegate
 
-- (void)applicationDidFinishLaunching:(NSNotification *)notification {
-    MainMenu *mainMenu = [[MainMenu alloc] init];
++ (void)configure {
+    screen_default_offset = 2;
+}
 
-    [NSApp setMainMenu:mainMenu];
-    [Terminal setOffset:2];
+#pragma mark - NSApplicationDelegate
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification {
+    [NSApp setMainMenu:[[MainMenu alloc] init]];
+    [AppDelegate configure];
     [self window:nil];
 }
 
@@ -48,6 +53,8 @@
 - (BOOL)applicationSupportsSecureRestorableState:(NSApplication *)app {
     return YES;
 }
+
+#pragma mark - NSWindowDelegate
 
 - (void)windowWillClose:(NSNotification *)notification {
     NSWindow *window = (NSWindow *)notification.object;
@@ -74,6 +81,8 @@
     window.titlebarAppearsTransparent = YES;
     window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
 }
+
+#pragma mark - Public
 
 - (void)window:(id)sender {
     if (!_windowControllers) _windowControllers = [NSMutableArray array];

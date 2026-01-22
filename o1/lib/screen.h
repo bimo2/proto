@@ -14,12 +14,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-extern uint32_t screen_default_rows;
-extern uint32_t screen_default_columns;
-extern uint32_t screen_default_width;
-extern uint32_t screen_default_height;
-extern uint32_t screen_default_offset;
-
 typedef struct screen_cell_t {
     uint32_t codepoint;
     ansi_sgr_t attributes;
@@ -37,6 +31,12 @@ typedef struct screen_cursor_t {
 } screen_cursor_t;
 
 typedef struct screen_t screen_t;
+
+extern uint32_t screen_default_rows;
+extern uint32_t screen_default_columns;
+extern uint32_t screen_default_width;
+extern uint32_t screen_default_height;
+extern uint32_t screen_default_offset;
 
 screen_t *init_screen(int32_t rows, int32_t columns);
 

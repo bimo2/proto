@@ -18,7 +18,7 @@
 @property (nonatomic, copy) NSDictionary<NSString *, NSString *> *environment;
 @property (readonly, getter=isRunning) BOOL running;
 @property (nonatomic, copy) void (^renderBlock)(const render_t *, size_t);
-@property (nonatomic, copy) void (^updateBlock)(screen_t *);
+@property (nonatomic, copy) void (^updateBlock)(const screen_t *);
 @property (nonatomic, copy) void (^titleBlock)(const char *);
 @property (nonatomic, copy) void (^bellBlock)(void);
 @property (nonatomic, copy) void (^mouseBlock)(bool);

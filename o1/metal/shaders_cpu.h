@@ -17,9 +17,6 @@
 #define CPU_TERMINAL_FRAGMENT_SHADER "terminal_fragment"
 #define CPU_USER_COLOR_LENGTH 16
 
-extern bool cpu_default_monochrome;
-extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
-
 typedef enum cpu_user_color_t {
     CPU_USER_COLOR_BLACK = 0,
     CPU_USER_COLOR_RED,
@@ -71,6 +68,9 @@ typedef struct cpu_cursor_uniforms_t {
     uint32_t visible;
     cpu_cursor_style_t style;
 } cpu_cursor_uniforms_t;
+
+extern bool cpu_default_monochrome;
+extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
 
 simd_float4 cpu_rgba_color(uint32_t color, bool background);
 

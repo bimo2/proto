@@ -33,14 +33,14 @@
 #include <pty.h>
 #endif
 
-bool session_sandbox = false;
-
 struct session_t {
     pid_t pid;
     int fd;
     bool running;
     buffer_t *pending;
 };
+
+bool session_sandbox = false;
 
 static void sandbox(int fd) {
     struct termios options;

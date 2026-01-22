@@ -47,6 +47,8 @@ static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
     return self;
 }
 
+#pragma mark - NSToolbarDelegate
+
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier willBeInsertedIntoToolbar:(BOOL)flag {
     if ([itemIdentifier isEqualToString:SearchItemIdentifier]) {
         NSSearchToolbarItem *search = [[NSSearchToolbarItem alloc] initWithItemIdentifier:itemIdentifier];

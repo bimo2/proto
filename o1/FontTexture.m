@@ -56,6 +56,8 @@
     if (_font) CFRelease(_font);
 }
 
+#pragma mark - Public
+
 - (void)load:(__autoreleasing NSError **)error {
     [self.attributes removeAllObjects];
     [self.codepoints removeAllObjects];

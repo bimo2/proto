@@ -27,6 +27,8 @@
     return self;
 }
 
+#pragma mark - Private
+
 - (NSMenuItem *)app {
     NSString *name = NSProcessInfo.processInfo.processName;
     NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:name action:nil keyEquivalent:@""];
@@ -148,10 +150,6 @@
 
     [useSelectionForFind setTag:7];
     [findMenu addItem:useSelectionForFind];
-
-    NSMenuItem *jumpToSelection = [[NSMenuItem alloc] initWithTitle:@"Jump to Selection" action:@selector(centerSelectionInVisibleArea:) keyEquivalent:@"j"];
-
-    [findMenu addItem:jumpToSelection];
 
     return item;
 }

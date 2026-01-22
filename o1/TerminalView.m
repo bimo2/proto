@@ -8,7 +8,6 @@
 #import "TerminalView.h"
 
 #import "FontTexture.h"
-#import "Terminal+UserDefaults.h"
 
 #import <QuartzCore/QuartzCore.h>
 
@@ -26,12 +25,7 @@ typedef struct {
     int32_t column;
 } location_t;
 
-static inline location_t location(int32_t row, int32_t column) {
-    return (location_t){
-        .row = row,
-        .column = column,
-    };
-}
+static location_t location(int32_t row, int32_t column);
 
 @interface TerminalView () {
     screen_t *screen;
@@ -94,6 +88,7 @@ static inline location_t location(int32_t row, int32_t column) {
         self.paused = YES;
         selection_start = location(-1, -1);
         selection_end = location(-1, -1);
+        _interactive = YES;
         _typesets = [NSMutableDictionary dictionary];
         _commandQueue = [device newCommandQueue];
 
@@ -139,6 +134,8 @@ static inline location_t location(int32_t row, int32_t column) {
     [self stopSelectionTimer];
 }
 
+#pragma mark - NSView
+
 - (void)viewDidMoveToWindow {
     [super viewDidMoveToWindow];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
@@ -159,6 +156,32 @@ static inline location_t location(int32_t row, int32_t column) {
     [self updateSelectionLayer];
     [self.window invalidateCursorRectsForView:self];
 }
+
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+
+    if (self.trackingArea) {
+        [self removeTrackingArea:self.trackingArea];
+        self.trackingArea = nil;
+        self.window.acceptsMouseMovedEvents = NO;
+    }
+
+    if (self.isTrackingAreasEnabled) {
+        self.window.acceptsMouseMovedEvents = YES;
+
+        NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect;
+
+        self.trackingArea = [[NSTrackingArea alloc] initWithRect:NSZeroRect options:options owner:self userInfo:nil];
+        [self addTrackingArea:self.trackingArea];
+    }
+}
+
+- (void)resetCursorRects {
+    [super resetCursorRects];
+    [self addCursorRect:[self cursorRect] cursor:[NSCursor IBeamCursor]];
+}
+
+#pragma mark - MTKViewDelegate
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
     CGFloat scale = self.window.screen.backingScaleFactor;
@@ -200,7 +223,7 @@ static inline location_t location(int32_t row, int32_t column) {
     cpu_grid_uniforms_t uniforms = {
         .viewport_size = simd_make_float2((float)self.drawableSize.width, (float)self.drawableSize.height),
         .cell_size = simd_make_float2((float)self.cellWidth, (float)self.cellHeight),
-        .monochrome = (bool)[Terminal monochrome],
+        .monochrome = cpu_default_monochrome,
     };
 
     [encoder setVertexBuffer:self.buffer offset:0 atIndex:0];
@@ -216,32 +239,10 @@ static inline location_t location(int32_t row, int32_t column) {
     [buffer commit];
 }
 
+#pragma mark - NSResponder
+
 - (BOOL)acceptsFirstResponder {
     return YES;
-}
-
-- (void)resetCursorRects {
-    [super resetCursorRects];
-    [self addCursorRect:[self cursorRect] cursor:[NSCursor IBeamCursor]];
-}
-
-- (void)updateTrackingAreas {
-    [super updateTrackingAreas];
-
-    if (self.trackingArea) {
-        [self removeTrackingArea:self.trackingArea];
-        self.trackingArea = nil;
-        self.window.acceptsMouseMovedEvents = NO;
-    }
-
-    if (self.isTrackingAreasEnabled) {
-        self.window.acceptsMouseMovedEvents = YES;
-
-        NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect;
-
-        self.trackingArea = [[NSTrackingArea alloc] initWithRect:NSZeroRect options:options owner:self userInfo:nil];
-        [self addTrackingArea:self.trackingArea];
-    }
 }
 
 - (void)keyDown:(NSEvent *)event {
@@ -566,6 +567,14 @@ static inline location_t location(int32_t row, int32_t column) {
     [self updateSelectionLayer];
 }
 
+#pragma mark - Public
+
+- (void)setInteractive:(BOOL)interactive {
+    _interactive = interactive;
+    [self updateNextCursor];
+    [self setNeedsDisplay:YES];
+}
+
 - (void)setTrackingAreasEnabled:(BOOL)trackingAreasEnabled {
     _trackingAreasEnabled = trackingAreasEnabled;
     [self updateTrackingAreas];
@@ -599,14 +608,16 @@ static inline location_t location(int32_t row, int32_t column) {
     [self setNeedsDisplay:YES];
 }
 
-- (void)screen:(screen_t *)screen {
+- (void)screen:(const screen_t *)screen {
     if (!screen) return;
 
-    self->screen = screen;
+    self->screen = (screen_t *)screen;
     [self updateNextCursor];
     [self updateSelectionLayer];
     [self setNeedsDisplay:YES];
 }
+
+#pragma mark - Private
 
 - (BOOL)hasSelection {
     return selection_start.row > -1 && selection_start.column > -1 && selection_end.row > -1 && selection_end.column > -1;
@@ -678,7 +689,7 @@ static inline location_t location(int32_t row, int32_t column) {
     [self setNeedsDisplay:YES];
 }
 
-- (void)update:(cpu_glyph_instance_t *)instance row:(NSUInteger)row column:(NSUInteger)column codepoint:(uint32_t)codepoint attributes:(const ansi_sgr_t *)attributes {
+- (void)updateInstance:(cpu_glyph_instance_t *)instance row:(NSUInteger)row column:(NSUInteger)column codepoint:(uint32_t)codepoint attributes:(const ansi_sgr_t *)attributes {
     if (!instance) return;
 
     if (codepoint == 0) codepoint = ' ';
@@ -739,7 +750,7 @@ static inline location_t location(int32_t row, int32_t column) {
 
         if (column >= self.columns) break;
 
-        [self update:&instances[row * self.columns + column] row:row column:column codepoint:span->cells[i].codepoint attributes:&span->cells[i].attributes];
+        [self updateInstance:&instances[row * self.columns + column] row:row column:column codepoint:span->cells[i].codepoint attributes:&span->cells[i].attributes];
     }
 }
 
@@ -772,7 +783,7 @@ static inline location_t location(int32_t row, int32_t column) {
             for (NSUInteger column = 0; column < self.columns; column++) {
                 NSUInteger index = (NSUInteger)row * self.columns + column;
 
-                [self update:&instances[index] row:row column:column codepoint:' ' attributes:NULL];
+                [self updateInstance:&instances[index] row:row column:column codepoint:' ' attributes:NULL];
             }
         }
     } else {
@@ -790,7 +801,7 @@ static inline location_t location(int32_t row, int32_t column) {
             for (NSUInteger column = 0; column < self.columns; column++) {
                 NSUInteger index = (NSUInteger)row * self.columns + column;
 
-                [self update:&instances[index] row:row column:column codepoint:' ' attributes:NULL];
+                [self updateInstance:&instances[index] row:row column:column codepoint:' ' attributes:NULL];
             }
         }
     }
@@ -802,7 +813,7 @@ static inline location_t location(int32_t row, int32_t column) {
 
     if (!NSPointInRect(point, rect) || !isfinite(point.x) || !isfinite(point.y)) return;
 
-    NSInteger visibleRows = (NSInteger)self.rows - (NSInteger)[Terminal offset];
+    NSInteger visibleRows = (NSInteger)self.rows - (NSInteger)screen_default_offset;
 
     if (visibleRows < 1) return;
 
@@ -890,7 +901,7 @@ static inline location_t location(int32_t row, int32_t column) {
 }
 
 - (void)updateNextCursor {
-    if (!screen) {
+    if (!screen || !self.isInteractive) {
         next_cursor.cell = simd_make_uint2(0, 0);
         next_cursor.visible = 0;
         next_cursor.style = CPU_CURSOR_STYLE_BLOCK;
@@ -957,7 +968,7 @@ static inline location_t location(int32_t row, int32_t column) {
     if (cellWidth <= 0.0 || cellHeight <= 0.0) return NSZeroRect;
 
     CGFloat width = (CGFloat)self.columns * cellWidth;
-    CGFloat height = MAX(0, (CGFloat)self.rows - (CGFloat)[Terminal offset]) * cellHeight;
+    CGFloat height = MAX(0, (CGFloat)self.rows - (CGFloat)screen_default_offset) * cellHeight;
     NSRect rect = NSMakeRect(0.0, 0.0, width, height);
 
     if (rect.size.width > self.bounds.size.width) rect.size.width = self.bounds.size.width;
@@ -1088,7 +1099,7 @@ static inline location_t location(int32_t row, int32_t column) {
     CGFloat localY = point.y - rect.origin.y;
     NSInteger row = cellHeight > 0.0 ? (NSInteger)floor((rect.size.height - 0.0001 - localY) / cellHeight) : 0;
     NSInteger column = cellWidth > 0.0 ? (NSInteger)floor(localX / cellWidth) : 0;
-    NSInteger visibleRows = (NSInteger)self.rows - (NSInteger)[Terminal offset];
+    NSInteger visibleRows = (NSInteger)self.rows - (NSInteger)screen_default_offset;
 
     if (visibleRows < 1) return NO;
     if (row < 0) row = 0;
@@ -1096,7 +1107,7 @@ static inline location_t location(int32_t row, int32_t column) {
     if (column < 0) column = 0;
     if (column >= self.columns) column = (NSInteger)self.columns - 1;
 
-    row += [Terminal offset];
+    row += (NSInteger)screen_default_offset;
 
     int32_t index = screen_viewport_index(screen) + (int32_t)row;
     const screen_cell_t *cells = screen_absolute_row(screen, index, NULL, NULL);
@@ -1417,3 +1428,10 @@ static inline location_t location(int32_t row, int32_t column) {
 }
 
 @end
+
+static location_t location(int32_t row, int32_t column) {
+    return (location_t){
+        .row = row,
+        .column = column,
+    };
+}

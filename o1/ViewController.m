@@ -31,13 +31,12 @@
     [_terminal stop];
 }
 
+#pragma mark - NSViewController
+
 - (void)viewDidLoad {
     [super viewDidLoad];
 
     Terminal *terminal = [[Terminal alloc] init];
-
-    terminal.file = @"/bin/zsh";
-
     __weak typeof(self) weakSelf = self;
 
     terminal.renderBlock = ^(const render_t *ops, size_t count) {
@@ -46,75 +45,14 @@
         if (!strongSelf) return;
 
         [strongSelf.terminalView render:ops count:count];
-
-        for (size_t i = 0; i < count; i++) {
-            const render_t *diff = &ops[i];
-
-            switch (diff->op) {
-                case RENDER_OP_SPAN: {
-                    NSMutableString *text = [NSMutableString stringWithCapacity:diff->span.width];
-
-                    for (int32_t i = 0; i < diff->span.width; i++) {
-                        uint32_t codepoint = diff->span.cells[i].codepoint;
-
-                        if (codepoint == 0) codepoint = ' ';
-
-                        if (codepoint <= 0xFFFFu) {
-                            [text appendFormat:@"%C", (unichar)codepoint];
-                        } else {
-                            [text appendString:@"?"];
-                        }
-                    }
-
-                    NSLog(@"render: (span row = %d, column = %d width = %zu)\n\"%@\"", diff->span.row, diff->span.column, diff->span.width, text);
-
-                    break;
-                }
-                case RENDER_OP_SCROLL:
-                    NSLog(@"render: (scroll top = %d, bottom = %d, change = %d)", diff->scroll.top, diff->scroll.bottom, diff->scroll.delta);
-
-                    break;
-            }
-        }
     };
 
-    terminal.updateBlock = ^(screen_t *screen) {
+    terminal.updateBlock = ^(const screen_t *screen) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
 
         if (!strongSelf) return;
 
         [strongSelf.terminalView screen:screen];
-
-        int32_t rows = screen_rows(screen);
-        int32_t columns = screen_columns(screen);
-        screen_cursor_t *cursor = screen_cursor(screen);
-        NSMutableString *grid = [NSMutableString stringWithCapacity:rows * (columns + 1)];
-
-        for (int32_t row = 0; row < rows; row++) {
-            for (int32_t column = 0; column < columns; column++) {
-                if (cursor->row == row && cursor->column == column) {
-                    [grid appendString:@"|"];
-
-                    continue;
-                }
-
-                screen_cell_t *cell = screen_cell(screen, row, column);
-
-                if (cell) {
-                    if (cell->codepoint == 0) {
-                        [grid appendString:@" "];
-                    } else {
-                        [grid appendFormat:@"%C", (unichar)cell->codepoint];
-                    }
-                } else {
-                    [grid appendString:@"?"];
-                }
-            }
-
-            [grid appendString:@"\n"];
-        }
-
-        NSLog(@"update:\n%@", grid);
     };
 
     terminal.titleBlock = ^(const char *title) {
@@ -125,13 +63,10 @@
 
             strongSelf.view.window.title = [NSString stringWithCString:title encoding:NSUTF8StringEncoding];
         });
-
-        NSLog(@"title: %s", title);
     };
 
     terminal.bellBlock = ^() {
         NSBeep();
-        NSLog(@"bell");
     };
 
     terminal.mouseBlock = ^(bool enabled) {
@@ -143,7 +78,11 @@
     };
 
     terminal.exitBlock = ^(int status) {
-        NSLog(@"exit: %d", status);
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        strongSelf.terminalView.interactive = NO;
     };
 
     self.terminal = terminal;
@@ -206,8 +145,8 @@
     NSWindow *window = self.view.window;
 
     [window makeFirstResponder:self.terminalView];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidBecomeKey:) name:NSWindowDidBecomeKeyNotification object:window];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidResignKey:) name:NSWindowDidResignKeyNotification object:window];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWindow:) name:NSWindowDidBecomeKeyNotification object:window];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWindow:) name:NSWindowDidResignKeyNotification object:window];
 }
 
 - (void)viewWillDisappear {
@@ -215,12 +154,12 @@
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (void)windowDidBecomeKey:(NSNotification *)notification {
-    [self.terminal focus:YES];
-}
+#pragma mark - Private
 
-- (void)windowDidResignKey:(NSNotification *)notification {
-    [self.terminal focus:NO];
+- (void)updateWindow:(NSNotification *)notification {
+    NSWindow *window = (NSWindow *)notification.object;
+
+    [self.terminal focus:window.isKeyWindow];
 }
 
 @end

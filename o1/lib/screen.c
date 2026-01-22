@@ -17,18 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const ansi_sgr_t default_attributes = {
-    .flags = ANSI_SGR_FLAG_NONE,
-    .fg_color = ANSI_COLOR_RESET,
-    .bg_color = ANSI_COLOR_RESET,
-};
-
-uint32_t screen_default_rows = 24;
-uint32_t screen_default_columns = 80;
-uint32_t screen_default_width = 0;
-uint32_t screen_default_height = 0;
-uint32_t screen_default_offset = 0;
-
 typedef struct {
     screen_cell_t *cells;
     size_t width;
@@ -80,6 +68,18 @@ struct screen_t {
     int32_t viewport_delta;
     bool needs_display;
 };
+
+static const ansi_sgr_t default_attributes = {
+    .flags = ANSI_SGR_FLAG_NONE,
+    .fg_color = ANSI_COLOR_RESET,
+    .bg_color = ANSI_COLOR_RESET,
+};
+
+uint32_t screen_default_rows = 24;
+uint32_t screen_default_columns = 80;
+uint32_t screen_default_width = 0;
+uint32_t screen_default_height = 0;
+uint32_t screen_default_offset = 0;
 
 static inline size_t min(size_t a, size_t b) {
     return a < b ? a : b;
