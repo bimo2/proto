@@ -137,6 +137,7 @@ static void on_mouse_callback(void *, bool);
 
     envp[envc] = NULL;
     session_start(session, self.file.UTF8String, argv, envp);
+    [self writeHardware];
 
     for (i = 0; i < argc; i++) free(argv[i]);
     for (i = 0; i < envc; i++) free(envp[i]);
@@ -459,6 +460,22 @@ static void on_mouse_callback(void *, bool);
     });
 
     dispatch_resume(proc_source);
+}
+
+- (void)writeHardware {
+    const char *cstring = session_hardware(NULL);
+    NSData *data = [NSData dataWithBytes:cstring length:strlen(cstring)];
+    id object = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+
+    if (!object) return;
+
+    NSDictionary *info = [(NSArray *)(object[@"SPHardwareDataType"]) firstObject];
+    NSString *device = [NSString stringWithFormat:@"%@ %@ %@ %@", info[@"machine_name"], info[@"machine_model"], info[@"model_number"], info[@"serial_number"]];
+    NSString *chip = [NSString stringWithFormat:@"%@ %@ %@", info[@"chip_type"], info[@"physical_memory"], info[@"number_processors"]];
+    screen_t *screen = screen_context_current_screen(context);
+
+    for (NSInteger i = 0; i < device.length; i++) screen_set_cell(screen, 0, (int32_t)i, [device characterAtIndex:i], NULL);
+    for (NSInteger i = 0; i < chip.length; i++) screen_set_cell(screen, 1, (int32_t)i, [chip characterAtIndex:i], NULL);
 }
 
 - (screen_context_t *)_context {

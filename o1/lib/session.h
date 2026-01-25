@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+typedef const char unsafe_pointer;
 typedef struct session_t session_t;
 
 extern bool session_sandbox;
@@ -26,8 +27,6 @@ int session_fd(session_t *session);
 
 bool session_running(session_t *session);
 
-const char *session_process(session_t *session);
-
 void session_start(session_t *session, const char *file, char *const argv[], char *const envp[]);
 
 void session_stop(session_t *session);
@@ -40,6 +39,10 @@ ssize_t session_flush_write(session_t *session);
 
 void session_update_window(session_t *session, uint32_t rows, uint32_t columns, uint32_t width, uint32_t height);
 
-const char *session_hostname(session_t *session);
+unsafe_pointer *session_process(session_t *session);
+
+unsafe_pointer *session_hardware(session_t *session);
+
+unsafe_pointer *session_hostname(session_t *session);
 
 #endif // !SESSION_H

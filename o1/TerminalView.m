@@ -113,6 +113,7 @@ static location_t location(int32_t row, int32_t column);
         samplerDescriptor.tAddressMode = MTLSamplerAddressModeClampToEdge;
         _sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
         _cursorBlinkPhase = 1;
+        next_cursor.padding = 0.02f;
         next_cursor.style = CPU_CURSOR_STYLE_BLOCK;
 
         CAShapeLayer *sublayer = [CAShapeLayer layer];

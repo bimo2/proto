@@ -66,6 +66,7 @@ typedef struct cpu_grid_uniforms_t {
 typedef struct cpu_cursor_uniforms_t {
     simd_uint2 cell;
     uint32_t visible;
+    float padding;
     cpu_cursor_style_t style;
 } cpu_cursor_uniforms_t;
 

@@ -29,6 +29,7 @@ struct GridUniforms {
 struct CursorUniforms {
     uint2 cell;
     uint visible;
+    float padding;
     uint style;
 };
 
@@ -65,14 +66,10 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
         };
 
         point = quad[local_vid];
+
+        if (cursor && (cursor_uniforms.style == 0 || cursor_uniforms.style == 1)) point.x = point.x * (1.0f + 2.0f * cursor_uniforms.padding) - cursor_uniforms.padding;
+
         local = point;
-
-        if (cursor && cursor_uniforms.style == 0) {
-            constexpr float padding = 0.02f;
-
-            point.x = point.x * (1.0f + 2.0f * padding) - padding;
-        }
-
         pixel = glyph.position * grid_uniforms.cell_size + point * grid_uniforms.cell_size;
         uv = float2(0.0f);
     } else {
@@ -125,14 +122,19 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
     if (cursor && cursor_uniforms.style == 1 && in.background) {
         constexpr float width = 2.0f;
         float2 local = in.local * grid_uniforms.cell_size;
-
-        bool border = (local.x < width) || (local.x > grid_uniforms.cell_size.x - width) || (local.y < width) || (local.y > grid_uniforms.cell_size.y - width);
+        float left = -cursor_uniforms.padding * grid_uniforms.cell_size.x;
+        float right = (1.0f + cursor_uniforms.padding) * grid_uniforms.cell_size.x;
+        bool border = local.x < left + width || local.x > right - width || local.y < width || local.y > grid_uniforms.cell_size.y - width;
 
         if (border) {
             float4 outline = float4(fg_color.rgb, 1.0f);
 
             return float4(outline.rgb * outline.a, outline.a);
         }
+
+        bool inside = in.local.x >= 0.0f && in.local.x <= 1.0f;
+
+        if (!inside) return float4(0.0f);
     }
 
     if (cursor && cursor_uniforms.style == 0) {
