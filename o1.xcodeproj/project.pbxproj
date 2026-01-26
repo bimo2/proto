@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 90;
 	objects = {
 
 /* Begin PBXContainerItemProxy section */
@@ -37,17 +37,13 @@
 /* Begin PBXFrameworksBuildPhase section */
 		37502A552E9BFF9200E0D99E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3786197F2E99B95F00C6D20D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -90,8 +86,6 @@
 				37502A592E9BFF9200E0D99E /* o1-tests */,
 			);
 			name = "o1-tests";
-			packageProductDependencies = (
-			);
 			productName = "o1-tests";
 			productReference = 37502A582E9BFF9200E0D99E /* o1-tests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -106,14 +100,10 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			fileSystemSynchronizedGroups = (
 				378619842E99B95F00C6D20D /* o1 */,
 			);
 			name = o1;
-			packageProductDependencies = (
-			);
 			productName = o1;
 			productReference = 378619822E99B95F00C6D20D /* o1.app */;
 			productType = "com.apple.product-type.application";
@@ -145,7 +135,7 @@
 			);
 			mainGroup = 378619792E99B95F00C6D20D;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
+			preferredProjectObjectVersion = 90;
 			productRefGroup = 378619832E99B95F00C6D20D /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -159,34 +149,26 @@
 /* Begin PBXResourcesBuildPhase section */
 		37502A562E9BFF9200E0D99E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		378619802E99B95F00C6D20D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		37502A542E9BFF9200E0D99E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3786197E2E99B95F00C6D20D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -199,7 +181,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		37502A5F2E9BFF9200E0D99E /* Debug */ = {
+		37502A5F2E9BFF9200E0D99E /* Debug configuration for PBXNativeTarget "o1-tests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -216,7 +198,7 @@
 			};
 			name = Debug;
 		};
-		37502A602E9BFF9200E0D99E /* Release */ = {
+		37502A602E9BFF9200E0D99E /* Release configuration for PBXNativeTarget "o1-tests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -233,7 +215,7 @@
 			};
 			name = Release;
 		};
-		378619922E99B96000C6D20D /* Debug */ = {
+		378619922E99B96000C6D20D /* Debug configuration for PBXProject "o1" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -296,7 +278,7 @@
 			};
 			name = Debug;
 		};
-		378619932E99B96000C6D20D /* Release */ = {
+		378619932E99B96000C6D20D /* Release configuration for PBXProject "o1" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -352,10 +334,10 @@
 			};
 			name = Release;
 		};
-		378619952E99B96000C6D20D /* Debug */ = {
+		378619952E99B96000C6D20D /* Debug configuration for PBXNativeTarget "o1" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "o1-dev-icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -379,10 +361,10 @@
 			};
 			name = Debug;
 		};
-		378619962E99B96000C6D20D /* Release */ = {
+		378619962E99B96000C6D20D /* Release configuration for PBXNativeTarget "o1" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "o1-beta-icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -412,28 +394,25 @@
 		37502A5E2E9BFF9200E0D99E /* Build configuration list for PBXNativeTarget "o1-tests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				37502A5F2E9BFF9200E0D99E /* Debug */,
-				37502A602E9BFF9200E0D99E /* Release */,
+				37502A5F2E9BFF9200E0D99E /* Debug configuration for PBXNativeTarget "o1-tests" */,
+				37502A602E9BFF9200E0D99E /* Release configuration for PBXNativeTarget "o1-tests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		3786197D2E99B95F00C6D20D /* Build configuration list for PBXProject "o1" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				378619922E99B96000C6D20D /* Debug */,
-				378619932E99B96000C6D20D /* Release */,
+				378619922E99B96000C6D20D /* Debug configuration for PBXProject "o1" */,
+				378619932E99B96000C6D20D /* Release configuration for PBXProject "o1" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		378619942E99B96000C6D20D /* Build configuration list for PBXNativeTarget "o1" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				378619952E99B96000C6D20D /* Debug */,
-				378619962E99B96000C6D20D /* Release */,
+				378619952E99B96000C6D20D /* Debug configuration for PBXNativeTarget "o1" */,
+				378619962E99B96000C6D20D /* Release configuration for PBXNativeTarget "o1" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */

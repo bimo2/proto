@@ -119,7 +119,7 @@ static location_t location(int32_t row, int32_t column);
         CAShapeLayer *sublayer = [CAShapeLayer layer];
 
         sublayer.fillColor = [NSColor selectedTextBackgroundColor].CGColor;
-        sublayer.opacity = 0.24;
+        sublayer.opacity = 0.28;
         sublayer.frame = self.bounds;
         [self.layer addSublayer:sublayer];
         _selectionLayer = sublayer;
