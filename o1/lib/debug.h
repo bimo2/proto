@@ -13,6 +13,8 @@
 
 #include <stddef.h>
 
+void debug_out(const char *file, const uint8_t *bytes, size_t length);
+
 void debug_print_ops(render_t *ops, size_t count);
 
 void debug_print_screen(screen_t *screen);

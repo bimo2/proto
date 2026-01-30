@@ -1,0 +1,30 @@
+[0m[27m[24m[Jps1: [K[?2004hl[0m[27m[24m[Jps1: [K[?2004h[0m[27m[24m[Jps1: ccd /[?2004l
+[0m[27m[24m[Jps1: [K[?2004hcclear[?2004l
+[3J[H[2J[0m[27m[24m[Jps1: [K[?2004hlls -a[?2004l
+.			Library			home
+..			System			opt
+.VolumeIcon.icns	Users			private
+.file			Volumes			sbin
+.nofollow		bin			tmp
+.resolve		cores			usr
+.vol			dev			var
+Applications		etc
+[0m[27m[24m[Jps1: [K[?2004hlls -ln[?2004l
+total 15
+drwxrwxr-x  18 0  80   576 Jan 29 11:06 Applications
+drwxr-xr-x  66 0  0   2112 Dec 15 10:13 Library
+drwxr-xr-x@ 10 0  0    320 Nov 22 08:49 System
+drwxr-xr-x   5 0  80   160 Dec 15 10:13 Users
+drwxr-xr-x   3 0  0     96 Jan 20 17:39 Volumes
+drwxr-xr-x@ 39 0  0   1248 Nov 22 08:49 bin
+drwxr-xr-x   2 0  0     64 Oct 18  2024 cores
+dr-xr-xr-x   4 0  0   7412 Dec 15 10:12 dev
+lrwxr-xr-x@  1 0  0     11 Nov 22 08:49 etc -> private/etc
+lrwxr-xr-x   1 0  0     25 Dec 15 10:13 home -> /System/Volumes/Data/home
+drwxr-xr-x   4 0  0    128 Dec  9  2024 opt
+drwxr-xr-x   6 0  0    192 Dec 15 10:13 private
+drwxr-xr-x@ 76 0  0   2432 Nov 22 08:49 sbin
+lrwxr-xr-x@  1 0  0     11 Nov 22 08:49 tmp -> private/tmp
+drwxr-xr-x@ 11 0  0    352 Nov 22 08:49 usr
+lrwxr-xr-x@  1 0  0     11 Nov 22 08:49 var -> private/var
+[0m[27m[24m[Jps1: [K[?2004h

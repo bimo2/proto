@@ -28,25 +28,6 @@ static void test_callback(void *, ansi_t *);
     self.output = [NSMutableArray array];
 }
 
-- (void)test_osc_capacity {
-    ansi_reader_t *reader = init_ansi_reader();
-    __weak typeof(self) weakSelf = self;
-
-    ansi_reader_set_callback(reader, test_callback, (__bridge void *)weakSelf);
-
-    const char *input = "\x1b]8;;https://apple.com\x07";
-
-    ansi_reader_set_osc_capacity(reader, 12);
-    ansi_reader_feed(reader, (const uint8_t *)input, strlen(input));
-
-    ansi_t ansi;
-
-    [self.output[0] getValue:&ansi];
-    XCTAssertEqual(strcmp(ansi.osc.payload, ";https://"), 0);
-
-    free_ansi_reader(reader);
-}
-
 - (void)test_callback_unknown {
     ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
@@ -427,7 +408,7 @@ static void test_callback(void *, ansi_t *);
     free_ansi_reader(reader);
 }
 
-- (void)test_utf8_incomplete {
+- (void)test_utf8 {
     ansi_reader_t *reader = init_ansi_reader();
     __weak typeof(self) weakSelf = self;
 

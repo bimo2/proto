@@ -1,0 +1,51 @@
+[0m[27m[24m[Jps1: [K[?2004h[0m[27m[24m[Jps1: lless grok-4.1[1m [0m[0m [?2004l
+[?1049h[18;1H[?1h=NOVEMBER 17, 2025
+
+Grok 4.1
+
+Grok 4.1 is now available to all users on grok.com, X, and the iOS and An droid apps. It is rolling out immediately in Auto mode and can be selecte d explicitly as "Grok 4.1" in the model picker.
+
+We are excited to introduce Grok 4.1, which brings significant improvemen ts to the real-world usability of Grok. Our 4.1 model is exceptionally ca pable in creative, emotional, and collaborative interactions. It is more  perceptive to nuanced intent, compelling to speak with, and coherent in p ersonality, while fully retaining the razor-sharp intelligence and reliab ility of its predecessors. To achieve this, we used the same large scale  reinforcement learning infrastructure that powered Grok 4 and applied it  to optimize the style, personality, helpfulness, and alignment of the mod el. In order to optimize these non-verifiable reward signals, we develope [7mgrok-4.1[27m[K[Kd new methods that let us use frontier agentic reasoning models as reward  models to autonomously evaluate and iterate on responses at scale.
+
+Silent Rollout, November 1–14, 2025
+
+We conducted a gradual silent rollout of preliminary Grok 4.1 builds to a  progressively larger share of production traffic across grok.com, X, and  mobile apps. During the two-week silent rollout we ran continuous blind  pairwise evaluations on live traffic.
+
+Compared to the previous production model in traffic, Grok 4.1 is preferr ed 64.78% of the time.
+
+State-of-the-Art General Capability
+
+Grok 4.1 establishes a new standard in blind human preference evaluations .
+:[K[K
+In LMArena's Text Arena, Grok 4.1 Thinking (code name: quasarflux) holds  the #1 overall position with 1483 Elo —a commanding margin of 31 points o ver the highest non-xAI model. Grok 4.1 in its non-reasoning mode (code n ame: tensor) uses no thinking tokens for an immediate response and ranks  #2 at 1465 Elo. Grok 4.1 non-thinking surpasses every other model's full- reasoning configuration on the public leaderboard. Grok 4.1 significantly  surpasses Grok 4, which had an overall rank of #33.
+
+Emotional Intelligence
+
+To measure progress on our model's personality and interpersonal ability,  we evaluated Grok 4.1 on EQ-Bench3. EQ-Bench is a LLM-judged test, evalu ating active emotional intelligence abilities, understanding, insight, em pathy, and interpersonal skills. The test set contains 45 challenging rol eplay scenarios, most of which constitute pre-written prompts spanning 3  turns. The benchmark evaluates the performance of the models by validatin :[K[Kg the models' responses against several criteria. Additionally, the bench mark conducts pairwise comparisons to report a normalized Elo computation  for each model in the leaderboard.
+
+We report the rubric score and normalized Elo score by running the offici al benchmark repository. The scores were computed with the default sampli ng parameters, prescribed judge (Claude Sonnet 3.7), and no system prompt  in accordance with the benchmark.
+
+Creative Writing
+
+We also measured the performance of 4.1 models on the Creative Writing v3  benchmark. In this benchmark, models generate responses to 32 distinct w riting prompts across 3 iterations. Similar to EQ-Bench, scores are compu ted using both rubrics and model battle normalized Elo.
+
+Reduced Hallucinations
+:[K[K
+Fast (non-reasoning) models equipped with search tools deliver quick answ ers, but they can be vulnerable to factual errors due to constrained reas oning depth and limited tool-call budgets.
+
+In Grok 4.1 post-training, we focus on reducing factual hallucinations fo r information-seeking prompts. Subsequently we have observed significant  reductions in hallucination rate for sampled production info-seeking prom pts.
+
+We evaluate hallucination rate on a stratified sample of real-world infor mation-seeking queries from production traffic. We also evaluate FActScor e, which is a public benchmark consisting of 500 biography questions on i ndividuals.
+
+You can read the Grok 4.1 model card here.
+[7m(END)[27m[K[K[K[7m(END)[27m[K[K [KESCESC[KOO[KAA[K[HM
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMted using both rubrics and model battle normalized Elo.
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMriting prompts across 3 iterations. Similar to EQ-Bench, scores are compu[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HM benchmark. In this benchmark, models generate responses to 32 distinct w[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMWe also measured the performance of 4.1 models on the Creative Writing v3[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HM
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMCreative Writing
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HM
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HM in accordance with the benchmark.
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMng parameters, prescribed judge (Claude Sonnet 3.7), and no system prompt[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMal benchmark repository. The scores were computed with the default sampli[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMWe report the rubric score and normalized Elo score by running the offici[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HM
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HM for each model in the leaderboard.
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMmark conducts pairwise comparisons to report a normalized Elo computation[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMg the models' responses against several criteria. Additionally, the bench[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMturns. The benchmark evaluates the performance of the models by validatin[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMeplay scenarios, most of which constitute pre-written prompts spanning 3 [18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMpathy, and interpersonal skills. The test set contains 45 challenging rol[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMating active emotional intelligence abilities, understanding, insight, em[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HM we evaluated Grok 4.1 on EQ-Bench3. EQ-Bench is a LLM-judged test, evalu[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMTo measure progress on our model's personality and interpersonal ability,[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HM
+[18;1H[K:[K[K [KESCESC[KOO[KAA[K[HMEmotional Intelligence
+[18;1H[K:[K[K[?1l>[?1049l[0m[27m[24m[Jps1: [K[?2004h

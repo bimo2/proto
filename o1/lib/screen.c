@@ -191,7 +191,6 @@ static inline bool blank_cell(const screen_cell_t *cell) {
     if (!cell) return true;
     if (cell->link_id != 0 || cell->attributes.flags != default_attributes.flags || cell->attributes.fg_color != default_attributes.fg_color || cell->attributes.bg_color != default_attributes.bg_color) return false;
     if (cell->width == 1) return cell->codepoint == ' ';
-    if (cell->width == 0) return cell->codepoint == 0;
 
     return false;
 }
@@ -1577,6 +1576,12 @@ void screen_set_scroll_area(screen_t *screen, int32_t top, int32_t bottom) {
 
     screen->scroll_top = top + (int32_t)screen_default_offset;
     screen->scroll_bottom = bottom + (int32_t)screen_default_offset;
+
+    if (screen->scroll_top < 0) screen->scroll_top = 0;
+    if (screen->scroll_top >= screen->rows) screen->scroll_top = screen->rows - 1;
+    if (screen->scroll_bottom < 0) screen->scroll_bottom = 0;
+    if (screen->scroll_bottom >= screen->rows) screen->scroll_bottom = screen->rows - 1;
+    if (screen->scroll_top > screen->scroll_bottom) screen->scroll_top = screen->scroll_bottom;
 }
 
 void screen_scroll_up(screen_t *screen, int32_t lines) {
@@ -1943,6 +1948,18 @@ void screen_set_scrollback_capacity(screen_t *screen, size_t capacity) {
     screen->scrollback.head = 0;
 
     if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
+
+    int32_t offset = (screen->scrollback.capacity > (size_t)screen_default_offset) ? 0 : (int32_t)screen_default_offset;
+
+    if (offset < 0) offset = 0;
+    if (offset >= screen->rows) offset = screen->rows - 1;
+    if (screen->scroll_top < offset) screen->scroll_top = offset;
+    if (screen->scroll_bottom < offset) screen->scroll_bottom = offset;
+    if (screen->scroll_bottom >= screen->rows) screen->scroll_bottom = screen->rows - 1;
+    if (screen->scroll_top > screen->scroll_bottom) screen->scroll_top = screen->scroll_bottom;
+    if (screen->origin_mode && screen->cursor.row < screen->scroll_top) screen->cursor.row = screen->scroll_top;
+    if (screen->cursor.row < 0) screen->cursor.row = 0;
+    if (screen->cursor.row >= screen->rows) screen->cursor.row = screen->rows - 1;
 }
 
 int32_t screen_total_rows(screen_t *screen) {

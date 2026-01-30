@@ -147,7 +147,7 @@ static char *const envp[] = {"TERM=xterm-256color", NULL};
     free_session(session);
 }
 
-- (void)test_window_ioctl {
+- (void)test_window {
     session_t *session = init_session();
     char *const argv[] = {"/bin/sleep", "1", NULL};
 

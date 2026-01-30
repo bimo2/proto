@@ -11,10 +11,43 @@
 #include "render.h"
 #include "screen.h"
 
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+static char path[256] = "";
+static FILE *output = NULL;
+
+void debug_out(const char *file, const uint8_t *bytes, size_t length) {
+    if (!file || length < 1) return;
+
+    if (strcmp(path, file) != 0) {
+        if (output) {
+            fclose(output);
+            output = NULL;
+        }
+
+        snprintf(path, sizeof(path), "%s", file);
+        output = fopen(file, "ab");
+
+        if (!output) {
+            log_error("fopen error: %d", errno);
+
+            return;
+        }
+    }
+
+    if (fwrite(bytes, 1, length, output) != length) {
+        log_error("fwrite error: %d", errno);
+
+        return;
+    }
+
+    fflush(output);
+}
 
 void debug_print_ops(render_t *ops, size_t count) {
     for (size_t i = 0; i < count; i++) {

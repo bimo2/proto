@@ -151,6 +151,29 @@ size_t unicode_decode_utf8(const uint8_t *bytes, size_t length, uint32_t *codepo
     return 1;
 }
 
+size_t unicode_encode_utf16(uint32_t codepoint, uint16_t out[2]) {
+    if (!out) return 0;
+
+    uint32_t value = codepoint;
+
+    if (value > 0x10FFFFu) value = UNICODE_REPLACEMENT;
+    if (value >= 0xD800u && value <= 0xDFFFu) value = UNICODE_REPLACEMENT;
+
+    if (value <= 0xFFFFu) {
+        out[0] = (uint16_t)value;
+        out[1] = 0;
+
+        return 1;
+    }
+
+    uint32_t shift = value - 0x10000u;
+
+    out[0] = (uint16_t)(0xD800u + ((shift >> 10) & 0x3FFu));
+    out[1] = (uint16_t)(0xDC00u + (shift & 0x3FFu));
+
+    return 2;
+}
+
 bool unicode_codepoint_supported(uint32_t codepoint, unicode_codepoint_t scalar) {
     if (codepoint == UNICODE_REPLACEMENT) return true;
 
@@ -182,29 +205,6 @@ size_t unicode_codepoint_string(uint32_t codepoint, char *buffer, size_t length)
     if ((size_t)total >= length) return length - 1;
 
     return (size_t)total;
-}
-
-size_t unicode_encode_utf16(uint32_t codepoint, uint16_t out[2]) {
-    if (!out) return 0;
-
-    uint32_t value = codepoint;
-
-    if (value > 0x10FFFFu) value = UNICODE_REPLACEMENT;
-    if (value >= 0xD800u && value <= 0xDFFFu) value = UNICODE_REPLACEMENT;
-
-    if (value <= 0xFFFFu) {
-        out[0] = (uint16_t)value;
-        out[1] = 0;
-
-        return 1;
-    }
-
-    uint32_t shift = value - 0x10000u;
-
-    out[0] = (uint16_t)(0xD800u + ((shift >> 10) & 0x3FFu));
-    out[1] = (uint16_t)(0xDC00u + (shift & 0x3FFu));
-
-    return 2;
 }
 
 unicode_class_t unicode_class(uint32_t codepoint) {
