@@ -7,11 +7,54 @@
 
 #include "unicode.h"
 
+#include "include.h"
+
 #include <ctype.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+#include <wchar.h>
+
+#ifdef __APPLE__
+
+#include <dispatch/dispatch.h>
+#include <locale.h>
+
+static dispatch_once_t once;
+
+static void localize(void) {
+    dispatch_once(&once, ^{
+        const char *locale = setlocale(LC_CTYPE, "");
+
+        if (!locale || strcmp(locale, "C") == 0 || strcmp(locale, "POSIX") == 0) {
+            if (!setlocale(LC_CTYPE, "C.UTF-8")) log_error("setlocale error: %d", errno);
+        }
+    });
+}
+
+#else
+
+#include <locale.h>
+#include <pthread.h>
+
+static pthread_once_t _1 = PTHREAD_ONCE_INIT;
+
+static void assert_locale(void) {
+    const char *locale = setlocale(LC_CTYPE, "");
+
+    if (!locale || strcmp(locale, "C") == 0 || strcmp(locale, "POSIX") == 0) {
+        if (!setlocale(LC_CTYPE, "C.UTF-8")) log_error("setlocale error: %d", errno);
+    }
+}
+
+static void localize(void) {
+    (void)pthread_once(&_1, assert_locale);
+}
+
+#endif
 
 unicode_codepoint_t unicode_default_codepoint = UNICODE_CODEPOINT_UTF16;
 
@@ -33,41 +76,11 @@ static inline bool zero_width(uint32_t codepoint) {
     return false;
 }
 
-static inline bool wide_east_asian(uint32_t codepoint) {
-    if (range(codepoint, 0x1100u, 0x115Fu)) return true;
-    if (codepoint == 0x2329u) return true;
-    if (codepoint == 0x232Au) return true;
-    if (range(codepoint, 0x2E80u, 0x2FFBu)) return true;
-    if (range(codepoint, 0x3040u, 0x30FFu)) return true;
-    if (range(codepoint, 0x3100u, 0x312Fu)) return true;
-    if (range(codepoint, 0x3130u, 0x318Fu)) return true;
-    if (range(codepoint, 0x3190u, 0x31FFu)) return true;
-    if (range(codepoint, 0x3200u, 0x32FEu)) return true;
-    if (range(codepoint, 0x3300u, 0x4DBFu)) return true;
-    if (range(codepoint, 0x4E00u, 0xA4C6u)) return true;
-    if (range(codepoint, 0xA960u, 0xA97Cu)) return true;
-    if (range(codepoint, 0xAC00u, 0xD7A3u)) return true;
-    if (range(codepoint, 0xF900u, 0xFAFFu)) return true;
-    if (range(codepoint, 0xFE10u, 0xFE19u)) return true;
-    if (range(codepoint, 0xFE30u, 0xFE6Bu)) return true;
-    if (range(codepoint, 0xFF01u, 0xFF60u)) return true;
-    if (range(codepoint, 0xFFE0u, 0xFFE6u)) return true;
+static inline bool invalid(uint32_t codepoint) {
+    if (codepoint > 0x10FFFFu) return true;
+    if (codepoint >= 0xD800u && codepoint <= 0xDFFFu) return true;
 
     return false;
-}
-
-static inline bool wide_legacy_symbol(uint32_t codepoint) {
-    if (range(codepoint, 0x2300u, 0x23F3u)) return true;
-    if (range(codepoint, 0x25A0u, 0x25FEu)) return true;
-    if (range(codepoint, 0x2600u, 0x26FFu)) return true;
-    if (range(codepoint, 0x2700u, 0x27BFu)) return true;
-    if (range(codepoint, 0x2B50u, 0x2B55u)) return true;
-
-    return false;
-}
-
-static inline bool emoji(uint32_t codepoint) {
-    return range(codepoint, 0x1F000u, 0x1FAFFu);
 }
 
 int unicode_codepoint_width(uint32_t codepoint) {
@@ -75,13 +88,17 @@ int unicode_codepoint_width(uint32_t codepoint) {
     if (codepoint < 0x0020u) return 0;
     if (codepoint < 0x007Fu) return 1;
     if (codepoint < 0x00A0u) return 0;
-    if (codepoint < 0x0300u) return 1;
     if (zero_width(codepoint)) return 0;
-    if (wide_east_asian(codepoint)) return 2;
-    if (wide_legacy_symbol(codepoint)) return 2;
-    if (emoji(codepoint)) return 2;
+    if (invalid(codepoint)) return 1;
 
-    return 1;
+    localize();
+
+    int width = wcwidth((wchar_t)codepoint);
+
+    if (width < 0) return 1;
+    if (width > 2) return 2;
+
+    return width;
 }
 
 size_t unicode_decode_utf8(const uint8_t *bytes, size_t length, uint32_t *codepoint) {

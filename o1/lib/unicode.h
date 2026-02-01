@@ -12,7 +12,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define UNICODE_REPLACEMENT 0xFFFDu
+#define UNICODE_REPLACEMENT 0x0020u
+#define UNICODE_WIDE_REPLACEMENT 0x3000u
 
 typedef enum unicode_codepoint_t {
     UNICODE_CODEPOINT_DYNAMIC = 0,

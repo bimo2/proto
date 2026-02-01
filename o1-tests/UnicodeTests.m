@@ -23,8 +23,11 @@
     XCTAssertEqual(unicode_codepoint_width(0x00A0u), 1);
     XCTAssertEqual(unicode_codepoint_width(0x0391u), 1);
     XCTAssertEqual(unicode_codepoint_width(0x3042u), 2);
-    XCTAssertEqual(unicode_codepoint_width(0x2318u), 2);
+    XCTAssertEqual(unicode_codepoint_width(0x2318u), 1);
     XCTAssertEqual(unicode_codepoint_width(0x1F4AFu), 2);
+    XCTAssertEqual(unicode_codepoint_width(0x2713u), 1);
+    XCTAssertEqual(unicode_codepoint_width(0xFFFDu), 1);
+    XCTAssertEqual(unicode_codepoint_width(0xFFFCu), 1);
 }
 
 - (void)test_codepoint_utf8 {

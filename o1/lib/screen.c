@@ -1113,7 +1113,24 @@ void screen_move_cursor_relative(screen_t *screen, int32_t rows, int32_t columns
     screen->should_wrap = false;
     screen->cursor.row += rows;
     screen->cursor.column += columns;
-    fix_cursor(screen);
+
+    if (screen->cursor.row < 0) screen->cursor.row = (int32_t)screen_default_offset;
+    if (screen->cursor.row >= screen->rows) screen->cursor.row = screen->rows - 1;
+    if (screen->cursor.column < 0) screen->cursor.column = 0;
+    if (screen->cursor.column >= screen->columns) screen->cursor.column = screen->columns - 1;
+    if (screen->cursor.row < 0 || screen->cursor.row >= screen->rows) return;
+    if (screen->cursor.column < 0 || screen->cursor.column >= screen->columns) return;
+    if (screen->grid[screen->cursor.row][screen->cursor.column].width != 0) return;
+
+    if (columns > 0) {
+        if (screen->cursor.column + 1 < screen->columns) {
+            screen->cursor.column++;
+        } else if (screen->cursor.column > 0) {
+            screen->cursor.column--;
+        }
+    } else if (screen->cursor.column > 0) {
+        screen->cursor.column--;
+    }
 }
 
 void screen_save_cursor(screen_t *screen) {
@@ -1235,6 +1252,40 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
 
     int32_t row = screen->cursor.row;
     int32_t column = screen->cursor.column;
+
+    if (width == 1 && valid_position(screen, row, column)) {
+        if (screen->grid[row][column].width == 2 && column + 1 < screen->columns && screen->grid[row][column + 1].width == 0) {
+            screen_cell_t *trailing = &screen->grid[row][column + 1];
+
+            trailing->codepoint = ' ';
+            trailing->width = 1;
+            trailing->dirty = true;
+        } else if (column + 1 < screen->columns && screen->grid[row][column + 1].width == 0) {
+            screen_cell_t *trailing = &screen->grid[row][column + 1];
+
+            trailing->codepoint = ' ';
+            trailing->attributes = screen->attributes;
+            trailing->width = 1;
+            trailing->link_id = 0;
+            trailing->dirty = true;
+        }
+    }
+
+    if (width == 2 && valid_position(screen, row, column) && column + 1 < screen->columns) {
+        if (screen->grid[row][column + 1].width == 2) {
+            screen_cell_t *leading = &screen->grid[row][column + 1];
+
+            reset_cell(leading);
+            leading->dirty = true;
+
+            if (column + 2 < screen->columns && screen->grid[row][column + 2].width == 0) {
+                screen_cell_t *trailing = &screen->grid[row][column + 2];
+
+                reset_cell(trailing);
+                trailing->dirty = true;
+            }
+        }
+    }
 
     if (screen->insert_mode) {
         for (int32_t j = screen->columns - 1; j >= column + width; j--) {
@@ -1390,11 +1441,7 @@ void screen_backspace(screen_t *screen) {
 
     if (screen->cursor.column < 1) return;
 
-    int32_t column = screen->cursor.column - 1;
-
-    if (valid_position(screen, screen->cursor.row, column) && screen->grid[screen->cursor.row][column].width == 0 && column > 0) column--;
-
-    screen->cursor.column = (int32_t)max(0, column);
+    screen->cursor.column = (int32_t)max(0, screen->cursor.column - 1);
 }
 
 void screen_newline(screen_t *screen) {

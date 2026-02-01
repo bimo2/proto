@@ -11,6 +11,7 @@
 #include "ansi.h"
 #include "screen.h"
 #include "screen_context.h"
+#include "unicode.h"
 
 #include <string.h>
 
@@ -99,12 +100,8 @@ static void test_mouse_callback(void *, bool);
     text.text.bytes = utf16;
     text.text.length = sizeof(utf16);
     screen_context_update(context, &text);
-    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, 'U');
-    XCTAssertEqual(screen_cell(screen, 0, 2)->codepoint, '+');
-    XCTAssertEqual(screen_cell(screen, 0, 3)->codepoint, '2');
-    XCTAssertEqual(screen_cell(screen, 0, 4)->codepoint, '0');
-    XCTAssertEqual(screen_cell(screen, 0, 5)->codepoint, 'A');
-    XCTAssertEqual(screen_cell(screen, 0, 6)->codepoint, 'C');
+    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, UNICODE_REPLACEMENT);
+    XCTAssertEqual(screen_cell(screen, 0, 1)->width, 1);
 
     free_screen_context(context);
 }
@@ -133,13 +130,10 @@ static void test_mouse_callback(void *, bool);
     text.text.bytes = utf32;
     text.text.length = sizeof(utf32);
     screen_context_update(context, &text);
-    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, 'U');
-    XCTAssertEqual(screen_cell(screen, 0, 2)->codepoint, '+');
-    XCTAssertEqual(screen_cell(screen, 0, 3)->codepoint, '1');
-    XCTAssertEqual(screen_cell(screen, 0, 4)->codepoint, 'F');
-    XCTAssertEqual(screen_cell(screen, 0, 5)->codepoint, '4');
-    XCTAssertEqual(screen_cell(screen, 0, 6)->codepoint, 'A');
-    XCTAssertEqual(screen_cell(screen, 0, 7)->codepoint, 'F');
+    XCTAssertEqual(screen_cell(screen, 0, 1)->codepoint, UNICODE_WIDE_REPLACEMENT);
+    XCTAssertEqual(screen_cell(screen, 0, 1)->width, 2);
+    XCTAssertEqual(screen_cell(screen, 0, 2)->codepoint, 0u);
+    XCTAssertEqual(screen_cell(screen, 0, 2)->width, 0);
 
     free_screen_context(context);
 }

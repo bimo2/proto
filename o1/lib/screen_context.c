@@ -50,14 +50,13 @@ static inline void write_codepoint(screen_context_t *context, uint32_t codepoint
         return;
     }
 
-    char buffer[16];
-    size_t length = unicode_codepoint_string(codepoint, buffer, sizeof(buffer));
+    int width = unicode_codepoint_width(codepoint);
 
-    for (size_t i = 0; i < length; i++) {
-        uint8_t byte = (uint8_t)buffer[i];
+    if (width < 1) return;
 
-        screen_write_utf32(context->current, (uint32_t)byte);
-    }
+    uint32_t replacement = width > 1 ? UNICODE_WIDE_REPLACEMENT : UNICODE_REPLACEMENT;
+
+    screen_write_utf32(context->current, replacement);
 }
 
 static inline void apply_text(screen_context_t *context, const uint8_t *text, size_t length) {

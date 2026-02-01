@@ -52,7 +52,7 @@
     XCTAssertEqual(screen_cursor(screen)->row, 0);
     XCTAssertEqual(screen_cursor(screen)->column, 3);
 
-    screen_write_utf32(screen, 0x2713u);
+    screen_write_utf32(screen, 0x1F4AFu);
     XCTAssertEqual(screen_cursor(screen)->row, 0);
     XCTAssertEqual(screen_cursor(screen)->column, 4);
 
@@ -61,7 +61,15 @@
     XCTAssertEqual(screen_cursor(screen)->column, 3);
 
     screen_write_utf32(screen, ' ');
-    screen_write_utf32(screen, 0x2713u);
+    screen_write_utf32(screen, 0x1F4AFu);
+    XCTAssertEqual(screen_cursor(screen)->row, 1);
+    XCTAssertEqual(screen_cursor(screen)->column, 2);
+
+    screen_move_cursor_relative(screen, 0, -1);
+    XCTAssertEqual(screen_cursor(screen)->row, 1);
+    XCTAssertEqual(screen_cursor(screen)->column, 0);
+
+    screen_move_cursor_relative(screen, 0, 1);
     XCTAssertEqual(screen_cursor(screen)->row, 1);
     XCTAssertEqual(screen_cursor(screen)->column, 2);
 
@@ -87,8 +95,8 @@
     XCTAssertEqual(screen_cell(screen, 0, 3)->codepoint, ' ');
     XCTAssertEqual(screen_cell(screen, 0, 3)->width, 1);
 
-    screen_write_utf32(screen, 0x2713u);
-    XCTAssertEqual(screen_cell(screen, 0, 3)->codepoint, 0x2713u);
+    screen_write_utf32(screen, 0x1F4AFu);
+    XCTAssertEqual(screen_cell(screen, 0, 3)->codepoint, 0x1F4AFu);
     XCTAssertEqual(screen_cell(screen, 0, 3)->width, 2);
     XCTAssertEqual(screen_cell(screen, 0, 4)->codepoint, 0);
     XCTAssertEqual(screen_cell(screen, 0, 4)->width, 0);
@@ -100,10 +108,10 @@
     XCTAssertEqual(screen_cell(screen, 0, 4)->width, 1);
 
     screen_write_utf32(screen, ' ');
-    screen_write_utf32(screen, 0x2713u);
+    screen_write_utf32(screen, 0x1F4AFu);
     XCTAssertEqual(screen_cell(screen, 0, 4)->codepoint, ' ');
     XCTAssertEqual(screen_cell(screen, 0, 4)->width, 1);
-    XCTAssertEqual(screen_cell(screen, 1, 0)->codepoint, 0x2713u);
+    XCTAssertEqual(screen_cell(screen, 1, 0)->codepoint, 0x1F4AFu);
     XCTAssertEqual(screen_cell(screen, 1, 0)->width, 2);
     XCTAssertEqual(screen_cell(screen, 1, 1)->codepoint, 0);
     XCTAssertEqual(screen_cell(screen, 1, 1)->width, 0);
@@ -128,7 +136,7 @@
     XCTAssertTrue(screen_cell(screen, 0, 0)->dirty);
     XCTAssertFalse(screen_cell(screen, 0, 1)->dirty);
 
-    screen_write_utf32(screen, 0x2713u);
+    screen_write_utf32(screen, 0x1F4AFu);
     XCTAssertTrue(screen_cell(screen, 0, 1)->dirty);
     XCTAssertTrue(screen_cell(screen, 0, 2)->dirty);
     XCTAssertFalse(screen_cell(screen, 0, 3)->dirty);
@@ -302,11 +310,11 @@
 
     for (int i = 0; i < 4; i++) screen_write_utf32(screen, i % 2 == 0 ? 'X' : ' ');
 
-    screen_write_utf32(screen, 0x2713u);
+    screen_write_utf32(screen, 0x1F4AFu);
     screen_set_grid(screen, 10, 10);
     XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 'X');
     XCTAssertEqual(screen_cell(screen, 4, 3)->codepoint, ' ');
-    XCTAssertEqual(screen_cell(screen, 4, 4)->codepoint, 0x2713u);
+    XCTAssertEqual(screen_cell(screen, 4, 4)->codepoint, 0x1F4AFu);
     XCTAssertEqual(screen_cell(screen, 4, 5)->codepoint, 0);
     XCTAssertEqual(screen_cell(screen, 4, 6)->codepoint, ' ');
 
@@ -314,7 +322,7 @@
     XCTAssertEqual(screen_cell(screen, 3, 0)->codepoint, 'X');
     XCTAssertEqual(screen_cell(screen, 3, 3)->codepoint, ' ');
     XCTAssertEqual(screen_cell(screen, 3, 4)->codepoint, ' ');
-    XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 0x2713u);
+    XCTAssertEqual(screen_cell(screen, 4, 0)->codepoint, 0x1F4AFu);
     XCTAssertEqual(screen_cell(screen, 4, 1)->codepoint, 0);
     XCTAssertEqual(screen_cell(screen, 4, 2)->codepoint, ' ');
 
