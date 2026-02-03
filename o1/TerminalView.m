@@ -158,6 +158,10 @@ static location_t location(int32_t row, int32_t column);
     [self.window invalidateCursorRectsForView:self];
 }
 
+- (void)viewDidEndLiveResize {
+    [self.terminal layout:self.drawableSize rows:self.rows columns:self.columns update:YES];
+}
+
 - (void)updateTrackingAreas {
     [super updateTrackingAreas];
 
@@ -186,8 +190,12 @@ static location_t location(int32_t row, int32_t column);
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
     CGFloat scale = self.window.screen.backingScaleFactor;
+    BOOL updateLayout = NO;
 
-    if (scale > 0 && self.scale != scale) [self setup:scale];
+    if (scale > 0 && self.scale != scale) {
+        [self setup:scale];
+        updateLayout = YES;
+    }
 
     NSUInteger rows = floor((double)size.height / (double)self.cellHeight);
     NSUInteger columns = floor((double)size.width / (double)self.cellWidth);
@@ -203,7 +211,7 @@ static location_t location(int32_t row, int32_t column);
 
         self.buffer = [self.device newBufferWithLength:instanceCount * sizeof(cpu_glyph_instance_t) options:MTLResourceStorageModeShared];
         self.instanceCount = instanceCount;
-        [self.terminal layout:NSMakeSize(size.width, size.height) rows:rows columns:columns];
+        [self.terminal layout:NSMakeSize(size.width, size.height) rows:rows columns:columns update:updateLayout];
     }
 
     [self updateSelectionLayer];

@@ -323,7 +323,7 @@ static void on_mouse_callback(void *, bool);
     [self write:[NSData dataWithBytes:bytes length:length]];
 }
 
-- (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns {
+- (void)layout:(NSSize)size rows:(NSUInteger)rows columns:(NSUInteger)columns update:(BOOL)update {
     __weak typeof(self) weakSelf = self;
 
     dispatch_async(io_queue, ^{
@@ -331,11 +331,14 @@ static void on_mouse_callback(void *, bool);
 
         if (!strongSelf) return;
 
-        uint32_t width = (uint32_t)lround(size.width);
-        uint32_t height = (uint32_t)lround(size.height);
-
         screen_context_set_grid(strongSelf->context, (uint32_t)rows, (uint32_t)columns);
-        session_update_window(strongSelf->session, (uint32_t)rows, (uint32_t)columns, width, height);
+
+        if (update) {
+            uint32_t width = (uint32_t)lround(size.width);
+            uint32_t height = (uint32_t)lround(size.height);
+
+            session_update_window(strongSelf->session, (uint32_t)rows, (uint32_t)columns, width, height);
+        }
 
         screen_t *screen = screen_context_current_screen(strongSelf->context);
         render_t *ops = NULL;

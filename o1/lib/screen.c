@@ -867,33 +867,27 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
         free(staging);
     }
 
-    if (screen->cursor.row >= rows) {
-        screen->cursor.row = rows - 1;
-    } else {
-        int32_t prompt = (int32_t)min((size_t)rows - 1, max(0, (size_t)screen_default_offset));
+    for (int32_t i = rows - 1; i >= (int32_t)screen_default_offset; i--) {
+        bool used = false;
+        int32_t blank = columns;
 
-        for (int32_t i = rows - 1; i >= 0; i--) {
-            bool used = false;
-
-            for (int32_t j = 0; j < columns; j++) {
-                if (!blank_cell(&grid[i][j])) {
-                    used = true;
-
-                    break;
-                }
-            }
-
-            if (used) {
-                prompt = i;
+        for (int32_t j = columns - 1; j >= 0; j--) {
+            if (!blank_cell(&grid[i][j])) {
+                used = true;
 
                 break;
+            } else {
+                blank = j;
             }
         }
 
-        screen->cursor.row = prompt;
-    }
+        if (used) {
+            screen->cursor.row = i;
+            screen->cursor.column = blank;
 
-    if (screen->cursor.column >= columns) screen->cursor.column = columns - 1;
+            break;
+        }
+    }
 
     if (top > 0) {
         for (int32_t i = 0; i < (int32_t)min((size_t)top, (size_t)rows); i++) {
@@ -929,6 +923,7 @@ void screen_set_grid(screen_t *screen, int32_t rows, int32_t columns) {
 
     if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
 
+    fix_cursor(screen);
     screen_needs_display(screen);
 
     return;
@@ -1202,7 +1197,7 @@ void screen_write_utf32(screen_t *screen, uint32_t codepoint) {
         screen->cursor.column = 0;
     }
 
-    if (screen->cursor.row > -1 && screen->cursor.row < screen->rows && screen->cursor.column > 0 && screen->cursor.column < screen->columns && screen->grid[screen->cursor.row][screen->cursor.column].width == 0) screen->cursor.column--;
+    if (screen->cursor.row >= 0 && screen->cursor.row < screen->rows && screen->cursor.column > 0 && screen->cursor.column < screen->columns && screen->grid[screen->cursor.row][screen->cursor.column].width == 0) screen->cursor.column--;
 
     int width = unicode_codepoint_width(codepoint);
 
@@ -1456,7 +1451,7 @@ void screen_newline(screen_t *screen) {
         screen->cursor.row = screen->scroll_bottom;
     }
 
-    if (last > -1 && last < screen->rows) {
+    if (last >= 0 && last < screen->rows) {
         screen->soft_wrap[last] = false;
         screen->wide_wrap[last] = false;
     }
