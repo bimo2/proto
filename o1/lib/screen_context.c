@@ -179,7 +179,7 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
         case ANSI_CSI_HPA: {
             int column = csi_parameter(csi, 0, 1);
 
-            screen_move_cursor_absolute(context->current, screen_cursor(context->current)->row + 1, column);
+            screen_move_cursor_column(context->current, column);
 
             break;
         }

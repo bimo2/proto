@@ -88,6 +88,8 @@ void screen_move_cursor_absolute(screen_t *screen, int32_t row, int32_t column);
 
 void screen_move_cursor_relative(screen_t *screen, int32_t rows, int32_t columns);
 
+void screen_move_cursor_column(screen_t *screen, int32_t column);
+
 void screen_save_cursor(screen_t *screen);
 
 void screen_restore_cursor(screen_t *screen);

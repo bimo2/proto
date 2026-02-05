@@ -1088,8 +1088,8 @@ void screen_move_cursor_absolute(screen_t *screen, int32_t row, int32_t column) 
     screen->should_wrap = false;
 
     if (row > 0) row--;
-    if (column > 0) column--;
     if (row < 0) row = 0;
+    if (column > 0) column--;
     if (column < 0) column = 0;
 
     int32_t top = screen->origin_mode ? screen->scroll_top : (int32_t)screen_default_offset;
@@ -1126,6 +1126,16 @@ void screen_move_cursor_relative(screen_t *screen, int32_t rows, int32_t columns
     } else if (screen->cursor.column > 0) {
         screen->cursor.column--;
     }
+}
+
+void screen_move_cursor_column(screen_t *screen, int32_t column) {
+    screen->should_wrap = false;
+
+    if (column > 0) column--;
+    if (column < 0) column = 0;
+    if (column >= screen->columns) column = screen->columns - 1;
+
+    screen->cursor.column = column;
 }
 
 void screen_save_cursor(screen_t *screen) {
