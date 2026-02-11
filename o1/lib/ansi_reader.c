@@ -728,28 +728,6 @@ void ansi_reader_feed(ansi_reader_t *reader, const uint8_t *bytes, size_t length
                     continue;
                 }
 
-                if (byte == 0x9Bu) {
-                    if (bytes + i > start) send_text(reader, start, (size_t)(bytes + i - start));
-
-                    reader->state = STATE_CSI;
-                    reset_csi(reader);
-                    i++;
-                    start = bytes + i;
-
-                    continue;
-                }
-
-                if (byte == 0x9Du) {
-                    if (bytes + i > start) send_text(reader, start, (size_t)(bytes + i - start));
-
-                    reader->state = STATE_OSC;
-                    reset_osc(reader);
-                    i++;
-                    start = bytes + i;
-
-                    continue;
-                }
-
                 i++;
 
                 break;
