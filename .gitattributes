@@ -1,7 +1,7 @@
 # generated
-*.pbxproj            linguist-generated=true
-*.storyboard         linguist-generated=true
-*.xcworkspacedata    linguist-generated=true
+*.pbxproj            linguist-generated
+*.storyboard         linguist-generated
+*.xcworkspacedata    linguist-generated
 
 # binary
 *.bin    -text
