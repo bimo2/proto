@@ -71,7 +71,8 @@ typedef struct cpu_cursor_uniforms_t {
 } cpu_cursor_uniforms_t;
 
 extern bool cpu_default_monochrome;
-extern uint8_t cpu_default_cursor_fps;
+extern double cpu_default_cursor_fps;
+extern double cpu_default_cursor_interval;
 extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
 
 simd_float4 cpu_rgba_color(uint32_t color, bool background);

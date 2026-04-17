@@ -25,6 +25,10 @@ typedef struct {
     int32_t column;
 } location_t;
 
+static const double kCursorBlinkDelay = 0.25;
+static const float kCellTopPadding = 4.0f;
+static const float kCellBottomPadding = 2.0f;
+static const float kCellHorizontalPadding = 0.0f;
 static location_t location(int32_t row, int32_t column);
 
 @interface TerminalView () {
@@ -684,13 +688,9 @@ static location_t location(int32_t row, int32_t column);
         max_below_baseline = MAX(max_below_baseline, -glyph_attributes.bearing_y);
     }
 
-    float pad_x = 0.0f;
-    float pad_top = 4.0f;
-    float pad_bottom = 2.0f;
-
-    self.cellWidth = MAX(1.0, max_advance_x + pad_x);
-    self.cellHeight = MAX(1.0, max_below_baseline + pad_bottom + max_above_baseline + pad_top);
-    self.textBaseline = MAX(0.0, max_below_baseline + pad_bottom);
+    self.cellWidth = MAX(1.0, max_advance_x + kCellHorizontalPadding);
+    self.cellHeight = MAX(1.0, max_below_baseline + kCellBottomPadding + max_above_baseline + kCellTopPadding);
+    self.textBaseline = MAX(0.0, max_below_baseline + kCellBottomPadding);
 }
 
 - (void)updateWindow:(NSNotification *)notification {
@@ -841,7 +841,7 @@ static location_t location(int32_t row, int32_t column);
 
     uint64_t interval = (uint64_t)((1.0 / cpu_default_cursor_fps) * NSEC_PER_SEC);
 
-    dispatch_source_set_timer(blink_timer, DISPATCH_TIME_NOW, interval, (uint64_t)(0.05 * NSEC_PER_SEC));
+    dispatch_source_set_timer(blink_timer, DISPATCH_TIME_NOW, interval, (uint64_t)(0.01 * NSEC_PER_SEC));
 
     __weak typeof(self) weakSelf = self;
 
@@ -851,7 +851,8 @@ static location_t location(int32_t row, int32_t column);
         if (!strongSelf || strongSelf.isCursorBlinkPaused) return;
 
         CFTimeInterval elapsed = CACurrentMediaTime() - strongSelf.cursorBlinkTime;
-        double triangular = fabs(fmod(elapsed, 1.0) - 0.5) * 2.0;
+        double phase = fmod(elapsed, cpu_default_cursor_interval) / cpu_default_cursor_interval;
+        double triangular = fabs(phase - 0.5) * 2.0;
         double eased = triangular * triangular * (3.0 - 2.0 * triangular);
 
         strongSelf->next_cursor.visible = (uint32_t)strongSelf.shouldDrawCursor;
@@ -876,7 +877,9 @@ static location_t location(int32_t row, int32_t column);
 
     blink_pause_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
 
-    dispatch_source_set_timer(blink_pause_timer, DISPATCH_TIME_NOW, DISPATCH_TIME_FOREVER, (uint64_t)(0.5 * NSEC_PER_SEC));
+    dispatch_time_t start = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kCursorBlinkDelay * NSEC_PER_SEC));
+
+    dispatch_source_set_timer(blink_pause_timer, start, DISPATCH_TIME_FOREVER, (uint64_t)(0.01 * NSEC_PER_SEC));
 
     __weak typeof(self) weakSelf = self;
 

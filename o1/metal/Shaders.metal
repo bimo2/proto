@@ -49,7 +49,7 @@ constant float kCursorRadius = 4.5f;
 constant float kCursorInset = 0.75f;
 constant float kCursorPadding = 0.04f;
 
-static float cursor_block_shape_alpha(float2 local, float2 cell_size, float padding, float inset) {
+static float cursor_block_alpha(float2 local, float2 cell_size, float padding, float inset) {
     float2 size = float2((1.0f + 2.0f * padding) * cell_size.x, cell_size.y);
     float2 point = float2((local.x + padding) * cell_size.x, local.y * cell_size.y);
     float radius = min(kCursorRadius, 0.5f * min(size.x, size.y));
@@ -144,8 +144,8 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
 
     if (cursor && cursor_uniforms.style == 1 && in.background) {
         constexpr float width = 2.0f;
-        float outer_alpha = cursor_block_shape_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset);
-        float inner_alpha = cursor_block_shape_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset + width);
+        float outer_alpha = cursor_block_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset);
+        float inner_alpha = cursor_block_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset + width);
         float border_alpha = clamp(outer_alpha - inner_alpha, 0.0f, 1.0f);
 
         if (border_alpha > 0.0f) {
@@ -172,7 +172,7 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
         }
 
         if (in.background) {
-            float shape_alpha = cursor_block_shape_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset);
+            float shape_alpha = cursor_block_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset);
             float blend = blink * shape_alpha;
             float cursor_alpha = kCursorMaxAlpha;
             float3 base_rgb = bg_color.rgb * bg_color.a;

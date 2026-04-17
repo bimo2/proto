@@ -10,10 +10,11 @@
 #include "ansi.h"
 
 #define rgb(red, green, blue) \
-    (simd_float3){(red) / 255.0f, (green) / 255.0f, (blue) / 255.0f}
+(simd_float3){(red) / 255.0f, (green) / 255.0f, (blue) / 255.0f}
 
 bool cpu_default_monochrome = false;
-uint8_t cpu_default_cursor_fps = 24;
+double cpu_default_cursor_fps = 24.0;
+double cpu_default_cursor_interval = 1.0;
 
 simd_float3 cpu_default_colors[] = {
     rgb(0, 0, 0),
