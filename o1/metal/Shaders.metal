@@ -29,8 +29,8 @@ struct GridUniforms {
 struct CursorUniforms {
     uint2 cell;
     uint visible;
-    float padding;
     uint style;
+    float alpha;
 };
 
 struct VertexOut {
@@ -43,6 +43,29 @@ struct VertexOut {
     uint2 cell;
     float2 local;
 };
+
+constant float kCursorMaxAlpha = 0.85f;
+constant float kCursorRadius = 4.5f;
+constant float kCursorInset = 0.75f;
+constant float kCursorPadding = 0.04f;
+
+static float cursor_block_shape_alpha(float2 local, float2 cell_size, float padding, float inset) {
+    float2 size = float2((1.0f + 2.0f * padding) * cell_size.x, cell_size.y);
+    float2 point = float2((local.x + padding) * cell_size.x, local.y * cell_size.y);
+    float radius = min(kCursorRadius, 0.5f * min(size.x, size.y));
+    float max_inset = max(0.0f, min(0.5f * min(size.x, size.y) - 1e-3f, radius - 1e-3f));
+    float local_inset = min(inset, max_inset);
+
+    size = max(size - 2.0f * local_inset, float2(1e-3f));
+    point -= local_inset;
+
+    float local_radius = min(max(0.0f, radius - local_inset), 0.5f * min(size.x, size.y));
+    float2 pixel = abs(point - size * 0.5f) - (size * 0.5f - local_radius);
+    float distance = length(max(pixel, float2(0.0f))) + min(max(pixel.x, pixel.y), 0.0f) - local_radius;
+    float aa = max(fwidth(distance), 1e-4f);
+
+    return clamp(1.0f - smoothstep(0.0f, aa, distance), 0.0f, 1.0f);
+}
 
 vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]], constant GlyphInstance* instances [[buffer(0)]], constant GridUniforms& grid_uniforms [[buffer(1)]], constant CursorUniforms& cursor_uniforms [[buffer(2)]]) {
     GlyphInstance glyph = instances[iid];
@@ -67,7 +90,7 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
 
         point = quad[local_vid];
 
-        if (cursor && (cursor_uniforms.style == 0 || cursor_uniforms.style == 1)) point.x = point.x * (1.0f + 2.0f * cursor_uniforms.padding) - cursor_uniforms.padding;
+        if (cursor && (cursor_uniforms.style == 0 || cursor_uniforms.style == 1)) point.x = point.x * (1.0f + 2.0f * kCursorPadding) - kCursorPadding;
 
         local = point;
         pixel = glyph.position * grid_uniforms.cell_size + point * grid_uniforms.cell_size;
@@ -121,15 +144,15 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
 
     if (cursor && cursor_uniforms.style == 1 && in.background) {
         constexpr float width = 2.0f;
-        float2 local = in.local * grid_uniforms.cell_size;
-        float left = -cursor_uniforms.padding * grid_uniforms.cell_size.x;
-        float right = (1.0f + cursor_uniforms.padding) * grid_uniforms.cell_size.x;
-        bool border = local.x < left + width || local.x > right - width || local.y < width || local.y > grid_uniforms.cell_size.y - width;
+        float outer_alpha = cursor_block_shape_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset);
+        float inner_alpha = cursor_block_shape_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset + width);
+        float border_alpha = clamp(outer_alpha - inner_alpha, 0.0f, 1.0f);
 
-        if (border) {
+        if (border_alpha > 0.0f) {
             float4 outline = float4(fg_color.rgb, 1.0f);
+            float alpha = outline.a * border_alpha;
 
-            return float4(outline.rgb * outline.a, outline.a);
+            return float4(outline.rgb * alpha, alpha);
         }
 
         bool inside = in.local.x >= 0.0f && in.local.x <= 1.0f;
@@ -140,6 +163,7 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
     if (cursor && cursor_uniforms.style == 0) {
         float4 cursor_bg = float4(fg_color.rgb, 1.0f);
         float4 cursor_fg = bg_color;
+        float blink = clamp(cursor_uniforms.alpha, 0.0f, 1.0f);
 
         if (cursor_fg.a < 0.5f) {
             cursor_fg = float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -148,11 +172,23 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
         }
 
         if (in.background) {
-            return float4(cursor_bg.rgb * cursor_bg.a, cursor_bg.a);
+            float shape_alpha = cursor_block_shape_alpha(in.local, grid_uniforms.cell_size, kCursorPadding, kCursorInset);
+            float blend = blink * shape_alpha;
+            float cursor_alpha = kCursorMaxAlpha;
+            float3 base_rgb = bg_color.rgb * bg_color.a;
+            float3 cursor_rgb = cursor_bg.rgb * cursor_alpha;
+            float3 rgb = mix(base_rgb, cursor_rgb, blend);
+            float alpha = mix(bg_color.a, cursor_alpha, blend);
+
+            return float4(rgb, alpha);
         } else {
             float mask = atlas.sample(s, in.uv, in.font_index).r;
-            float alpha = cursor_fg.a * mask;
-            float3 rgb = cursor_fg.rgb * alpha;
+            float base_alpha = fg_color.a * mask;
+            float cursor_alpha = cursor_fg.a * mask;
+            float3 base_rgb = fg_color.rgb * base_alpha;
+            float3 cursor_rgb = cursor_fg.rgb * cursor_alpha;
+            float3 rgb = mix(base_rgb, cursor_rgb, blink);
+            float alpha = mix(base_alpha, cursor_alpha, blink);
 
             return float4(rgb, alpha);
         }

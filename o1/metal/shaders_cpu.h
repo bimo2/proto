@@ -66,11 +66,12 @@ typedef struct cpu_grid_uniforms_t {
 typedef struct cpu_cursor_uniforms_t {
     simd_uint2 cell;
     uint32_t visible;
-    float padding;
     cpu_cursor_style_t style;
+    float alpha;
 } cpu_cursor_uniforms_t;
 
 extern bool cpu_default_monochrome;
+extern uint8_t cpu_default_cursor_fps;
 extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
 
 simd_float4 cpu_rgba_color(uint32_t color, bool background);
