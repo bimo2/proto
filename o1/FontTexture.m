@@ -11,6 +11,8 @@
 
 #import <CoreText/CoreText.h>
 
+static const float kFontTextureSize = 2048.0f;
+
 @interface FontTexture ()
 
 @property (nonatomic, assign) CTFontRef font;
@@ -30,8 +32,8 @@
         _size = size;
         _weight = weight;
         _scale = scale;
-        _width = 2048;
-        _height = 2048;
+        _width = kFontTextureSize;
+        _height = kFontTextureSize;
 
         NSFontDescriptor *descriptor = [NSFontDescriptor fontDescriptorWithFontAttributes:@{
             NSFontFamilyAttribute: _name ?: @"",
@@ -57,6 +59,10 @@
 }
 
 #pragma mark - Public
+
+- (NSUInteger)count {
+    return self.codepoints.count;
+}
 
 - (void)load:(__autoreleasing NSError **)error {
     [self.attributes removeAllObjects];

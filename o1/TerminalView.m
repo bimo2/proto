@@ -26,6 +26,8 @@ typedef struct {
 } location_t;
 
 static const double kCursorBlinkDelay = 0.25;
+static const char *kSupportFont1 = "Apple Symbols";
+static const char *kSupportFont2 = "Zapf Dingbats";
 static const float kCellTopPadding = 4.0f;
 static const float kCellBottomPadding = 2.0f;
 static const float kCellHorizontalPadding = 0.0f;
@@ -632,22 +634,29 @@ static location_t location(int32_t row, int32_t column);
 
 #pragma mark - Private
 
-- (BOOL)hasSelection {
-    return selection_start.row > -1 && selection_start.column > -1 && selection_end.row > -1 && selection_end.column > -1;
-}
-
 - (void)setup:(CGFloat)scale {
     self.scale = scale;
 
-    FontTexture *fontRegular = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightRegular scale:self.scale];
+    NSString *fontName = [NSString stringWithUTF8String:cpu_default_font];
+    FontTexture *fontRegular = [[FontTexture alloc] initWithName:fontName size:cpu_default_font_size weight:NSFontWeightRegular scale:self.scale];
 
     [fontRegular load:nil];
     self.typesets[@(CPU_FONT_INDEX_REGULAR)] = fontRegular;
 
-    FontTexture *fontBold = [[FontTexture alloc] initWithName:@"" size:12 weight:NSFontWeightBold scale:self.scale];
+    FontTexture *fontBold = [[FontTexture alloc] initWithName:fontName size:cpu_default_font_size weight:NSFontWeightBold scale:self.scale];
 
     [fontBold load:nil];
     self.typesets[@(CPU_FONT_INDEX_BOLD)] = fontBold;
+
+    FontTexture *fontSupport1 = [[FontTexture alloc] initWithName:[NSString stringWithUTF8String:kSupportFont1] size:cpu_default_font_size weight:NSFontWeightRegular scale:self.scale];
+
+    [fontSupport1 load:nil];
+    self.typesets[@(CPU_FONT_INDEX_SUPPORT_1)] = fontSupport1;
+
+    FontTexture *fontSupport2 = [[FontTexture alloc] initWithName:[NSString stringWithUTF8String:kSupportFont2] size:cpu_default_font_size weight:NSFontWeightRegular scale:self.scale];
+
+    [fontSupport2 load:nil];
+    self.typesets[@(CPU_FONT_INDEX_SUPPORT_2)] = fontSupport2;
 
     NSUInteger fontWidth = (NSUInteger)fontRegular.width;
     NSUInteger fontHeight = (NSUInteger)fontRegular.height;
@@ -658,7 +667,7 @@ static location_t location(int32_t row, int32_t column);
     descriptor.height = fontHeight;
     descriptor.mipmapLevelCount = 1;
     descriptor.textureType = MTLTextureType2DArray;
-    descriptor.arrayLength = 2;
+    descriptor.arrayLength = CPU_FONT_INDEX_LENGTH;
     descriptor.usage = MTLTextureUsageShaderRead;
     self.texture = [self.device newTextureWithDescriptor:descriptor];
 
@@ -670,6 +679,8 @@ static location_t location(int32_t row, int32_t column);
 
     [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_REGULAR withBytes:fontRegular.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
     [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_BOLD withBytes:fontBold.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
+    [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_SUPPORT_1 withBytes:fontSupport1.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
+    [self.texture replaceRegion:region mipmapLevel:0 slice:CPU_FONT_INDEX_SUPPORT_2 withBytes:fontSupport2.data.bytes bytesPerRow:row_bytes bytesPerImage:image_bytes];
 
     static const uint32_t samples[] = {'/', '0', '1', '5', '@', 'M', 'W', 'X', '_', 'd', 'g', 'i', 'j', 'q', 'y', '|'};
     float max_advance_x = 0.0f;
@@ -705,9 +716,6 @@ static location_t location(int32_t row, int32_t column);
 
     uint32_t font = attributes && (attributes->flags & ANSI_SGR_FLAG_BOLD) ? CPU_FONT_INDEX_BOLD : CPU_FONT_INDEX_REGULAR;
     FontTexture *typeset = self.typesets[@(font)];
-
-    if (!typeset) return;
-
     glyph_attributes_t glyph_attributes;
 
     memset(&glyph_attributes, 0, sizeof(glyph_attributes_t));
@@ -715,7 +723,28 @@ static location_t location(int32_t row, int32_t column);
     uint32_t glyph = 0;
     BOOL hasGlyph = [typeset find:codepoint glyph:&glyph attributes:&glyph_attributes];
 
-    if (!hasGlyph) [typeset find:' ' glyph:&glyph attributes:&glyph_attributes];
+    if (!hasGlyph) {
+        for (uint32_t i = 0; i < CPU_FONT_INDEX_LENGTH; i++) {
+            font = i;
+            typeset = self.typesets[@(font)];
+
+            if (!typeset) continue;
+            if (![typeset find:codepoint glyph:&glyph attributes:&glyph_attributes]) continue;
+
+            hasGlyph = YES;
+
+            break;
+        }
+    }
+
+    if (!hasGlyph) {
+        font = CPU_FONT_INDEX_REGULAR;
+        typeset = self.typesets[@(font)];
+
+        if (!typeset) return;
+
+        [typeset find:' ' glyph:&glyph attributes:&glyph_attributes];
+    }
 
     uint32_t fg_packed = attributes ? attributes->fg_color : ANSI_COLOR_RESET;
     uint32_t bg_packed = attributes ? attributes->bg_color : ANSI_COLOR_RESET;
@@ -737,8 +766,16 @@ static location_t location(int32_t row, int32_t column);
     instance->size = simd_make_float2(glyph_attributes.width, glyph_attributes.height);
 
     float x_offset = 0.0f;
+    float cell_width = (float)self.cellWidth;
+    int columns = unicode_codepoint_width(codepoint);
 
-    if (glyph_attributes.advance_x > 0.0f) x_offset = MAX(0.0f, ((float)self.cellWidth - glyph_attributes.advance_x) * 0.5f);
+    if (columns > 1) cell_width *= (float)columns;
+
+    if (font >= CPU_FONT_INDEX_SUPPORT_1 && glyph_attributes.width > 0.0f) {
+        x_offset = (cell_width - glyph_attributes.width) * 0.5f - glyph_attributes.bearing_x;
+    } else if (glyph_attributes.advance_x > 0.0f) {
+        x_offset = MAX(0.0f, (cell_width - glyph_attributes.advance_x) * 0.5f);
+    }
 
     instance->bearing = simd_make_float2(glyph_attributes.bearing_x + x_offset, glyph_attributes.bearing_y + (float)self.textBaseline);
     instance->fg_color = fg_color;
@@ -1142,6 +1179,10 @@ static location_t location(int32_t row, int32_t column);
     *cell = location(index, (int32_t)column);
 
     return YES;
+}
+
+- (BOOL)hasSelection {
+    return selection_start.row > -1 && selection_start.column > -1 && selection_end.row > -1 && selection_end.column > -1;
 }
 
 - (void)selection:(location_t *)start end:(location_t *)end {

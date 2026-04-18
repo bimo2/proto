@@ -24,6 +24,7 @@ typedef struct glyph_attributes_t {
 @property (nonatomic, assign, readonly) CGFloat scale;
 @property (nonatomic, assign, readonly) CGFloat width;
 @property (nonatomic, assign, readonly) CGFloat height;
+@property (nonatomic, assign, readonly) NSUInteger count;
 @property (nonatomic, copy, readonly) NSData *data;
 
 - (instancetype)initWithName:(NSString *)name size:(CGFloat)size weight:(NSFontWeight)weight scale:(CGFloat)scale;

@@ -15,7 +15,7 @@
 #define CPU_TERMINAL_VERTEX_COUNT 12
 #define CPU_TERMINAL_VERTEX_SHADER "terminal_vertex"
 #define CPU_TERMINAL_FRAGMENT_SHADER "terminal_fragment"
-#define CPU_USER_COLOR_LENGTH 16
+#define CPU_FONT_NAME_LENGTH 64
 
 typedef enum cpu_user_color_t {
     CPU_USER_COLOR_BLACK = 0,
@@ -34,11 +34,15 @@ typedef enum cpu_user_color_t {
     CPU_USER_COLOR_BRIGHT_MAGENTA,
     CPU_USER_COLOR_BRIGHT_CYAN,
     CPU_USER_COLOR_BRIGHT_WHITE,
+    CPU_USER_COLOR_LENGTH,
 } cpu_user_color_t;
 
 typedef enum cpu_font_index_t {
     CPU_FONT_INDEX_REGULAR = 0,
     CPU_FONT_INDEX_BOLD,
+    CPU_FONT_INDEX_SUPPORT_1,
+    CPU_FONT_INDEX_SUPPORT_2,
+    CPU_FONT_INDEX_LENGTH,
 } cpu_font_index_t;
 
 typedef enum cpu_cursor_style_t {
@@ -73,6 +77,8 @@ typedef struct cpu_cursor_uniforms_t {
 extern bool cpu_default_monochrome;
 extern double cpu_default_cursor_fps;
 extern double cpu_default_cursor_interval;
+extern char cpu_default_font[CPU_FONT_NAME_LENGTH];
+extern float cpu_default_font_size;
 extern simd_float3 cpu_default_colors[CPU_USER_COLOR_LENGTH];
 
 simd_float4 cpu_rgba_color(uint32_t color, bool background);
