@@ -71,15 +71,17 @@
 - (void)windowWillEnterFullScreen:(NSNotification *)notification {
     NSWindow *window = (NSWindow *)notification.object;
 
-    window.titlebarAppearsTransparent = NO;
     window.appearance = nil;
 }
 
 - (void)windowWillExitFullScreen:(NSNotification *)notification {
     NSWindow *window = (NSWindow *)notification.object;
 
-    window.titlebarAppearsTransparent = YES;
     window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+}
+
+- (NSApplicationPresentationOptions)window:(NSWindow *)window willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions {
+    return NSApplicationPresentationFullScreen | NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideToolbar;
 }
 
 #pragma mark - Public
