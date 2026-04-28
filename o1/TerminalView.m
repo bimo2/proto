@@ -25,7 +25,7 @@ typedef struct {
     int32_t column;
 } location_t;
 
-static const double kCursorBlinkDelay = 0.25;
+static const double kCursorBlinkDebounce = 0.25;
 static const char *kSupportFont1 = "Apple Symbols";
 static const char *kSupportFont2 = "Zapf Dingbats";
 static const float kCellTopPadding = 4.0f;
@@ -871,14 +871,17 @@ static location_t location(int32_t row, int32_t column);
     [self.terminal mouse:button event:action flags:event.modifierFlags row:MAX(1, MIN((NSUInteger)visibleRows, row)) column:MAX(1, MIN(self.columns, column))];
 }
 
-- (void)startCursorBlinkTimer {
+- (void)startCursorBlinkTimer:(BOOL)debounce {
     if (blink_timer) return;
 
     blink_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
 
     uint64_t interval = (uint64_t)((1.0 / cpu_default_cursor_fps) * NSEC_PER_SEC);
+    dispatch_time_t start = debounce ? dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kCursorBlinkDebounce * NSEC_PER_SEC)) : DISPATCH_TIME_NOW;
 
-    dispatch_source_set_timer(blink_timer, DISPATCH_TIME_NOW, interval, (uint64_t)(0.01 * NSEC_PER_SEC));
+    if (debounce) self.cursorBlinkTime = CACurrentMediaTime() + kCursorBlinkDebounce;
+
+    dispatch_source_set_timer(blink_timer, start, interval, (uint64_t)(0.01 * NSEC_PER_SEC));
 
     __weak typeof(self) weakSelf = self;
 
@@ -887,7 +890,7 @@ static location_t location(int32_t row, int32_t column);
 
         if (!strongSelf || strongSelf.isCursorBlinkPaused) return;
 
-        CFTimeInterval elapsed = CACurrentMediaTime() - strongSelf.cursorBlinkTime;
+        CFTimeInterval elapsed = fmax(0.0, CACurrentMediaTime() - strongSelf.cursorBlinkTime);
         double phase = fmod(elapsed, cpu_default_cursor_interval) / cpu_default_cursor_interval;
         double triangular = fabs(phase - 0.5) * 2.0;
         double eased = triangular * triangular * (3.0 - 2.0 * triangular);
@@ -914,7 +917,7 @@ static location_t location(int32_t row, int32_t column);
 
     blink_pause_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
 
-    dispatch_time_t start = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kCursorBlinkDelay * NSEC_PER_SEC));
+    dispatch_time_t start = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kCursorBlinkDebounce * NSEC_PER_SEC));
 
     dispatch_source_set_timer(blink_pause_timer, start, DISPATCH_TIME_FOREVER, (uint64_t)(0.01 * NSEC_PER_SEC));
 
@@ -931,7 +934,7 @@ static location_t location(int32_t row, int32_t column);
         strongSelf->next_cursor.visible = (uint32_t)strongSelf.shouldDrawCursor;
         strongSelf->next_cursor.alpha = 1.0f;
 
-        if (strongSelf.isCursorBlinkEnabled) [strongSelf startCursorBlinkTimer];
+        if (strongSelf.isCursorBlinkEnabled) [strongSelf startCursorBlinkTimer:NO];
 
         [strongSelf setNeedsDisplay:YES];
     });
@@ -1002,7 +1005,8 @@ static location_t location(int32_t row, int32_t column);
     }
 
     next_cursor.visible = (uint32_t)drawCursor;
-    next_cursor.alpha = 1.0f;
+
+    if (!self.isCursorBlinkEnabled || self.isCursorBlinkPaused) next_cursor.alpha = 1.0f;
 
     if (self.isCursorBlinkEnabled != cursor->blink) {
         self.cursorBlinkEnabled = cursor->blink;
@@ -1017,7 +1021,7 @@ static location_t location(int32_t row, int32_t column);
     }
 
     if (self.isCursorBlinkEnabled && !self.isCursorBlinkPaused && self.shouldDrawCursor) {
-        [self startCursorBlinkTimer];
+        [self startCursorBlinkTimer:YES];
     } else {
         [self stopCursorBlinkTimer];
     }
