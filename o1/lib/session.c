@@ -288,7 +288,7 @@ unsafe_pointer *session_hardware(session_t *session) {
         return buffer;
     }
 
-    FILE *fp = popen(SYSTEM_PROFILER " SPHardwareDataType -json", "r");
+    FILE *fp = popen(SYSTEM_PROFILER " -json SPHardwareDataType SPMemoryDataType SPDisplaysDataType", "r");
 
     if (!fp) {
         log_error("popen error: %d", errno);
