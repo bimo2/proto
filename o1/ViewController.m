@@ -17,11 +17,16 @@
 
 #include <dispatch/dispatch.h>
 
+static const float kTerminalTopPadding = 2.0f;
+static const float kTerminalBottomPadding = 20.0f;
+static const float kTerminalHorizontalPadding = 16.0f;
+static const float kGradientStop = 60.0f;
+
 @interface ViewController ()
 
 @property (nonatomic, strong) Terminal *terminal;
 @property (nonatomic, strong) TerminalView *terminalView;
-@property (nonatomic, strong) NSView *gradientView;
+@property (nonatomic, strong) CAGradientLayer *gradientLayer;
 
 @end
 
@@ -94,35 +99,30 @@
     [self.view addSubview:terminalView];
 
     [NSLayoutConstraint activateConstraints:@[
-        [terminalView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:2.0],
-        [terminalView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-20.0],
-        [terminalView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16.0],
-        [terminalView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16.0],
+        [terminalView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTerminalTopPadding],
+        [terminalView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kTerminalBottomPadding],
+        [terminalView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:kTerminalHorizontalPadding],
+        [terminalView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-kTerminalHorizontalPadding],
     ]];
 
     self.terminalView = terminalView;
 
-    CGFloat height = 60.0;
-    NSRect frame = NSMakeRect(0, self.view.bounds.size.height - height, self.view.bounds.size.width, height);
-    NSView *subview = [[NSView alloc] initWithFrame:frame];
+    CAGradientLayer *layer = [CAGradientLayer layer];
 
-    subview.autoresizingMask = NSViewWidthSizable | NSViewMinYMargin;
-    subview.wantsLayer = YES;
-
-    CAGradientLayer *gradient = [CAGradientLayer layer];
-
-    gradient.colors = @[
-        (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.84].CGColor,
-        (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.0].CGColor,
+    layer.colors = @[
+        (id)[NSColor clearColor].CGColor,
+        (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.04].CGColor,
+        (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.16].CGColor,
+        (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.36].CGColor,
+        (id)[NSColor colorWithDeviceWhite:0.0 alpha:0.64].CGColor,
+        (id)[NSColor blackColor].CGColor,
+        (id)[NSColor blackColor].CGColor,
     ];
 
-    gradient.locations = @[@0.46, @1.0];
-    gradient.startPoint = CGPointMake(0.5, 1.0);
-    gradient.endPoint = CGPointMake(0.5, 0.0);
-    gradient.frame = subview.bounds;
-    subview.layer = gradient;
-    [self.view addSubview:subview positioned:NSWindowAbove relativeTo:terminalView];
-    self.gradientView = subview;
+    layer.startPoint = CGPointMake(0.5, 1.0);
+    layer.endPoint = CGPointMake(0.5, 0.0);
+    terminalView.layer.mask = layer;
+    self.gradientLayer = layer;
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         __strong typeof(weakSelf) strongSelf = weakSelf;
@@ -154,7 +154,41 @@
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
+- (void)viewDidLayout {
+    [super viewDidLayout];
+    [self updateGradientLayer];
+}
+
 #pragma mark - Private
+
+- (void)updateGradientLayer {
+    if (self.view.window.styleMask & NSWindowStyleMaskFullScreen) {
+        self.terminalView.layer.mask = nil;
+
+        return;
+    }
+
+    self.terminalView.layer.mask = self.gradientLayer;
+
+    NSRect bounds = self.terminalView.bounds;
+    CGFloat stop = MIN(kGradientStop / bounds.size.height, 1.0);
+
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    self.gradientLayer.frame = bounds;
+
+    self.gradientLayer.locations = @[
+        @0.0,
+        @(stop * 0.2),
+        @(stop * 0.4),
+        @(stop * 0.6),
+        @(stop * 0.8),
+        @(stop),
+        @1.0,
+    ];
+
+    [CATransaction commit];
+}
 
 - (void)updateWindow:(NSNotification *)notification {
     NSWindow *window = (NSWindow *)notification.object;
