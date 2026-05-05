@@ -69,13 +69,33 @@
     XCTAssertEqual(screen_cursor(screen)->row, 1);
     XCTAssertEqual(screen_cursor(screen)->column, 0);
 
-    screen_move_cursor_relative(screen, 0, 1);
+    screen_move_cursor_absolute(screen, 2, 3);
     XCTAssertEqual(screen_cursor(screen)->row, 1);
     XCTAssertEqual(screen_cursor(screen)->column, 2);
 
     screen_delete_utf32(screen);
     XCTAssertEqual(screen_cursor(screen)->row, 0);
     XCTAssertEqual(screen_cursor(screen)->column, 4);
+
+    screen_write_utf32(screen, '\n');
+    XCTAssertEqual(screen_cursor(screen)->row, 1);
+    XCTAssertEqual(screen_cursor(screen)->column, 4);
+
+    screen_write_utf32(screen, '\r');
+    XCTAssertEqual(screen_cursor(screen)->row, 1);
+    XCTAssertEqual(screen_cursor(screen)->column, 0);
+
+    screen_set_cursor_position(screen, 2, 0);
+    screen_write_utf32(screen, '\t');
+    XCTAssertEqual(screen_cursor(screen)->row, 2);
+    XCTAssertEqual(screen_cursor(screen)->column, 4);
+
+    screen_set_cursor_position(screen, 2, 2);
+    screen_set_tab_stop(screen);
+    screen_set_cursor_position(screen, 2, 0);
+    screen_write_utf32(screen, '\t');
+    XCTAssertEqual(screen_cursor(screen)->row, 2);
+    XCTAssertEqual(screen_cursor(screen)->column, 2);
 
     free_screen(screen);
 }

@@ -73,6 +73,40 @@ static int fixture(const char *path, uint8_t **bytes, size_t *length) {
     return 1;
 }
 
+static size_t encode_utf8(uint32_t codepoint, char out[4]) {
+    if (!out) return 0;
+    if (codepoint > 0x10FFFFu) return 0;
+    if (codepoint >= 0xD800u && codepoint <= 0xDFFFu) return 0;
+
+    if (codepoint <= 0x7Fu) {
+        out[0] = (char)codepoint;
+
+        return 1;
+    }
+
+    if (codepoint <= 0x7FFu) {
+        out[0] = (char)(0xC0u | (codepoint >> 6));
+        out[1] = (char)(0x80u | (codepoint & 0x3Fu));
+
+        return 2;
+    }
+
+    if (codepoint <= 0xFFFFu) {
+        out[0] = (char)(0xE0u | (codepoint >> 12));
+        out[1] = (char)(0x80u | ((codepoint >> 6) & 0x3Fu));
+        out[2] = (char)(0x80u | (codepoint & 0x3Fu));
+
+        return 3;
+    }
+
+    out[0] = (char)(0xF0u | (codepoint >> 18));
+    out[1] = (char)(0x80u | ((codepoint >> 12) & 0x3Fu));
+    out[2] = (char)(0x80u | ((codepoint >> 6) & 0x3Fu));
+    out[3] = (char)(0x80u | (codepoint & 0x3Fu));
+
+    return 4;
+}
+
 test_t *init_test(void) {
     test_t *test = (test_t *)calloc(1, sizeof(test_t));
 
@@ -213,6 +247,34 @@ void test_snapshot(test_snapshot_t snapshot, const char *text) {
 
         row++;
     }
+}
+
+void test_print(test_t *test) {
+    screen_t *screen = screen_context_current_screen(test->context);
+
+    for (size_t i = 0; i < TEST_ROWS; i++) {
+        for (size_t j = 0; j < TEST_COLUMNS; j++) {
+            screen_cell_t *cell = screen_cell(screen, (int32_t)i, (int32_t)j);
+            uint32_t codepoint = cell->codepoint;
+
+            if (codepoint == 0) codepoint = ' ';
+
+            char buffer[4];
+            size_t length = encode_utf8(codepoint, buffer);
+
+            if (length == 0) {
+                fputc(' ', stdout);
+
+                continue;
+            }
+
+            fwrite(buffer, 1, length, stdout);
+        }
+
+        fputs("\n", stdout);
+    }
+
+    fflush(stdout);
 }
 
 const test_cell_t test_cell(test_t *test, int32_t row, int32_t column) {

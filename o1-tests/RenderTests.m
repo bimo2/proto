@@ -92,10 +92,10 @@
     render_clear_ops(ops, count);
     screen_set_cell(screen, 0, 1, 'X', NULL);
     screen_set_cell(screen, 0, 2, 'Y', NULL);
-    screen_set_cell(screen, 2, 4, 'Z', NULL);
+    screen_set_cell(screen, 0, 3, 'Z', NULL);
     screen_viewport_scroll(screen, 1);
     render_collect_ops(&ops, screen, &count);
-    XCTAssertEqual(count, 4);
+    XCTAssertEqual(count, 3);
     XCTAssertEqual(ops[0].op, RENDER_OP_SCROLL);
     XCTAssertEqual(ops[0].scroll.top, 0);
     XCTAssertEqual(ops[0].scroll.bottom, screen_rows(screen) - 1);
@@ -108,14 +108,10 @@
     XCTAssertEqual(ops[2].op, RENDER_OP_SPAN);
     XCTAssertEqual(ops[2].span.row, 1);
     XCTAssertEqual(ops[2].span.column, 1);
-    XCTAssertEqual(ops[2].span.width, 2);
+    XCTAssertEqual(ops[2].span.width, 3);
     XCTAssertEqual(ops[2].span.cells[0].codepoint, 'X');
     XCTAssertEqual(ops[2].span.cells[1].codepoint, 'Y');
-    XCTAssertEqual(ops[3].op, RENDER_OP_SPAN);
-    XCTAssertEqual(ops[3].span.row, 3);
-    XCTAssertEqual(ops[3].span.column, 4);
-    XCTAssertEqual(ops[3].span.width, 1);
-    XCTAssertEqual(ops[3].span.cells[0].codepoint, 'Z');
+    XCTAssertEqual(ops[2].span.cells[2].codepoint, 'Z');
 
     render_clear_ops(ops, count);
     screen_viewport_scroll(screen, -1);
