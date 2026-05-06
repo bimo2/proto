@@ -863,10 +863,10 @@ static location_t location(int32_t row, int32_t column);
 
     if (visibleRows < 1) return;
 
-    CGFloat x = MAX(0.0, MIN(point.x - rect.origin.x * self.scale, rect.size.width * self.scale - 1.0));
-    CGFloat y = MAX(0.0, MIN(point.y - rect.origin.y * self.scale, rect.size.height * self.scale - 1.0));
-    NSUInteger row = (NSUInteger)floor(((rect.size.height * self.scale) - 1.0 - y) / self.cellHeight) + 1;
-    NSUInteger column = (NSUInteger)floor(x / self.cellWidth) + 1;
+    CGFloat x = MAX(0.0, MIN(point.x - rect.origin.x, rect.size.width - 0.0001));
+    CGFloat y = MAX(0.0, MIN(point.y - rect.origin.y, rect.size.height - 0.0001));
+    NSUInteger row = (NSUInteger)floor((rect.size.height - 0.0001 - y) / (self.cellHeight / self.scale)) + 1;
+    NSUInteger column = (NSUInteger)floor(x / (self.cellWidth / self.scale)) + 1;
 
     [self.terminal mouse:button event:action flags:event.modifierFlags row:MAX(1, MIN((NSUInteger)visibleRows, row)) column:MAX(1, MIN(self.columns, column))];
 }

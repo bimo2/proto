@@ -395,7 +395,7 @@ static inline void apply_csi(screen_context_t *context, const ansi_csi_t *csi) {
                 case ANSI_DEC_MODE_MOUSE_X10:
                     context->mouse_mode = SCREEN_CONTEXT_MOUSE_X10;
 
-                    if (context->on_mouse) context->on_mouse(context->mouse_user_data, false);
+                    if (context->on_mouse) context->on_mouse(context->mouse_user_data, true);
 
                     break;
                 case ANSI_DEC_MODE_MOUSE_NORMAL:
