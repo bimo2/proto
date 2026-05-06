@@ -113,6 +113,7 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     if (session->running) return;
 
     int master_fd = -1;
+    int slave_fd = -1;
     struct winsize ws;
 
     memset(&ws, 0, sizeof(ws));
@@ -121,16 +122,31 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
     ws.ws_xpixel = screen_default_width;
     ws.ws_ypixel = screen_default_height;
 
-    pid_t pid = forkpty(&master_fd, NULL, NULL, &ws);
+    if (openpty(&master_fd, &slave_fd, NULL, NULL, &ws) < 0) {
+        log_error("openpty error: %d", errno);
+
+        return;
+    }
+
+    if (session_sandbox) sandbox(slave_fd);
+
+    pid_t pid = fork();
 
     if (pid < 0) {
-        log_error("forkpty error: %d", errno);
+        log_error("fork error: %d", errno);
+        close(master_fd);
+        close(slave_fd);
 
         return;
     }
 
     if (pid == 0) {
-        if (session_sandbox) sandbox(STDIN_FILENO);
+        close(master_fd);
+
+        if (login_tty(slave_fd) != 0) {
+            log_error("login_tty error: %d", errno);
+            _exit(127);
+        }
 
         const char *home = getenv("HOME");
 
@@ -140,6 +156,8 @@ void session_start(session_t *session, const char *file, char *const argv[], cha
         log_error("execve error: %d", errno);
         _exit(127);
     }
+
+    close(slave_fd);
 
     int flags = fcntl(master_fd, F_GETFD);
 

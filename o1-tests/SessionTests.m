@@ -134,7 +134,7 @@ static char *const envp[] = {"TERM=xterm-256color", NULL};
             }
         }
 
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC), dispatch_get_main_queue(), weakBlock);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC), dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), weakBlock);
     };
 
     weakBlock = block;
