@@ -132,7 +132,7 @@ static const float kGradientStop = 60.0f;
         NSError *error = nil;
 
         if (![strongSelf.terminal start:&error]) {
-            NSLog(@"error: %@", error);
+            // TODO
 
             return;
         }

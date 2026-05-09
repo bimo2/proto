@@ -39,10 +39,16 @@
     NSMenuItem *about = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"About %@", name] action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
 
     [appMenu addItem:about];
+
+    NSMenuItem *checkForUpdates = [[NSMenuItem alloc] initWithTitle:@"Check for Updates..." action:nil keyEquivalent:@""];
+
+    checkForUpdates.image = [NSImage imageWithSystemSymbolName:@"arrow.trianglehead.2.clockwise.rotate.90" accessibilityDescription:nil];
+    [appMenu addItem:checkForUpdates];
     [appMenu addItem:[NSMenuItem separatorItem]];
 
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"Settings..." action:nil keyEquivalent:@","];
 
+    settings.image = [NSImage imageWithSystemSymbolName:@"gear" accessibilityDescription:nil];
     [appMenu addItem:settings];
     [appMenu addItem:[NSMenuItem separatorItem]];
 
@@ -83,12 +89,42 @@
 
     NSMenuItem *newWindow = [[NSMenuItem alloc] initWithTitle:@"New Window" action:@selector(window:) keyEquivalent:@"n"];
 
+    newWindow.image = [NSImage imageWithSystemSymbolName:@"macwindow" accessibilityDescription:nil];
     [fileMenu addItem:newWindow];
+
+    NSMenuItem *newCommand = [[NSMenuItem alloc] initWithTitle:@"New Command" action:nil keyEquivalent:@"n"];
+
+    newCommand.image = [NSImage imageWithSystemSymbolName:@"pip.enter" accessibilityDescription:nil];
+    [newCommand setKeyEquivalentModifierMask:NSEventModifierFlagShift | NSEventModifierFlagCommand];
+    [fileMenu addItem:newCommand];
     [fileMenu addItem:[NSMenuItem separatorItem]];
 
     NSMenuItem *close = [[NSMenuItem alloc] initWithTitle:@"Close Window" action:@selector(performClose:) keyEquivalent:@"w"];
 
     [fileMenu addItem:close];
+    [fileMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *reset = [[NSMenuItem alloc] initWithTitle:@"Reset" action:nil keyEquivalent:@"r"];
+
+    reset.image = [NSImage imageWithSystemSymbolName:@"arrow.clockwise" accessibilityDescription:nil];
+    [reset setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [fileMenu addItem:reset];
+    [fileMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *share = [[NSMenuItem alloc] initWithTitle:@"Share..." action:nil keyEquivalent:@""];
+
+    share.image = [NSImage imageWithSystemSymbolName:@"square.and.arrow.up" accessibilityDescription:nil];
+    [fileMenu addItem:share];
+
+    NSMenuItem *exportTxt = [[NSMenuItem alloc] initWithTitle:@"Export as TXT..." action:nil keyEquivalent:@""];
+
+    exportTxt.image = [NSImage imageWithSystemSymbolName:@"text.document" accessibilityDescription:nil];
+    [fileMenu addItem:exportTxt];
+    [fileMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *print = [[NSMenuItem alloc] initWithTitle:@"Print..." action:@selector(print:) keyEquivalent:@"p"];
+
+    [fileMenu addItem:print];
 
     return item;
 }
@@ -98,6 +134,20 @@
     NSMenu *editMenu = [[NSMenu alloc] initWithTitle:@"Edit"];
 
     item.submenu = editMenu;
+
+    NSMenuItem *undo = [[NSMenuItem alloc] initWithTitle:@"Undo" action:@selector(undo:) keyEquivalent:@"z"];
+
+    [editMenu addItem:undo];
+
+    NSMenuItem *redo = [[NSMenuItem alloc] initWithTitle:@"Redo" action:@selector(redo:) keyEquivalent:@"z"];
+
+    [redo setKeyEquivalentModifierMask:NSEventModifierFlagShift | NSEventModifierFlagCommand];
+    [editMenu addItem:redo];
+    [editMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *cut = [[NSMenuItem alloc] initWithTitle:@"Cut" action:@selector(cut:) keyEquivalent:@"x"];
+
+    [editMenu addItem:cut];
 
     NSMenuItem *copy = [[NSMenuItem alloc] initWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"];
 
@@ -110,6 +160,57 @@
     NSMenuItem *selectAll = [[NSMenuItem alloc] initWithTitle:@"Select All" action:@selector(selectAll:) keyEquivalent:@"a"];
 
     [editMenu addItem:selectAll];
+    [editMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *move = [[NSMenuItem alloc] initWithTitle:@"Move" action:nil keyEquivalent:@""];
+    NSMenu *moveMenu = [[NSMenu alloc] initWithTitle:@"Move"];
+
+    move.submenu = moveMenu;
+    [editMenu addItem:move];
+
+    NSMenuItem *moveLineStart = [[NSMenuItem alloc] initWithTitle:@"Line Start" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSLeftArrowFunctionKey]];
+
+    [moveMenu addItem:moveLineStart];
+
+    NSMenuItem *moveLineEnd = [[NSMenuItem alloc] initWithTitle:@"Line End" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSRightArrowFunctionKey]];
+
+    [moveMenu addItem:moveLineEnd];
+    [moveMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *movePreviousWord = [[NSMenuItem alloc] initWithTitle:@"Previous Word" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSLeftArrowFunctionKey]];
+
+    [movePreviousWord setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [moveMenu addItem:movePreviousWord];
+
+    NSMenuItem *moveNextWord = [[NSMenuItem alloc] initWithTitle:@"Next Word" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSRightArrowFunctionKey]];
+
+    [moveNextWord setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [moveMenu addItem:moveNextWord];
+
+    NSMenuItem *delete = [[NSMenuItem alloc] initWithTitle:@"Delete" action:nil keyEquivalent:@""];
+    NSMenu *deleteMenu = [[NSMenu alloc] initWithTitle:@"Delete"];
+
+    delete.submenu = deleteMenu;
+    [editMenu addItem:delete];
+
+    NSMenuItem *deleteLineStart = [[NSMenuItem alloc] initWithTitle:@"Line Start" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSBackspaceCharacter]];
+
+    [deleteMenu addItem:deleteLineStart];
+
+    NSMenuItem *deleteLineEnd = [[NSMenuItem alloc] initWithTitle:@"Line End" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSDeleteCharacter]];
+
+    [deleteMenu addItem:deleteLineEnd];
+    [deleteMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *deletePreviousWord = [[NSMenuItem alloc] initWithTitle:@"Previous Word" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSBackspaceCharacter]];
+
+    [deletePreviousWord setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [deleteMenu addItem:deletePreviousWord];
+
+    NSMenuItem *deleteNextWord = [[NSMenuItem alloc] initWithTitle:@"Next Word" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSDeleteCharacter]];
+
+    [deleteNextWord setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [deleteMenu addItem:deleteNextWord];
 
     return item;
 }
@@ -119,6 +220,46 @@
     NSMenu *viewMenu = [[NSMenu alloc] initWithTitle:@"View"];
 
     item.submenu = viewMenu;
+
+    NSMenuItem *larger = [[NSMenuItem alloc] initWithTitle:@"Larger" action:nil keyEquivalent:@"+"];
+
+    larger.image = [NSImage imageWithSystemSymbolName:@"textformat.size.larger" accessibilityDescription:nil];
+    [viewMenu addItem:larger];
+
+    NSMenuItem *smaller = [[NSMenuItem alloc] initWithTitle:@"Smaller" action:nil keyEquivalent:@"-"];
+
+    smaller.image = [NSImage imageWithSystemSymbolName:@"textformat.size.smaller" accessibilityDescription:nil];
+    [viewMenu addItem:smaller];
+    [viewMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *scrollToTop = [[NSMenuItem alloc] initWithTitle:@"Scroll to Top" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSHomeFunctionKey]];
+
+    [viewMenu addItem:scrollToTop];
+
+    NSMenuItem *scrollToBottom = [[NSMenuItem alloc] initWithTitle:@"Scroll to Bottom" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSEndFunctionKey]];
+
+    [viewMenu addItem:scrollToBottom];
+    [viewMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *pageUp = [[NSMenuItem alloc] initWithTitle:@"Page Up" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSPageUpFunctionKey]];
+
+    [viewMenu addItem:pageUp];
+
+    NSMenuItem *pageDown = [[NSMenuItem alloc] initWithTitle:@"Page Down" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSPageDownFunctionKey]];
+
+    [viewMenu addItem:pageDown];
+    [viewMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *lineUp = [[NSMenuItem alloc] initWithTitle:@"Line Up" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSPageUpFunctionKey]];
+
+    [lineUp setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [viewMenu addItem:lineUp];
+
+    NSMenuItem *lineDown = [[NSMenuItem alloc] initWithTitle:@"Line Down" action:nil keyEquivalent:[NSString stringWithFormat:@"%C", (unichar)NSPageDownFunctionKey]];
+
+    [lineDown setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [viewMenu addItem:lineDown];
+    [viewMenu addItem:[NSMenuItem separatorItem]];
 
     return item;
 }
@@ -131,6 +272,7 @@
 
     NSMenuItem *find = [[NSMenuItem alloc] initWithTitle:@"Find..." action:@selector(performFindPanelAction:) keyEquivalent:@"f"];
 
+    find.image = [NSImage imageWithSystemSymbolName:@"magnifyingglass" accessibilityDescription:nil];
     [find setTag:1];
     [findMenu addItem:find];
 
@@ -148,6 +290,7 @@
 
     NSMenuItem *useSelectionForFind = [[NSMenuItem alloc] initWithTitle:@"Use Selection for Find" action:@selector(performFindPanelAction:) keyEquivalent:@"e"];
 
+    useSelectionForFind.image = [NSImage imageWithSystemSymbolName:@"text.magnifyingglass" accessibilityDescription:nil];
     [useSelectionForFind setTag:7];
     [findMenu addItem:useSelectionForFind];
 
@@ -174,6 +317,12 @@
 
     [windowMenu addItem:bringAllToFront];
 
+    NSMenuItem *keepInFront = [[NSMenuItem alloc] initWithTitle:@"Keep in Front" action:nil keyEquivalent:@""];
+
+    keepInFront.state = NSControlStateValueOff;
+    keepInFront.image = [NSImage imageWithSystemSymbolName:@"square.3.layers.3d.top.filled" accessibilityDescription:nil];
+    [windowMenu addItem:keepInFront];
+
     return item;
 }
 
@@ -184,7 +333,25 @@
     [NSApp setHelpMenu:helpMenu];
     item.submenu = helpMenu;
 
+    NSMenuItem *license = [[NSMenuItem alloc] initWithTitle:@"License" action:nil keyEquivalent:@""];
+
+    license.image = [NSImage imageWithSystemSymbolName:@"c.circle" accessibilityDescription:nil];
+    [helpMenu addItem:license];
+
+    NSMenuItem *changelog = [[NSMenuItem alloc] initWithTitle:@"Changelog" action:nil keyEquivalent:@""];
+
+    changelog.image = [NSImage imageWithSystemSymbolName:@"list.dash" accessibilityDescription:nil];
+    [helpMenu addItem:changelog];
+
     return item;
+}
+
+- (void)undo:(id)sender {
+    // TODO
+}
+
+- (void)redo:(id)sender {
+    // TODO
 }
 
 @end
