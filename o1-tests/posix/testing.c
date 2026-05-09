@@ -249,6 +249,28 @@ void test_snapshot(test_snapshot_t snapshot, const char *text) {
     }
 }
 
+const test_cell_t test_cell(test_t *test, int32_t row, int32_t column) {
+    screen_t *screen = screen_context_current_screen(test->context);
+    screen_cell_t *cell = screen_cell(screen, row, column);
+
+    return (const test_cell_t){
+        .codepoint = cell->codepoint,
+        .flags = cell->attributes.flags,
+        .fg_color = cell->attributes.fg_color,
+        .bg_color = cell->attributes.bg_color,
+    };
+}
+
+const test_cursor_t test_cursor(test_t *test) {
+    screen_t *screen = screen_context_current_screen(test->context);
+    screen_cursor_t *cursor = screen_cursor(screen);
+
+    return (const test_cursor_t){
+        .row = cursor->row,
+        .column = cursor->column,
+    };
+}
+
 void test_print(test_t *test) {
     screen_t *screen = screen_context_current_screen(test->context);
 
@@ -275,26 +297,4 @@ void test_print(test_t *test) {
     }
 
     fflush(stdout);
-}
-
-const test_cell_t test_cell(test_t *test, int32_t row, int32_t column) {
-    screen_t *screen = screen_context_current_screen(test->context);
-    screen_cell_t *cell = screen_cell(screen, row, column);
-
-    return (const test_cell_t){
-        .codepoint = cell->codepoint,
-        .flags = cell->attributes.flags,
-        .fg_color = cell->attributes.fg_color,
-        .bg_color = cell->attributes.bg_color,
-    };
-}
-
-const test_cursor_t test_cursor(test_t *test) {
-    screen_t *screen = screen_context_current_screen(test->context);
-    screen_cursor_t *cursor = screen_cursor(screen);
-
-    return (const test_cursor_t){
-        .row = cursor->row,
-        .column = cursor->column,
-    };
 }

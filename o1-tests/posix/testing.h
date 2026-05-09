@@ -51,10 +51,10 @@ int test_fixture(const char *path, size_t start, size_t end, uint8_t **bytes, si
 
 void test_snapshot(test_snapshot_t snapshot, const char *text);
 
-void test_print(test_t *test);
-
 const test_cell_t test_cell(test_t *test, int32_t row, int32_t column);
 
 const test_cursor_t test_cursor(test_t *test);
+
+void test_print(test_t *test);
 
 #endif // !TESTING_H
