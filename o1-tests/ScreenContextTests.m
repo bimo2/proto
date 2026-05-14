@@ -564,7 +564,7 @@ static void test_mouse_callback(void *, bool);
     dec_set.csi.dec_mode = ANSI_DEC_MODE_MOUSE_X10;
     screen_context_update(context, &dec_set);
     XCTAssertEqual(screen_context_mouse_mode(context), SCREEN_CONTEXT_MOUSE_X10);
-    XCTAssertFalse(self.isMouseEnabled);
+    XCTAssertTrue(self.isMouseEnabled);
 
     dec_set.csi.dec_mode = ANSI_DEC_MODE_MOUSE_NORMAL;
     screen_context_update(context, &dec_set);
