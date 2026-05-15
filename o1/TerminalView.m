@@ -81,55 +81,52 @@ static location_t location(int32_t row, int32_t column);
     NSAssert(device, @"metal device not supported");
 
     self = [super initWithFrame:frame device:device];
+    self.delegate = self;
+    self.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    self.wantsLayer = YES;
+    self.layer.opaque = NO;
+    self.framebufferOnly = NO;
+    self.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
+    self.clearColor = MTLClearColorMake(0, 0, 0, 0);
+    self.enableSetNeedsDisplay = YES;
+    self.paused = YES;
+    selection_start = location(-1, -1);
+    selection_end = location(-1, -1);
+    _interactive = YES;
+    _typesets = [NSMutableDictionary dictionary];
+    _commandQueue = [device newCommandQueue];
 
-    if (self) {
-        self.delegate = self;
-        self.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-        self.wantsLayer = YES;
-        self.layer.opaque = NO;
-        self.framebufferOnly = NO;
-        self.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
-        self.clearColor = MTLClearColorMake(0, 0, 0, 0);
-        self.enableSetNeedsDisplay = YES;
-        self.paused = YES;
-        selection_start = location(-1, -1);
-        selection_end = location(-1, -1);
-        _interactive = YES;
-        _typesets = [NSMutableDictionary dictionary];
-        _commandQueue = [device newCommandQueue];
+    id<MTLLibrary> library = [device newDefaultLibraryWithBundle:NSBundle.mainBundle error:nil];
+    MTLRenderPipelineDescriptor *pipelineDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
 
-        id<MTLLibrary> library = [device newDefaultLibraryWithBundle:NSBundle.mainBundle error:nil];
-        MTLRenderPipelineDescriptor *pipelineDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+    pipelineDescriptor.vertexFunction = [library newFunctionWithName:@CPU_TERMINAL_VERTEX_SHADER];
+    pipelineDescriptor.fragmentFunction = [library newFunctionWithName:@CPU_TERMINAL_FRAGMENT_SHADER];
+    pipelineDescriptor.colorAttachments[0].pixelFormat = self.colorPixelFormat;
+    pipelineDescriptor.colorAttachments[0].blendingEnabled = YES;
+    pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorOne;
+    pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+    pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
+    pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+    _pipeline = [device newRenderPipelineStateWithDescriptor:pipelineDescriptor error:nil];
 
-        pipelineDescriptor.vertexFunction = [library newFunctionWithName:@CPU_TERMINAL_VERTEX_SHADER];
-        pipelineDescriptor.fragmentFunction = [library newFunctionWithName:@CPU_TERMINAL_FRAGMENT_SHADER];
-        pipelineDescriptor.colorAttachments[0].pixelFormat = self.colorPixelFormat;
-        pipelineDescriptor.colorAttachments[0].blendingEnabled = YES;
-        pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorOne;
-        pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
-        pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
-        pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
-        _pipeline = [device newRenderPipelineStateWithDescriptor:pipelineDescriptor error:nil];
+    MTLSamplerDescriptor *samplerDescriptor = [[MTLSamplerDescriptor alloc] init];
 
-        MTLSamplerDescriptor *samplerDescriptor = [[MTLSamplerDescriptor alloc] init];
+    samplerDescriptor.minFilter = MTLSamplerMinMagFilterLinear;
+    samplerDescriptor.magFilter = MTLSamplerMinMagFilterLinear;
+    samplerDescriptor.sAddressMode = MTLSamplerAddressModeClampToEdge;
+    samplerDescriptor.tAddressMode = MTLSamplerAddressModeClampToEdge;
+    _sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
+    _cursorBlinkTime = CACurrentMediaTime();
+    next_cursor.style = CPU_CURSOR_STYLE_BLOCK;
+    next_cursor.alpha = 1.0f;
 
-        samplerDescriptor.minFilter = MTLSamplerMinMagFilterLinear;
-        samplerDescriptor.magFilter = MTLSamplerMinMagFilterLinear;
-        samplerDescriptor.sAddressMode = MTLSamplerAddressModeClampToEdge;
-        samplerDescriptor.tAddressMode = MTLSamplerAddressModeClampToEdge;
-        _sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
-        _cursorBlinkTime = CACurrentMediaTime();
-        next_cursor.style = CPU_CURSOR_STYLE_BLOCK;
-        next_cursor.alpha = 1.0f;
+    CAShapeLayer *sublayer = [CAShapeLayer layer];
 
-        CAShapeLayer *sublayer = [CAShapeLayer layer];
-
-        sublayer.fillColor = [NSColor selectedTextBackgroundColor].CGColor;
-        sublayer.opacity = 0.28;
-        sublayer.frame = self.bounds;
-        [self.layer addSublayer:sublayer];
-        _selectionLayer = sublayer;
-    }
+    sublayer.fillColor = [NSColor selectedTextBackgroundColor].CGColor;
+    sublayer.opacity = 0.28;
+    sublayer.frame = self.bounds;
+    [self.layer addSublayer:sublayer];
+    _selectionLayer = sublayer;
 
     return self;
 }

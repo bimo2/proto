@@ -1,0 +1,31 @@
+name: Xcode Tests + Releases
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  unit-tests:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Xcode 26.3+
+        run: |
+          XCODE=$(ls /Applications | grep "Xcode_" | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then
+            sudo xcode-select -s /Applications/$XCODE
+          fi
+          xcodebuild -version
+
+      - name: Metal Toolchain
+        run: xcodebuild -downloadComponent MetalToolchain
+
+      - name: Build (o1-tests)
+        run: xcodebuild -scheme o1-tests CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build-for-testing
+
+      - name: Test (o1-tests)
+        run: xcodebuild -scheme o1-tests -parallel-testing-enabled NO test-without-building
