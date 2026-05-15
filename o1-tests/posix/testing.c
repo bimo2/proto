@@ -108,11 +108,18 @@ void free_test(test_t *test) {
     free_session(test->session);
 }
 
-void test_config(void) {
+void test_setup(void) {
+    session_sandbox = true;
     screen_default_rows = TEST_ROWS;
     screen_default_columns = TEST_COLUMNS;
     screen_default_offset = 2;
-    session_sandbox = true;
+}
+
+void test_teardown(void) {
+    session_sandbox = false;
+    screen_default_rows = VT100_ROWS;
+    screen_default_columns = VT100_COLUMNS;
+    screen_default_offset = 0;
 }
 
 void test_write(test_t *test, const uint8_t *bytes, size_t length) {

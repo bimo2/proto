@@ -158,8 +158,8 @@ static char *const envp[] = {"TERM=xterm-256color", NULL};
 
     memset(&ws, 0, sizeof(ws));
     ioctl(session_fd(session), TIOCGWINSZ, &ws);
-    XCTAssertEqual(ws.ws_row, 24);
-    XCTAssertEqual(ws.ws_col, 80);
+    XCTAssertEqual(ws.ws_row, VT100_ROWS);
+    XCTAssertEqual(ws.ws_col, VT100_COLUMNS);
 
     uint32_t rows = 16;
     uint32_t columns = 64;

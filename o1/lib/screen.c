@@ -75,8 +75,8 @@ static const ansi_sgr_t default_attributes = {
     .bg_color = ANSI_COLOR_RESET,
 };
 
-uint32_t screen_default_rows = 24;
-uint32_t screen_default_columns = 80;
+uint32_t screen_default_rows = VT100_ROWS;
+uint32_t screen_default_columns = VT100_COLUMNS;
 uint32_t screen_default_width = 0;
 uint32_t screen_default_height = 0;
 uint32_t screen_default_offset = 0;

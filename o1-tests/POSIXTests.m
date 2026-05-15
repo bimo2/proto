@@ -20,7 +20,7 @@
 
 - (void)setUp {
     [super setUp];
-    test_config();
+    test_setup();
     test = init_test();
     XCTAssertNotEqual(test, NULL);
 }
@@ -28,6 +28,7 @@
 - (void)tearDown {
     free_test(test);
     test = NULL;
+    test_teardown();
     [super tearDown];
 }
 

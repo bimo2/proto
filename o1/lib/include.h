@@ -58,6 +58,9 @@ int eventlog(int level);
 
 #endif
 
+#define VT100_ROWS 24
+#define VT100_COLUMNS 80
+
 #define _KB(size) (size << 10)
 #define _MB(size) (size << 20)
 #define _GB(size) (size << 30)

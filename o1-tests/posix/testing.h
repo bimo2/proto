@@ -43,7 +43,9 @@ test_t *init_test(void);
 
 void free_test(test_t *test);
 
-void test_config(void);
+void test_setup(void);
+
+void test_teardown(void);
 
 void test_write(test_t *test, const uint8_t *bytes, size_t length);
 
