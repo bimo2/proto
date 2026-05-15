@@ -475,11 +475,17 @@ static void on_mouse_callback(void *, bool);
     NSDictionary *hardware = [(NSArray *)(object[@"SPHardwareDataType"]) firstObject];
     NSDictionary *memory = [(NSArray *)(object[@"SPMemoryDataType"]) firstObject];
     NSDictionary *display = [(NSArray *)(object[@"SPDisplaysDataType"]) firstObject];
-    NSScanner *scanner = [NSScanner scannerWithString:hardware[@"number_processors"]];
+    id cpu = hardware[@"number_processors"];
     NSInteger cores = 0;
 
-    [scanner scanCharactersFromSet:[NSCharacterSet decimalDigitCharacterSet].invertedSet intoString:nil];
-    [scanner scanInteger:&cores];
+    if ([cpu isKindOfClass:NSString.class]) {
+        NSScanner *scanner = [NSScanner scannerWithString:(NSString *)cpu];
+
+        [scanner scanCharactersFromSet:[NSCharacterSet decimalDigitCharacterSet].invertedSet intoString:nil];
+        [scanner scanInteger:&cores];
+    } else if ([cpu isKindOfClass:NSNumber.class]) {
+        cores = [(NSNumber *)cpu integerValue];
+    }
 
     NSString *model = [NSString stringWithFormat:@"%@ %@ %@ %@", hardware[@"machine_name"], hardware[@"machine_model"], hardware[@"model_number"], hardware[@"serial_number"]];
     NSString *chip = [NSString stringWithFormat:@"%@ %@ %@ CPU:%@ GPU:%@", hardware[@"chip_type"], hardware[@"physical_memory"], memory[@"dimm_type"], @(cores), display[@"sppci_cores"]];
