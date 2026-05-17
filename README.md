@@ -22,18 +22,25 @@ Build o1 using Xcode command-line tools:
 
 ```sh
 # build the debug scheme
-xcodebuild -scheme o1 -configuration Debug -sdk macosx build
+xcodebuild -scheme o1 -configuration Debug build
 
 # run unit tests
-xcodebuild -scheme o1-tests -sdk macosx test
+xcodebuild -scheme o1-tests test
 
 # run static analysis
-xcodebuild -scheme o1 -sdk macosx analyze
+xcodebuild -scheme o1 analyze
 ```
 
 ### POSIX Tests
 
 POSIX tests are used to test `libo1` against shell applications like `ls`, `tmux` or `codex`. Add E2E tests by writing output bytes from `DISPATCH_SOURCE_TYPE_READ` to a binary file using `debug.h`, then read byte segments through a test fixture using `testing.h` and assert screen and cursor expectations. See [o1-tests/posix](./o1-tests/posix) for examples.
+
+## RELEASE
+
+> [!IMPORTANT]
+> Signed and notarized archives are uploaded by GitHub Actions (job: release) and should be published with release tags:
+> - `o1.dmg`
+> - `o1.app`
 
 #
 

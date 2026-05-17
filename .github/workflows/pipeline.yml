@@ -3,6 +3,7 @@ name: Xcode Tests + Releases
 on:
   push:
     branches: [ main ]
+    tags: [ '**' ]
   pull_request:
     branches: [ main ]
 
@@ -25,7 +26,95 @@ jobs:
         run: xcodebuild -downloadComponent MetalToolchain
 
       - name: Build (o1-tests)
-        run: xcodebuild -scheme o1-tests CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build-for-testing
+        run: |
+          xcodebuild build-for-testing \
+            -scheme o1-tests \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
 
       - name: Test (o1-tests)
-        run: xcodebuild -scheme o1-tests -parallel-testing-enabled NO test-without-building
+        run: |
+          xcodebuild test-without-building \
+          -scheme o1-tests \
+          -parallel-testing-enabled NO
+
+  release:
+    needs: unit-tests
+    runs-on: macos-26
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Xcode 26.3+
+        run: |
+          XCODE=$(ls /Applications | grep "Xcode_" | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then
+            sudo xcode-select -s /Applications/$XCODE
+          fi
+          xcodebuild -version
+
+      - name: Download Metal Toolchain
+        run: xcodebuild -downloadComponent MetalToolchain
+
+      - name: Code Signing
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.P12_FILE_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: Archive
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+          VERSION: ${{ github.ref_name }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          xcodebuild archive \
+            -scheme o1 \
+            -configuration Release \
+            -archivePath o1.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application: BIMAL BHAGRATH (${DEVELOPMENT_TEAM})" \
+            DEVELOPMENT_TEAM=${DEVELOPMENT_TEAM} \
+            MARKETING_VERSION=${VERSION} \
+            CURRENT_PROJECT_VERSION=${BUILD_NUMBER}
+
+      - name: Export
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath o1.xcarchive \
+            -exportOptionsPlist export-options.plist \
+            -exportPath .
+
+      - name: Package DMG
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+        run: |
+          codesign --force --deep --options runtime --timestamp --sign "Developer ID Application: BIMAL BHAGRATH (${DEVELOPMENT_TEAM})" o1.app
+          mkdir -p staging
+          cp -a o1.app staging/
+          ln -s /Applications staging/Applications
+          hdiutil create -volname "o1 Installer" -srcfolder staging -ov -format UDZO o1.dmg
+          codesign --force --timestamp --sign "Developer ID Application: BIMAL BHAGRATH (${DEVELOPMENT_TEAM})" o1.dmg
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+        run: |
+          xcrun notarytool store-credentials "github-actions" --apple-id "$APPLE_ID" --team-id "$DEVELOPMENT_TEAM" --password "$APPLE_PASSWORD" --validate || true
+          xcrun notarytool submit o1.dmg --keychain-profile "github-actions" --wait
+          xcrun stapler staple o1.dmg
+          xcrun stapler staple o1.app
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: |
+            o1.dmg
+            o1.app
