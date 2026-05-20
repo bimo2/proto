@@ -12,6 +12,9 @@
 #define rgb(red, green, blue) \
     (simd_float3){(red) / 255.0f, (green) / 255.0f, (blue) / 255.0f}
 
+#define hex(value) \
+    (simd_float3){(((value) >> 16) & 0xFFu) / 255.0f, (((value) >> 8) & 0xFFu) / 255.0f, ((value) & 0xFFu) / 255.0f}
+
 bool cpu_default_monochrome = false;
 double cpu_default_cursor_fps = 60.0;
 double cpu_default_cursor_interval = 1.0;
@@ -19,22 +22,22 @@ char cpu_default_font[CPU_FONT_NAME_LENGTH] = "";
 float cpu_default_font_size = 12.0f;
 
 simd_float3 cpu_default_colors[] = {
-    rgb(0, 0, 0),
-    rgb(255, 28, 62),
-    rgb(29, 219, 108),
-    rgb(245, 255, 46),
-    rgb(46, 147, 255),
-    rgb(255, 46, 248),
-    rgb(46, 241, 255),
-    rgb(168, 168, 168),
-    rgb(87, 87, 87),
-    rgb(255, 128, 147),
-    rgb(115, 237, 166),
-    rgb(250, 255, 148),
-    rgb(148, 200, 255),
-    rgb(255, 148, 251),
-    rgb(148, 248, 255),
-    rgb(255, 255, 255),
+    hex(0x262626u),
+    hex(0xFF214Du),
+    hex(0x1CD673u),
+    hex(0xE6F520u),
+    hex(0x2194FFu),
+    hex(0xB45EFFu),
+    hex(0x34DBEDu),
+    hex(0xCACACAu),
+    hex(0x5C5C5Cu),
+    hex(0xFF597au),
+    hex(0x55E096u),
+    hex(0xECF858u),
+    hex(0x59AFFFu),
+    hex(0xC786FFu),
+    hex(0x67E4F2u),
+    hex(0xD7D7D7u),
 };
 
 static simd_float3 indexed_color(int index) {
