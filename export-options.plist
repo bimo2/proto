@@ -10,7 +10,5 @@
 	<string>manual</string>
 	<key>signingCertificate</key>
 	<string>Developer ID Application</string>
-	<key>generateDSYMFile</key>
-	<true/>
 </dict>
 </plist>
