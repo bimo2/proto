@@ -39,9 +39,10 @@ POSIX tests are used to test `libo1` against shell applications like `nano`, `tm
 
 > [!IMPORTANT]
 > Signed and notarized archives are uploaded by GitHub Actions (job: release) and should be published with release tags:
-> - `o1.dmg`
+>
+> - `o1.xip`
 > - `o1.app`
 
 #
 
-<sub><sup>**MIT.** Copyright &copy; 2026 Bimal Bhagrath.</sup></sub>
+<sub><sup>**Open Source.** Copyright &copy; 2026 **Bimal Bhagrath**.</sup></sub>

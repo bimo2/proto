@@ -2,10 +2,10 @@ name: Xcode Tests + Releases
 
 on:
   push:
-    branches: [ main ]
-    tags: [ '**' ]
+    branches: [main]
+    tags: ['**']
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   unit-tests:
@@ -59,12 +59,20 @@ jobs:
       - name: Download Metal Toolchain
         run: xcodebuild -downloadComponent MetalToolchain
 
-      - name: Code Signing
+      - name: Code Signing (Application)
         uses: apple-actions/import-codesign-certs@v3
         with:
-          p12-file-base64: ${{ secrets.P12_FILE_BASE64 }}
+          p12-file-base64: ${{ secrets.P12_APPLICATION_BASE64 }}
           p12-password: ${{ secrets.P12_PASSWORD }}
           keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: Code Signing (Installer)
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.P12_INSTALLER_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+          create-keychain: false
 
       - name: Archive
         env:
@@ -89,32 +97,33 @@ jobs:
             -exportOptionsPlist export-options.plist \
             -exportPath .
 
-      - name: Package DMG
-        env:
-          DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
-        run: |
-          codesign --force --deep --options runtime --timestamp --sign "Developer ID Application: BIMAL BHAGRATH (${DEVELOPMENT_TEAM})" o1.app
-          mkdir -p staging
-          cp -a o1.app staging/
-          ln -s /Applications staging/Applications
-          hdiutil create -volname "o1 Installer" -srcfolder staging -ov -format UDZO o1.dmg
-          codesign --force --timestamp --sign "Developer ID Application: BIMAL BHAGRATH (${DEVELOPMENT_TEAM})" o1.dmg
-
-      - name: Notarize DMG
+      - name: Notarize
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
         run: |
-          xcrun notarytool store-credentials "github-actions" --apple-id "$APPLE_ID" --team-id "$DEVELOPMENT_TEAM" --password "$APPLE_PASSWORD" --validate || true
-          xcrun notarytool submit o1.dmg --keychain-profile "github-actions" --wait
-          xcrun stapler staple o1.dmg
+          xcrun notarytool store-credentials "github-actions" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$DEVELOPMENT_TEAM" \
+            --password "$APPLE_PASSWORD" \
+            --validate || true
+          ditto -c -k --keepParent o1.app o1.zip
+          xcrun notarytool submit o1.zip --keychain-profile "github-actions" --wait
           xcrun stapler staple o1.app
+
+      - name: Package XIP
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+        run: |
+          xip --sign "Developer ID Installer: BIMAL BHAGRATH (${DEVELOPMENT_TEAM})" o1.app o1.xip
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: release
           path: |
-            o1.dmg
+            o1.xip
             o1.app
