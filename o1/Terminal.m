@@ -37,7 +37,11 @@ static void on_mouse_callback(void *, bool);
     dispatch_source_t write_source;
     dispatch_source_t proc_source;
     bool write_suspended;
+    bool render_queued;
+    bool render_scheduled;
 }
+
+- (void)scheduleRenderLoop;
 
 @end
 
@@ -55,6 +59,8 @@ static void on_mouse_callback(void *, bool);
         dispatch_queue_set_specific(io_queue, kIOQueueKey, (void *)kIOQueueKey, NULL);
 
         write_suspended = true;
+        render_queued = false;
+        render_scheduled = false;
         _file = @"/bin/zsh";
         _flags = [NSArray arrayWithObject:@"-l"];
         _environment = [NSDictionary dictionary];
@@ -182,6 +188,8 @@ static void on_mouse_callback(void *, bool);
             strongSelf->read_source = NULL;
         }
 
+        strongSelf->render_queued = false;
+        strongSelf->render_scheduled = false;
         ansi_reader_reset(strongSelf->reader);
         screen_context_reset(strongSelf->context);
         session_stop(strongSelf->session);
@@ -363,6 +371,59 @@ static void on_mouse_callback(void *, bool);
 
 #pragma mark - Private
 
+- (void)scheduleRenderLoop {
+    render_queued = true;
+
+    if (render_scheduled) return;
+
+    render_scheduled = true;
+
+    __weak typeof(self) weakSelf = self;
+
+    dispatch_async(io_queue, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+
+        if (!strongSelf) return;
+
+        if (!strongSelf->render_queued) {
+            strongSelf->render_scheduled = false;
+
+            return;
+        }
+
+        strongSelf->render_queued = false;
+
+        screen_t *screen = screen_context_current_screen(strongSelf->context);
+        render_t *ops = NULL;
+        size_t count = 0;
+
+        render_collect_ops(&ops, screen, &count);
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+
+            if (!strongSelf) return;
+
+            if (strongSelf.renderBlock) {
+                if (count > 0) strongSelf.renderBlock(ops, count);
+                if (ops) render_clear_ops(ops, count);
+            }
+
+            if (strongSelf.updateBlock) strongSelf.updateBlock(screen);
+
+            dispatch_async(strongSelf->io_queue, ^{
+                __strong typeof(weakSelf) strongSelf = weakSelf;
+
+                if (!strongSelf) return;
+
+                strongSelf->render_scheduled = false;
+
+                if (strongSelf->render_queued) [strongSelf scheduleRenderLoop];
+            });
+        });
+    });
+}
+
 - (void)setupReadSource {
     int fd = session_fd(session);
 
@@ -508,21 +569,7 @@ static void on_ansi_callback(void *user_data, ansi_t *ansi) {
 
     screen_context_t *context = [self _context];
     screen_context_update(context, ansi);
-
-    screen_t *screen = screen_context_current_screen(context);
-    render_t *ops = NULL;
-    size_t count = 0;
-
-    render_collect_ops(&ops, screen, &count);
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (self.renderBlock) {
-            if (count > 0) self.renderBlock(ops, count);
-            if (ops) render_clear_ops(ops, count);
-        }
-
-        if (self.updateBlock) self.updateBlock(screen);
-    });
+    [self scheduleRenderLoop];
 }
 
 static void on_title_callback(void *user_data, const char *title) {
