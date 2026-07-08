@@ -1,6 +1,6 @@
 # proto
 
-**A GPU native terminal designed for Apple ARM64 machines.** o1 is implemented in C and Metal using Apple Silicon's unified memory architecture for high performance, maximum throughput and low latency. See `o1` for user defaults including:
+**GPU native terminal designed for Apple ARM64 machines.** o1 is implemented in C and Metal using Apple Silicon's unified memory architecture for high performance, maximum throughput and low latency. See `o1` for user defaults including:
 
 - CPU/memory uasge,
 - SGR and color modes,
@@ -14,7 +14,13 @@
 > [!NOTE]
 > Supports macOS 26+ (Tahoe) and Xcode 26.3+
 
-You can download precompiled binaries and static libraries from the [GitHub Releases](https://github.com/bimo2/proto/releases) section.
+You can download precompiled binaries and static libraries from the [GitHub Releases](https://github.com/bimo2/proto/releases) section. `xip` archives are restricted by Apple, use `xar` to extract contents:
+
+```sh
+# xip -x o1.xip
+xar -xf o1.xip
+tar -zxf Content
+```
 
 ## DEBUG
 

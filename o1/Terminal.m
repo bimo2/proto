@@ -438,13 +438,17 @@ static void on_mouse_callback(void *, bool);
 
         if (!strongSelf) return;
 
-        uint8_t bytes[_KB(16)];
+        uint8_t bytes[_KB(64)];
+        size_t total = 0;
 
         while (1) {
             ssize_t size = session_read(strongSelf->session, bytes, sizeof(bytes));
 
             if (size > 0) {
                 ansi_reader_feed(strongSelf->reader, bytes, (size_t)size);
+                total += (size_t)size;
+
+                if (strongSelf->render_scheduled && total >= _KB(256)) break;
 
                 continue;
             }
