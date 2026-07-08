@@ -99,6 +99,29 @@ static inline void reset_cell(screen_cell_t *cell) {
     cell->dirty = false;
 }
 
+static screen_cell_t *init_line(int32_t columns) {
+    screen_cell_t *cells = (screen_cell_t *)calloc((size_t)columns, sizeof(screen_cell_t));
+
+    if (!cells) {
+        log_error("malloc failed: %zu", (size_t)columns * sizeof(screen_cell_t));
+
+        return NULL;
+    }
+
+    for (int32_t j = 0; j < columns; j++) reset_cell(&cells[j]);
+
+    return cells;
+}
+
+static inline void reset_line(screen_cell_t *cells, int32_t columns, bool dirty) {
+    if (!cells) return;
+
+    for (int32_t j = 0; j < columns; j++) {
+        reset_cell(&cells[j]);
+        cells[j].dirty = dirty;
+    }
+}
+
 static inline void reset_cursor(screen_cursor_t *cursor) {
     if (!cursor) return;
 
@@ -119,19 +142,15 @@ static screen_cell_t **init_grid(int32_t rows, int32_t columns) {
     }
 
     for (int32_t i = 0; i < rows; i++) {
-        grid[i] = (screen_cell_t *)calloc((size_t)columns, sizeof(screen_cell_t));
+        grid[i] = init_line(columns);
 
         if (!grid[i]) {
-            log_error("malloc failed: %zu", (size_t)columns * sizeof(screen_cell_t));
-
             for (int32_t j = 0; j < i; j++) free(grid[j]);
 
             free(grid);
 
             return NULL;
         }
-
-        for (int32_t j = 0; j < columns; j++) reset_cell(&grid[i][j]);
     }
 
     return grid;
@@ -1643,36 +1662,42 @@ void screen_scroll_up(screen_t *screen, int32_t lines) {
 
     if (lines > area) lines = area;
 
+    screen_cell_t *swap[lines];
+
     if (screen->scroll_top == 0 && screen->scroll_bottom == screen->rows - 1) {
         if (screen->scrollback.lines) {
             for (int32_t i = 0; i < lines; i++) {
                 size_t index;
+                screen_cell_t *blank = NULL;
 
                 if (screen->scrollback.size < screen->scrollback.capacity) {
                     index = (screen->scrollback.head + screen->scrollback.size) % screen->scrollback.capacity;
                     screen->scrollback.size++;
                 } else {
                     index = screen->scrollback.head;
-                    free(screen->scrollback.lines[index].cells);
+                    blank = screen->scrollback.lines[index].cells;
                     screen->scrollback.head = (screen->scrollback.head + 1) % screen->scrollback.capacity;
                 }
 
-                screen->scrollback.lines[index].cells = malloc((size_t)screen->columns * sizeof(screen_cell_t));
+                screen->scrollback.lines[index].cells = screen->grid[i];
+                screen->scrollback.lines[index].width = (size_t)screen->columns;
+                screen->scrollback.lines[index].soft_wrap = screen->soft_wrap[i];
+                screen->scrollback.lines[index].wide_wrap = screen->wide_wrap[i];
 
-                if (screen->scrollback.lines[index].cells) {
-                    memcpy(screen->scrollback.lines[index].cells, screen->grid[i],
-                           (size_t)screen->columns * sizeof(screen_cell_t));
-                    screen->scrollback.lines[index].width = (size_t)screen->columns;
-                    screen->scrollback.lines[index].soft_wrap = screen->soft_wrap[i];
-                    screen->scrollback.lines[index].wide_wrap = screen->wide_wrap[i];
-                } else {
-                    log_error("malloc failed: %zu", (size_t)screen->columns * sizeof(screen_cell_t));
+                if (!blank) blank = init_line(screen->columns);
+
+                if (!blank) {
+                    blank = screen->scrollback.lines[index].cells;
                     screen->scrollback.lines[index].cells = NULL;
                     screen->scrollback.lines[index].width = 0;
                     screen->scrollback.lines[index].soft_wrap = false;
                     screen->scrollback.lines[index].wide_wrap = false;
                 }
+
+                swap[i] = blank;
             }
+        } else {
+            for (int32_t i = 0; i < lines; i++) swap[i] = screen->grid[i];
         }
 
         if (screen->viewport_offset > 0) {
@@ -1680,27 +1705,28 @@ void screen_scroll_up(screen_t *screen, int32_t lines) {
 
             if (screen->viewport_offset > screen->scrollback.size) screen->viewport_offset = (int32_t)screen->scrollback.size;
         }
+    } else {
+        for (int32_t i = 0; i < lines; i++) swap[i] = screen->grid[screen->scroll_top + i];
     }
 
-    for (int32_t i = screen->scroll_top; i < screen->scroll_bottom - lines + 1; i++) {
-        for (int32_t j = 0; j < screen->columns; j++) {
-            screen->grid[i][j] = screen->grid[i + lines][j];
-            screen->grid[i][j].dirty = true;
-        }
+    int32_t moving = area - lines;
 
-        screen->soft_wrap[i] = screen->soft_wrap[i + lines];
-        screen->wide_wrap[i] = screen->wide_wrap[i + lines];
+    if (moving > 0) {
+        memmove(screen->grid + screen->scroll_top, screen->grid + screen->scroll_top + lines, (size_t)moving * sizeof(screen_cell_t *));
+        memmove(screen->soft_wrap + screen->scroll_top, screen->soft_wrap + screen->scroll_top + lines, (size_t)moving * sizeof(bool));
+        memmove(screen->wide_wrap + screen->scroll_top, screen->wide_wrap + screen->scroll_top + lines, (size_t)moving * sizeof(bool));
     }
 
-    for (int32_t i = screen->scroll_bottom - lines + 1; i <= screen->scroll_bottom; i++) {
-        for (int32_t j = 0; j < screen->columns; j++) {
-            reset_cell(&screen->grid[i][j]);
-            screen->grid[i][j].dirty = true;
-        }
+    for (int32_t i = 0; i < lines; i++) {
+        int32_t row = screen->scroll_bottom - lines + 1 + i;
 
-        screen->soft_wrap[i] = false;
-        screen->wide_wrap[i] = false;
+        screen->grid[row] = swap[i];
+        reset_line(screen->grid[row], screen->columns, true);
+        screen->soft_wrap[row] = false;
+        screen->wide_wrap[row] = false;
     }
+
+    screen_needs_display(screen);
 }
 
 void screen_scroll_down(screen_t *screen, int32_t lines) {

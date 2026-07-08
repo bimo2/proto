@@ -364,6 +364,13 @@
     XCTAssertEqual(screen_viewport_row(screen, 1, NULL)[0].codepoint, 'D');
 
     screen_set_viewport_offset(screen, 0);
+    screen_set_cell(screen, 0, 0, 'X', NULL);
+    screen_set_cell(screen, 1, 0, 'Y', NULL);
+    screen_set_viewport_offset(screen, 2);
+    XCTAssertEqual(screen_viewport_row(screen, 0, NULL)[0].codepoint, 'C');
+    XCTAssertEqual(screen_viewport_row(screen, 1, NULL)[0].codepoint, 'D');
+
+    screen_set_viewport_offset(screen, 0);
     screen_set_cursor_position(screen, 0, 0);
     screen_clear(screen);
 
