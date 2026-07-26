@@ -1,6 +1,6 @@
 # proto
 
-**GPU native terminal designed for Apple ARM64 machines.** o1 is implemented in C and Metal using Apple Silicon's unified memory architecture for high performance, maximum throughput and low latency. See `o1` for user defaults including:
+**GPU-native terminal implemented in C and Metal using Apple Silicon's unified memory architecture for high performance, maximum throughput and low latency.** `libo1` provides modern ECMA-48 terminal emulation with xterm compatibility, supporting applications like _nano_, _tmux_ and _codex_. See `o1` for user defaults including:
 
 - CPU/memory uasge,
 - SGR and color modes,
