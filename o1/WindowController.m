@@ -9,7 +9,7 @@
 
 #import "ViewController.h"
 
-static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
+static NSToolbarItemIdentifier const kSearchItemIdentifier = @"SearchItem";
 
 @interface WindowController ()
 
@@ -20,7 +20,7 @@ static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
 @implementation WindowController
 
 - (instancetype)init {
-    NSRect frame = NSMakeRect(100, 250, 575, 375);
+    NSRect frame = NSMakeRect(100.0, 250.0, 575.0, 375.0);
     NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable | NSWindowStyleMaskFullSizeContentView;
     NSWindow *window = [[NSWindow alloc] initWithContentRect:frame styleMask:style backing:NSBackingStoreBuffered defer:NO];
 
@@ -38,6 +38,7 @@ static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
         toolbar.allowsDisplayModeCustomization = NO;
         window.toolbar = toolbar;
         window.toolbarStyle = NSWindowToolbarStyleUnified;
+        window.contentMinSize = NSMakeSize(200.0, 185.0);
         _viewController = [[ViewController alloc] init];
         window.contentViewController = _viewController;
         window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
@@ -50,7 +51,7 @@ static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
 #pragma mark - NSToolbarDelegate
 
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier willBeInsertedIntoToolbar:(BOOL)flag {
-    if ([itemIdentifier isEqualToString:SearchItemIdentifier]) {
+    if ([itemIdentifier isEqualToString:kSearchItemIdentifier]) {
         NSSearchToolbarItem *search = [[NSSearchToolbarItem alloc] initWithItemIdentifier:itemIdentifier];
         NSSearchField *searchField = search.searchField;
 
@@ -66,14 +67,14 @@ static NSToolbarItemIdentifier const SearchItemIdentifier = @"SearchItem";
 - (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar {
     return @[
         NSToolbarFlexibleSpaceItemIdentifier,
-        SearchItemIdentifier,
+        kSearchItemIdentifier,
     ];
 }
 
 - (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar {
     return @[
         NSToolbarFlexibleSpaceItemIdentifier,
-        SearchItemIdentifier,
+        kSearchItemIdentifier,
     ];
 }
 

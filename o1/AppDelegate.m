@@ -92,8 +92,36 @@
     if (!_windowControllers) _windowControllers = [NSMutableArray array];
 
     WindowController *windowController = [[WindowController alloc] init];
+    NSWindow *window = windowController.window;
 
-    windowController.window.delegate = self;
+    if (self.windowControllers.count > 0) {
+        NSPoint origin = NSMakePoint(100.0, 250.0);
+        NSUInteger slot = (self.windowControllers.count - 1) % 3;
+        CGFloat dx;
+        CGFloat dy;
+
+        switch (slot) {
+            case 0:
+                dx = 150.0 + (CGFloat)arc4random_uniform(101);
+                dy = 75.0 + (CGFloat)arc4random_uniform(101);
+
+                break;
+            case 1:
+                dx = 75.0 + (CGFloat)arc4random_uniform(101);
+                dy = -(25.0 + (CGFloat)arc4random_uniform(101));
+
+                break;
+            default:
+                dx = 25.0 + (CGFloat)arc4random_uniform(101);
+                dy = 25.0 + (CGFloat)arc4random_uniform(101);
+
+                break;
+        }
+
+        [window setFrameOrigin:NSMakePoint(origin.x + dx, origin.y + dy)];
+    }
+
+    window.delegate = self;
     [windowController showWindow:nil];
     [self.windowControllers addObject:windowController];
     [NSApp activate];
