@@ -9,4 +9,6 @@
 
 @interface WindowController : NSWindowController <NSToolbarDelegate>
 
++ (NSRect)defaultContentRect;
+
 @end

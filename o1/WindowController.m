@@ -19,8 +19,12 @@ static NSToolbarItemIdentifier const kSearchItemIdentifier = @"SearchItem";
 
 @implementation WindowController
 
++ (NSRect)defaultContentRect {
+    return NSMakeRect(100.0, 250.0, 575.0, 375.0);
+}
+
 - (instancetype)init {
-    NSRect frame = NSMakeRect(100.0, 250.0, 575.0, 375.0);
+    NSRect frame = [WindowController defaultContentRect];
     NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable | NSWindowStyleMaskFullSizeContentView;
     NSWindow *window = [[NSWindow alloc] initWithContentRect:frame styleMask:style backing:NSBackingStoreBuffered defer:NO];
 
