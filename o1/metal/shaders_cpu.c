@@ -27,7 +27,7 @@ simd_float3 cpu_default_colors[] = {
     hex(0x1CD673u),
     hex(0xE6F520u),
     hex(0x2194FFu),
-    hex(0xB45EFFu),
+    hex(0xA770FFu),
     hex(0x34DBEDu),
     hex(0xD1D1D1u),
     hex(0x5C5C5Cu),
@@ -35,7 +35,7 @@ simd_float3 cpu_default_colors[] = {
     hex(0x55E096u),
     hex(0xECF858u),
     hex(0x59AFFFu),
-    hex(0xC786FFu),
+    hex(0xBD94FFu),
     hex(0x67E4F2u),
     hex(0xDDDDDDu),
 };

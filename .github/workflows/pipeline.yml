@@ -9,14 +9,14 @@ on:
 
 jobs:
   unit-tests:
-    runs-on: macos-26
+    runs-on: xcode-27
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Xcode 26.3+
+      - name: Xcode 27
         run: |
-          XCODE=$(ls /Applications | grep "Xcode_" | sort -V | tail -1)
+          XCODE=$(ls /Applications | grep -E '^Xcode_27' | sort -V | tail -1)
           if [ -n "$XCODE" ]; then
             sudo xcode-select -s /Applications/$XCODE
           fi
@@ -40,7 +40,7 @@ jobs:
 
   release:
     needs: unit-tests
-    runs-on: macos-26
+    runs-on: xcode-27
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout
@@ -48,9 +48,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Xcode 26.3+
+      - name: Xcode 27
         run: |
-          XCODE=$(ls /Applications | grep "Xcode_" | sort -V | tail -1)
+          XCODE=$(ls /Applications | grep -E '^Xcode_27' | sort -V | tail -1)
           if [ -n "$XCODE" ]; then
             sudo xcode-select -s /Applications/$XCODE
           fi

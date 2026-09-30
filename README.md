@@ -12,7 +12,7 @@
 ## Download
 
 > [!NOTE]
-> Supports macOS 26+ (Tahoe) and Xcode 26.3+
+> Supports macOS 26+ (Tahoe) and Xcode 27+
 
 You can download precompiled binaries and static libraries from the [GitHub Releases](https://github.com/bimo2/proto/releases) section. `xip` archives are restricted by Apple, use `xar` to extract contents:
 
