@@ -186,7 +186,44 @@ static location_t location(int32_t row, int32_t column);
 
 - (void)resetCursorRects {
     [super resetCursorRects];
-    [self addCursorRect:[self cursorRect] cursor:[NSCursor IBeamCursor]];
+
+    NSRect rect = [self cursorRect];
+    CGFloat cellWidth = self.cellWidth / self.scale;
+    CGFloat cellHeight = self.cellHeight / self.scale;
+    NSInteger rows = (NSInteger)self.rows - (NSInteger)screen_default_offset;
+
+    if (!screen || NSIsEmptyRect(rect) || cellWidth <= 0.0 || cellHeight <= 0.0 || rows < 1) {
+        [self addCursorRect:rect cursor:[NSCursor IBeamCursor]];
+
+        return;
+    }
+
+    int32_t viewport = screen_viewport_index(screen);
+
+    for (NSInteger row = 0; row < rows; row++) {
+        const screen_cell_t *cells = screen_absolute_row(screen, viewport + (int32_t)screen_default_offset + (int32_t)row, NULL, NULL);
+        NSInteger start = 0;
+        BOOL hasLink = cells && screen_link_url(screen, cells[0].link_id) != NULL;
+
+        for (NSInteger column = 1; column <= (NSInteger)self.columns; column++) {
+            BOOL nextHasLink = column < (NSInteger)self.columns && cells && screen_link_url(screen, cells[column].link_id) != NULL;
+
+            if (column < (NSInteger)self.columns && nextHasLink == hasLink) continue;
+
+            NSRect cursorRect = NSMakeRect(rect.origin.x + (CGFloat)start * cellWidth, NSMaxY(rect) - (CGFloat)(row + 1) * cellHeight, (CGFloat)(column - start) * cellWidth, cellHeight);
+
+            cursorRect = NSIntersectionRect(cursorRect, rect);
+
+            if (!NSIsEmptyRect(cursorRect)) {
+                NSCursor *cursor = hasLink ? [NSCursor pointingHandCursor] : [NSCursor IBeamCursor];
+
+                [self addCursorRect:cursorRect cursor:cursor];
+            }
+
+            start = column;
+            hasLink = nextHasLink;
+        }
+    }
 }
 
 #pragma mark - MTKViewDelegate
@@ -489,7 +526,13 @@ static location_t location(int32_t row, int32_t column);
 }
 
 - (void)mouseUp:(NSEvent *)event {
-    if ([self endSelection:event]) return;
+    BOOL intent = self.isSelectPending;
+
+    if ([self endSelection:event]) {
+        if (intent) [self openLink:event];
+
+        return;
+    }
 
     [self mouse:event button:ANSI_MOUSE_LEFT action:ANSI_MOUSE_EVENT_UP];
 }
@@ -626,6 +669,7 @@ static location_t location(int32_t row, int32_t column);
     self->screen = (screen_t *)screen;
     [self updateNextCursor];
     [self updateSelectionLayer];
+    [self.window invalidateCursorRectsForView:self];
     [self setNeedsDisplay:YES];
 }
 
@@ -1492,6 +1536,27 @@ static location_t location(int32_t row, int32_t column);
     }
 
     return [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+}
+
+- (BOOL)openLink:(NSEvent *)event {
+    location_t location;
+    NSInteger direction;
+
+    if (![self select:event cell:&location direction:&direction] || direction != 0) return NO;
+
+    const screen_cell_t *cells = screen_absolute_row(screen, location.row, NULL, NULL);
+
+    if (!cells) return NO;
+
+    const char *value = screen_link_url(screen, cells[location.column].link_id);
+
+    if (!value) return NO;
+
+    NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:value]];
+
+    if (!url || !url.scheme) return NO;
+
+    return [[NSWorkspace sharedWorkspace] openURL:url];
 }
 
 @end
