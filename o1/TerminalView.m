@@ -31,6 +31,7 @@ static const char *kSupportFont2 = "Zapf Dingbats";
 static const float kCellTopPadding = 4.0f;
 static const float kCellBottomPadding = 2.0f;
 static const float kCellHorizontalPadding = 0.0f;
+static const float kHyperlinkPadding = 4.0f;
 static location_t location(int32_t row, int32_t column);
 
 @interface TerminalView () {
@@ -67,6 +68,7 @@ static location_t location(int32_t row, int32_t column);
 @property (nonatomic, assign, getter=shouldSelect) BOOL select;
 @property (nonatomic, assign, getter=isSelecting) BOOL selecting;
 @property (readonly, getter=hasSelection) BOOL selection;
+@property (nonatomic, strong) CAShapeLayer *hyperlinkLayer;
 @property (nonatomic, strong) CAShapeLayer *selectionLayer;
 @property (nonatomic, assign) NSPoint selectionAutoScrollPoint;
 @property (nonatomic, assign) NSInteger selectionAutoScrollDirection;
@@ -84,6 +86,7 @@ static location_t location(int32_t row, int32_t column);
     self.delegate = self;
     self.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     self.wantsLayer = YES;
+    self.layer.masksToBounds = NO;
     self.layer.opaque = NO;
     self.framebufferOnly = NO;
     self.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
@@ -120,13 +123,25 @@ static location_t location(int32_t row, int32_t column);
     next_cursor.style = CPU_CURSOR_STYLE_BLOCK;
     next_cursor.alpha = 1.0f;
 
-    CAShapeLayer *sublayer = [CAShapeLayer layer];
+    CAShapeLayer *hyperlinkLayer = [CAShapeLayer layer];
 
-    sublayer.fillColor = [NSColor selectedTextBackgroundColor].CGColor;
-    sublayer.opacity = 0.28;
-    sublayer.frame = self.bounds;
-    [self.layer addSublayer:sublayer];
-    _selectionLayer = sublayer;
+    hyperlinkLayer.fillColor = NSColor.clearColor.CGColor;
+    hyperlinkLayer.strokeColor = NSColor.linkColor.CGColor;
+    hyperlinkLayer.opacity = 0.92;
+    hyperlinkLayer.lineWidth = 1.75;
+    hyperlinkLayer.lineCap = kCALineCapRound;
+    hyperlinkLayer.bounds = NSInsetRect(self.bounds, -kHyperlinkPadding, -kHyperlinkPadding);
+    hyperlinkLayer.position = NSMakePoint(NSMidX(self.bounds), NSMidY(self.bounds));
+    [self.layer addSublayer:hyperlinkLayer];
+    _hyperlinkLayer = hyperlinkLayer;
+
+    CAShapeLayer *selectionLayer = [CAShapeLayer layer];
+
+    selectionLayer.fillColor = [NSColor selectedTextBackgroundColor].CGColor;
+    selectionLayer.opacity = 0.28;
+    selectionLayer.frame = self.bounds;
+    [self.layer addSublayer:selectionLayer];
+    _selectionLayer = selectionLayer;
 
     return self;
 }
@@ -157,6 +172,7 @@ static location_t location(int32_t row, int32_t column);
 
 - (void)layout {
     [super layout];
+    [self updateHyperlinkLayer];
     [self updateSelectionLayer];
     [self.window invalidateCursorRectsForView:self];
 }
@@ -668,6 +684,7 @@ static location_t location(int32_t row, int32_t column);
 
     self->screen = (screen_t *)screen;
     [self updateNextCursor];
+    [self updateHyperlinkLayer];
     [self updateSelectionLayer];
     [self.window invalidateCursorRectsForView:self];
     [self setNeedsDisplay:YES];
@@ -1107,6 +1124,81 @@ static location_t location(int32_t row, int32_t column);
     return point;
 }
 
+- (void)updateHyperlinkLayer {
+    self.hyperlinkLayer.bounds = NSInsetRect(self.bounds, -kHyperlinkPadding, -kHyperlinkPadding);
+    self.hyperlinkLayer.position = NSMakePoint(NSMidX(self.bounds), NSMidY(self.bounds));
+
+    NSRect rect = [self cursorRect];
+    CGFloat cellWidth = self.cellWidth / self.scale;
+    CGFloat cellHeight = self.cellHeight / self.scale;
+    NSInteger rows = (NSInteger)self.rows - (NSInteger)screen_default_offset;
+
+    if (!screen || NSIsEmptyRect(rect) || cellWidth <= 0.0 || cellHeight <= 0.0 || rows < 1) {
+        self.hyperlinkLayer.path = nil;
+
+        return;
+    }
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    int32_t viewport = screen_viewport_index(screen);
+
+    for (NSInteger row = 0; row < rows; row++) {
+        const screen_cell_t *cells = screen_absolute_row(screen, viewport + (int32_t)screen_default_offset + (int32_t)row, NULL, NULL);
+
+        if (!cells) continue;
+
+        NSInteger start = 0;
+        uint32_t link_id = cells[0].link_id;
+
+        for (NSInteger column = 1; column <= (NSInteger)self.columns; column++) {
+            uint32_t next_link_id = column < (NSInteger)self.columns ? cells[column].link_id : 0;
+
+            if (column < (NSInteger)self.columns && next_link_id == link_id) continue;
+
+            if (screen_link_url(screen, link_id)) {
+                NSRect linkRect = NSMakeRect(rect.origin.x + (CGFloat)start * cellWidth, NSMaxY(rect) - (CGFloat)(row + 1) * cellHeight, (CGFloat)(column - start) * cellWidth, cellHeight);
+
+                linkRect = NSIntersectionRect(linkRect, rect);
+                linkRect = NSInsetRect(linkRect, -1.0, 0.0);
+
+                if (!NSIsEmptyRect(linkRect)) {
+                    CGFloat y = NSMinY(linkRect) + 2.25;
+
+                    CGPathMoveToPoint(path, NULL, NSMinX(linkRect), y);
+                    CGPathAddLineToPoint(path, NULL, NSMaxX(linkRect), y);
+                }
+            }
+
+            start = column;
+            link_id = next_link_id;
+        }
+    }
+
+    self.hyperlinkLayer.path = path;
+    CGPathRelease(path);
+}
+
+- (BOOL)openLink:(NSEvent *)event {
+    location_t location;
+    NSInteger direction;
+
+    if (![self select:event cell:&location direction:&direction] || direction != 0) return NO;
+
+    const screen_cell_t *cells = screen_absolute_row(screen, location.row, NULL, NULL);
+
+    if (!cells) return NO;
+
+    const char *value = screen_link_url(screen, cells[location.column].link_id);
+
+    if (!value) return NO;
+
+    NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:value]];
+
+    if (!url || !url.scheme) return NO;
+
+    return [[NSWorkspace sharedWorkspace] openURL:url];
+}
+
 - (void)startSelectionTimer {
     if (selection_timer) return;
 
@@ -1536,27 +1628,6 @@ static location_t location(int32_t row, int32_t column);
     }
 
     return [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-}
-
-- (BOOL)openLink:(NSEvent *)event {
-    location_t location;
-    NSInteger direction;
-
-    if (![self select:event cell:&location direction:&direction] || direction != 0) return NO;
-
-    const screen_cell_t *cells = screen_absolute_row(screen, location.row, NULL, NULL);
-
-    if (!cells) return NO;
-
-    const char *value = screen_link_url(screen, cells[location.column].link_id);
-
-    if (!value) return NO;
-
-    NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:value]];
-
-    if (!url || !url.scheme) return NO;
-
-    return [[NSWorkspace sharedWorkspace] openURL:url];
 }
 
 @end

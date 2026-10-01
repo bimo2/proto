@@ -20,6 +20,7 @@
 static const float kTerminalTopPadding = 2.0f;
 static const float kTerminalBottomPadding = 20.0f;
 static const float kTerminalHorizontalPadding = 16.0f;
+static const float kTerminalViewPadding = 4.0f;
 static const float kGradientStop = 60.0f;
 
 @interface ViewController ()
@@ -175,7 +176,7 @@ static const float kGradientStop = 60.0f;
 
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
-    self.gradientLayer.frame = bounds;
+    self.gradientLayer.frame = NSInsetRect(bounds, -kTerminalViewPadding, -kTerminalViewPadding);
 
     self.gradientLayer.locations = @[
         @0.0,
