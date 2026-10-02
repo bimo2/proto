@@ -12,12 +12,14 @@
 #import <QuartzCore/QuartzCore.h>
 
 #include "ansi.h"
+#include "hyperlink.h"
 #include "render.h"
 #include "shaders_cpu.h"
 #include "unicode.h"
 
 #include <dispatch/dispatch.h>
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef struct {
@@ -39,6 +41,8 @@ static location_t location(int32_t row, int32_t column);
     cpu_cursor_uniforms_t next_cursor;
     dispatch_source_t blink_timer;
     dispatch_source_t blink_pause_timer;
+    hyperlink_t *links;
+    size_t links_count;
     location_t selection_start;
     location_t selection_end;
     dispatch_source_t selection_timer;
@@ -148,6 +152,7 @@ static location_t location(int32_t row, int32_t column);
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    hyperlink_clear(links, links_count);
     [self stopCursorBlinkTimer];
     [self stopCursorBlinkPauseTimer];
     [self stopSelectionTimer];
@@ -172,6 +177,7 @@ static location_t location(int32_t row, int32_t column);
 
 - (void)layout {
     [super layout];
+    [self updateHyperlinks];
     [self updateHyperlinkLayer];
     [self updateSelectionLayer];
     [self.window invalidateCursorRectsForView:self];
@@ -217,12 +223,22 @@ static location_t location(int32_t row, int32_t column);
     int32_t viewport = screen_viewport_index(screen);
 
     for (NSInteger row = 0; row < rows; row++) {
-        const screen_cell_t *cells = screen_absolute_row(screen, viewport + (int32_t)screen_default_offset + (int32_t)row, NULL, NULL);
+        NSMutableIndexSet *targets = [NSMutableIndexSet indexSet];
+        int32_t absolute = viewport + (int32_t)screen_default_offset + (int32_t)row;
+
+        for (size_t index = 0; index < links_count; index++) {
+            const hyperlink_t *link = &links[index];
+
+            if (link->row != absolute) continue;
+
+            [targets addIndexesInRange:NSMakeRange((NSUInteger)link->start, (NSUInteger)(link->end - link->start))];
+        }
+
         NSInteger start = 0;
-        BOOL hasLink = cells && screen_link_url(screen, cells[0].link_id) != NULL;
+        BOOL hasLink = [targets containsIndex:0];
 
         for (NSInteger column = 1; column <= (NSInteger)self.columns; column++) {
-            BOOL nextHasLink = column < (NSInteger)self.columns && cells && screen_link_url(screen, cells[column].link_id) != NULL;
+            BOOL nextHasLink = column < (NSInteger)self.columns && [targets containsIndex:(NSUInteger)column];
 
             if (column < (NSInteger)self.columns && nextHasLink == hasLink) continue;
 
@@ -684,6 +700,7 @@ static location_t location(int32_t row, int32_t column);
 
     self->screen = (screen_t *)screen;
     [self updateNextCursor];
+    [self updateHyperlinks];
     [self updateHyperlinkLayer];
     [self updateSelectionLayer];
     [self.window invalidateCursorRectsForView:self];
@@ -1124,6 +1141,27 @@ static location_t location(int32_t row, int32_t column);
     return point;
 }
 
+- (void)updateHyperlinks {
+    hyperlink_clear(links, links_count);
+    links = NULL;
+    links_count = 0;
+
+    if (!screen) return;
+
+    int32_t rows = (int32_t)self.rows - (int32_t)screen_default_offset;
+    int32_t total = screen_total_rows(screen);
+    BOOL valid = self.rows <= INT32_MAX && self.columns <= INT32_MAX && screen_rows(screen) == (int32_t)self.rows && screen_columns(screen) == (int32_t)self.columns;
+
+    if (!valid || self.columns < 1 || rows < 1 || total < 1) return;
+
+    int32_t first = screen_viewport_index(screen) + (int32_t)screen_default_offset;
+    int32_t last = MIN(total - 1, first + rows - 1);
+
+    if (first < 0 || first >= total || last < first) return;
+
+    hyperlink_search(&links, screen, first, last, &links_count);
+}
+
 - (void)updateHyperlinkLayer {
     self.hyperlinkLayer.bounds = NSInsetRect(self.bounds, -kHyperlinkPadding, -kHyperlinkPadding);
     self.hyperlinkLayer.position = NSMakePoint(NSMidX(self.bounds), NSMidY(self.bounds));
@@ -1143,34 +1181,26 @@ static location_t location(int32_t row, int32_t column);
     int32_t viewport = screen_viewport_index(screen);
 
     for (NSInteger row = 0; row < rows; row++) {
-        const screen_cell_t *cells = screen_absolute_row(screen, viewport + (int32_t)screen_default_offset + (int32_t)row, NULL, NULL);
+        int32_t absolute = viewport + (int32_t)screen_default_offset + (int32_t)row;
 
-        if (!cells) continue;
+        for (size_t index = 0; index < links_count; index++) {
+            const hyperlink_t *link = &links[index];
 
-        NSInteger start = 0;
-        uint32_t link_id = cells[0].link_id;
+            if (link->row != absolute) continue;
 
-        for (NSInteger column = 1; column <= (NSInteger)self.columns; column++) {
-            uint32_t next_link_id = column < (NSInteger)self.columns ? cells[column].link_id : 0;
+            NSInteger start = link->start;
+            NSInteger end = link->end;
+            NSRect linkRect = NSMakeRect(rect.origin.x + (CGFloat)start * cellWidth, NSMaxY(rect) - (CGFloat)(row + 1) * cellHeight, (CGFloat)(end - start) * cellWidth, cellHeight);
 
-            if (column < (NSInteger)self.columns && next_link_id == link_id) continue;
+            linkRect = NSIntersectionRect(linkRect, rect);
+            linkRect = NSInsetRect(linkRect, -1.0, 0.0);
 
-            if (screen_link_url(screen, link_id)) {
-                NSRect linkRect = NSMakeRect(rect.origin.x + (CGFloat)start * cellWidth, NSMaxY(rect) - (CGFloat)(row + 1) * cellHeight, (CGFloat)(column - start) * cellWidth, cellHeight);
+            if (!NSIsEmptyRect(linkRect)) {
+                CGFloat y = NSMinY(linkRect) + 2.25;
 
-                linkRect = NSIntersectionRect(linkRect, rect);
-                linkRect = NSInsetRect(linkRect, -1.0, 0.0);
-
-                if (!NSIsEmptyRect(linkRect)) {
-                    CGFloat y = NSMinY(linkRect) + 2.25;
-
-                    CGPathMoveToPoint(path, NULL, NSMinX(linkRect), y);
-                    CGPathAddLineToPoint(path, NULL, NSMaxX(linkRect), y);
-                }
+                CGPathMoveToPoint(path, NULL, NSMinX(linkRect), y);
+                CGPathAddLineToPoint(path, NULL, NSMaxX(linkRect), y);
             }
-
-            start = column;
-            link_id = next_link_id;
         }
     }
 
@@ -1184,11 +1214,18 @@ static location_t location(int32_t row, int32_t column);
 
     if (![self select:event cell:&location direction:&direction] || direction != 0) return NO;
 
-    const screen_cell_t *cells = screen_absolute_row(screen, location.row, NULL, NULL);
+    const char *value = NULL;
 
-    if (!cells) return NO;
+    for (size_t index = 0; index < links_count; index++) {
+        const hyperlink_t *link = &links[index];
 
-    const char *value = screen_link_url(screen, cells[location.column].link_id);
+        if (link->row != location.row) continue;
+        if (location.column < link->start || location.column >= link->end) continue;
+
+        value = link->value;
+
+        break;
+    }
 
     if (!value) return NO;
 

@@ -51,7 +51,7 @@ static inline const screen_cell_t *retain_cells(const screen_cell_t *cells, size
 }
 
 void render_collect_ops(render_t **ops, screen_t *screen, size_t *count) {
-    if (!screen || !count) return;
+    if (!ops || !screen || !count) return;
 
     *ops = NULL;
     *count = 0;
@@ -214,6 +214,8 @@ void render_collect_ops(render_t **ops, screen_t *screen, size_t *count) {
 }
 
 void render_clear_ops(render_t *ops, size_t count) {
+    if (!ops) return;
+
     for (size_t i = 0; i < count; i++) {
         if (ops[i].op == RENDER_OP_SPAN && ops[i].span.cells) free((void *)ops[i].span.cells);
     }
