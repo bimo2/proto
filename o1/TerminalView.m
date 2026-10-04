@@ -34,6 +34,8 @@ static const float kCellTopPadding = 4.0f;
 static const float kCellBottomPadding = 2.0f;
 static const float kCellHorizontalPadding = 0.0f;
 static const float kHyperlinkPadding = 4.0f;
+static const float kSelectionPadding = 1.0f;
+static const float kSelectionExcludedOpacity = 0.28f;
 static location_t location(int32_t row, int32_t column);
 
 @interface TerminalView () {
@@ -129,8 +131,8 @@ static location_t location(int32_t row, int32_t column);
 
     CAShapeLayer *hyperlinkLayer = [CAShapeLayer layer];
 
-    hyperlinkLayer.fillColor = NSColor.clearColor.CGColor;
-    hyperlinkLayer.strokeColor = NSColor.linkColor.CGColor;
+    hyperlinkLayer.fillColor = [NSColor clearColor].CGColor;
+    hyperlinkLayer.strokeColor = [NSColor linkColor].CGColor;
     hyperlinkLayer.opacity = 0.92;
     hyperlinkLayer.lineWidth = 1.75;
     hyperlinkLayer.lineCap = kCALineCapRound;
@@ -141,8 +143,11 @@ static location_t location(int32_t row, int32_t column);
 
     CAShapeLayer *selectionLayer = [CAShapeLayer layer];
 
-    selectionLayer.fillColor = [NSColor selectedTextBackgroundColor].CGColor;
-    selectionLayer.opacity = 0.28;
+    selectionLayer.fillColor = [NSColor clearColor].CGColor;
+    selectionLayer.strokeColor = [NSColor whiteColor].CGColor;
+    selectionLayer.lineWidth = 0.5;
+    selectionLayer.lineJoin = kCALineJoinBevel;
+    selectionLayer.lineDashPattern = @[@2, @2];
     selectionLayer.frame = self.bounds;
     [self.layer addSublayer:selectionLayer];
     _selectionLayer = selectionLayer;
@@ -307,11 +312,41 @@ static location_t location(int32_t row, int32_t column);
         .monochrome = cpu_default_monochrome,
     };
 
+    cpu_selection_uniforms_t selection = {
+        .rows = (uint32_t)MIN(self.rows, UINT32_MAX),
+        .opacity = kSelectionExcludedOpacity,
+    };
+
+    if (screen && self.hasSelection && self.rows <= UINT32_MAX && self.columns > 0 && self.columns <= UINT32_MAX) {
+        location_t start;
+        location_t end;
+
+        [self selection:&start end:&end];
+        selection.start = simd_make_uint2(0, selection.rows);
+        selection.end = selection.start;
+        selection.active = 1;
+
+        NSInteger viewport = screen_viewport_index(screen);
+        NSInteger first = MAX(viewport, start.row);
+        NSInteger last = MIN(viewport + (NSInteger)self.rows - 1, end.row);
+
+        if (first <= last) {
+            NSInteger startColumn = first == start.row ? start.column : 0;
+            NSInteger endColumn = last == end.row ? end.column : (NSInteger)self.columns - 1;
+
+            startColumn = MAX(0, MIN((NSInteger)self.columns - 1, startColumn));
+            endColumn = MAX(0, MIN((NSInteger)self.columns - 1, endColumn));
+            selection.start = simd_make_uint2((uint32_t)startColumn, (uint32_t)(first - viewport));
+            selection.end = simd_make_uint2((uint32_t)endColumn, (uint32_t)(last - viewport));
+        }
+    }
+
     [encoder setVertexBuffer:self.buffer offset:0 atIndex:0];
     [encoder setVertexBytes:&uniforms length:sizeof(cpu_grid_uniforms_t) atIndex:1];
     [encoder setVertexBytes:&next_cursor length:sizeof(cpu_cursor_uniforms_t) atIndex:2];
     [encoder setFragmentBytes:&uniforms length:sizeof(cpu_grid_uniforms_t) atIndex:0];
     [encoder setFragmentBytes:&next_cursor length:sizeof(cpu_cursor_uniforms_t) atIndex:1];
+    [encoder setFragmentBytes:&selection length:sizeof(cpu_selection_uniforms_t) atIndex:2];
     [encoder setFragmentTexture:self.texture atIndex:0];
     [encoder setFragmentSamplerState:self.sampler atIndex:0];
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:CPU_TERMINAL_VERTEX_COUNT instanceCount:self.instanceCount];
@@ -1557,6 +1592,7 @@ static location_t location(int32_t row, int32_t column);
 
 - (void)updateSelectionLayer {
     self.selectionLayer.frame = self.bounds;
+    [self setNeedsDisplay:YES];
 
     if (!screen || !self.hasSelection) {
         self.selectionLayer.path = nil;
@@ -1578,23 +1614,22 @@ static location_t location(int32_t row, int32_t column);
         return;
     }
 
-    CGMutablePathRef path = CGPathCreateMutable();
     int32_t index = screen_viewport_index(self->screen);
+    NSInteger first = MAX(index, start.row);
+    NSInteger last = MIN(index + (int32_t)self.rows - 1, end.row);
 
-    for (NSInteger row = MAX(index, start.row); row <= MIN(index + (int32_t)self.rows - 1, end.row); row++) {
-        NSInteger viewportRow = row - index;
-        NSInteger startColumn = MAX(0, MIN((NSInteger)self.columns - 1, row == start.row ? start.column : 0));
-        NSInteger endColumn = MAX(0, MIN((NSInteger)self.columns - 1, row == end.row ? end.column : (NSInteger)self.columns - 1));
+    if (first > last) {
+        self.selectionLayer.path = nil;
 
-        if (endColumn < startColumn) continue;
-
-        CGFloat x = (CGFloat)startColumn * cellWidth;
-        CGFloat y = (CGFloat)((NSInteger)self.rows - 1 - viewportRow) * cellHeight;
-        CGFloat width = (CGFloat)(endColumn - startColumn + 1) * cellWidth;
-        CGRect rect = CGRectMake(x, y, width, cellHeight);
-
-        CGPathAddRect(path, NULL, rect);
+        return;
     }
+
+    CGFloat y = (CGFloat)((NSInteger)self.rows - 1 - last - index) * cellHeight;
+    CGFloat width = (CGFloat)self.columns * cellWidth;
+    CGFloat height = (CGFloat)(last - first + 1) * cellHeight;
+    CGFloat inset = self.selectionLayer.lineWidth * 0.5;
+    CGRect rect = CGRectInset(CGRectMake(0.0, y, width, height), -kSelectionPadding, -kSelectionPadding);
+    CGPathRef path = CGPathCreateWithRect(CGRectInset(rect, inset, inset), NULL);
 
     self.selectionLayer.path = path;
     CGPathRelease(path);

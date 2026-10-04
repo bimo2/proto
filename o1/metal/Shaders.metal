@@ -33,6 +33,14 @@ struct CursorUniforms {
     float alpha;
 };
 
+struct SelectionUniforms {
+    uint2 start;
+    uint2 end;
+    uint rows;
+    uint active;
+    float opacity;
+};
+
 struct VertexOut {
     float4 position [[position]];
     float2 uv;
@@ -65,6 +73,19 @@ static float cursor_block_alpha(float2 local, float2 cell_size, float padding, f
     float aa = max(fwidth(distance), 1e-4f);
 
     return clamp(1.0f - smoothstep(0.0f, aa, distance), 0.0f, 1.0f);
+}
+
+static bool cell_selected(uint2 cell, constant SelectionUniforms& selection) {
+    if (selection.active == 0 || selection.rows == 0) return false;
+
+    uint row = selection.rows - 1 - cell.y;
+
+    if (row < selection.start.y || row > selection.end.y) return false;
+    if (selection.start.y == selection.end.y) return cell.x >= selection.start.x && cell.x <= selection.end.x;
+    if (row == selection.start.y) return cell.x >= selection.start.x;
+    if (row == selection.end.y) return cell.x <= selection.end.x;
+
+    return true;
 }
 
 vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]], constant GlyphInstance* instances [[buffer(0)]], constant GridUniforms& grid_uniforms [[buffer(1)]], constant CursorUniforms& cursor_uniforms [[buffer(2)]]) {
@@ -128,8 +149,9 @@ vertex VertexOut terminal_vertex(uint vid [[vertex_id]], uint iid [[instance_id]
     return out;
 }
 
-fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<float> atlas [[texture(0)]], sampler s [[sampler(0)]], constant GridUniforms& grid_uniforms [[buffer(0)]], constant CursorUniforms& cursor_uniforms [[buffer(1)]]) {
+fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<float> atlas [[texture(0)]], sampler s [[sampler(0)]], constant GridUniforms& grid_uniforms [[buffer(0)]], constant CursorUniforms& cursor_uniforms [[buffer(1)]], constant SelectionUniforms& selection_uniforms [[buffer(2)]]) {
     bool cursor = cursor_uniforms.visible != 0 && all(in.cell == cursor_uniforms.cell);
+    float text_opacity = selection_uniforms.active != 0 && !cell_selected(in.cell, selection_uniforms) ? selection_uniforms.opacity : 1.0f;
     float4 fg_color = in.fg_color;
     float4 bg_color = in.bg_color;
 
@@ -190,7 +212,7 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
             float3 rgb = mix(base_rgb, cursor_rgb, blink);
             float alpha = mix(base_alpha, cursor_alpha, blink);
 
-            return float4(rgb, alpha);
+            return float4(rgb * text_opacity, alpha * text_opacity);
         }
     }
 
@@ -200,5 +222,5 @@ fragment float4 terminal_fragment(VertexOut in [[stage_in]], texture2d_array<flo
     float alpha = fg_color.a * mask;
     float3 rgb = fg_color.rgb * alpha;
 
-    return float4(rgb, alpha);
+    return float4(rgb * text_opacity, alpha * text_opacity);
 }

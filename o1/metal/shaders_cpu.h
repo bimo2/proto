@@ -74,6 +74,14 @@ typedef struct cpu_cursor_uniforms_t {
     float alpha;
 } cpu_cursor_uniforms_t;
 
+typedef struct cpu_selection_uniforms_t {
+    simd_uint2 start;
+    simd_uint2 end;
+    uint32_t rows;
+    uint32_t active;
+    float opacity;
+} cpu_selection_uniforms_t;
+
 extern bool cpu_default_monochrome;
 extern double cpu_default_cursor_fps;
 extern double cpu_default_cursor_interval;
