@@ -90,6 +90,10 @@ static void on_mouse_callback(void *, bool);
     return session_running(session);
 }
 
+- (NSInteger)pid {
+    return session_pid(session);
+}
+
 - (BOOL)start:(__autoreleasing NSError **)error {
     if (self.isRunning) return YES;
     if (self.titleBlock) self.titleBlock(session_hostname(NULL));

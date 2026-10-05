@@ -17,6 +17,7 @@
 @property (nonatomic, copy) NSArray<NSString *> *flags;
 @property (nonatomic, copy) NSDictionary<NSString *, NSString *> *environment;
 @property (readonly, getter=isRunning) BOOL running;
+@property (readonly) NSInteger pid;
 @property (nonatomic, copy) void (^renderBlock)(const render_t *, size_t);
 @property (nonatomic, copy) void (^updateBlock)(const screen_t *);
 @property (nonatomic, copy) void (^titleBlock)(const char *);

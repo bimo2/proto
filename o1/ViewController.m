@@ -7,6 +7,7 @@
 
 #import "ViewController.h"
 
+#import "MetadataView.h"
 #import "Terminal.h"
 #import "TerminalView.h"
 
@@ -17,16 +18,20 @@
 
 #include <dispatch/dispatch.h>
 
-static const float kTerminalTopPadding = 2.0f;
-static const float kTerminalBottomPadding = 20.0f;
-static const float kTerminalHorizontalPadding = 16.0f;
 static const float kTerminalViewPadding = 4.0f;
+static const float kTerminalViewTopMargin = 2.0f;
+static const float kTerminalViewBottomMargin = 20.0f;
+static const float kTerminalViewHorizontalMargin = 16.0f;
+static const float kMetadataViewLeadingMargin = 2.0f;
+static const float kMetadataViewVerticalMargin = 14.0f;
+static const float kMetadataViewWidth = 22.0f;
 static const float kGradientStop = 60.0f;
 
 @interface ViewController ()
 
 @property (nonatomic, strong) Terminal *terminal;
 @property (nonatomic, strong) TerminalView *terminalView;
+@property (nonatomic, strong) MetadataView *metadataView;
 @property (nonatomic, strong) CAGradientLayer *gradientLayer;
 
 @end
@@ -99,14 +104,24 @@ static const float kGradientStop = 60.0f;
     terminalView.terminal = terminal;
     [self.view addSubview:terminalView];
 
+    MetadataView *metadataView = [[MetadataView alloc] initWithFrame:NSZeroRect];
+
+    metadataView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:metadataView];
+
     [NSLayoutConstraint activateConstraints:@[
-        [terminalView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTerminalTopPadding],
-        [terminalView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kTerminalBottomPadding],
-        [terminalView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:kTerminalHorizontalPadding],
-        [terminalView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-kTerminalHorizontalPadding],
+        [terminalView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTerminalViewTopMargin],
+        [terminalView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kTerminalViewBottomMargin],
+        [terminalView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:kTerminalViewHorizontalMargin],
+        [terminalView.trailingAnchor constraintEqualToAnchor:metadataView.leadingAnchor constant:-kMetadataViewLeadingMargin],
+        [metadataView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:kMetadataViewVerticalMargin],
+        [metadataView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kMetadataViewVerticalMargin],
+        [metadataView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [metadataView.widthAnchor constraintEqualToConstant:kMetadataViewWidth],
     ]];
 
     self.terminalView = terminalView;
+    self.metadataView = metadataView;
 
     CAGradientLayer *layer = [CAGradientLayer layer];
 
@@ -137,6 +152,14 @@ static const float kGradientStop = 60.0f;
 
             return;
         }
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+
+            if (!strongSelf) return;
+
+            strongSelf.metadataView.pid = strongSelf.terminal.pid;
+        });
     });
 }
 

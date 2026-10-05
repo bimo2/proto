@@ -35,7 +35,7 @@ static const float kCellBottomPadding = 2.0f;
 static const float kCellHorizontalPadding = 0.0f;
 static const float kHyperlinkPadding = 4.0f;
 static const float kSelectionPadding = 1.0f;
-static const float kSelectionExcludedOpacity = 0.28f;
+static const float kSelectionExcludedOpacity = 0.24f;
 static location_t location(int32_t row, int32_t column);
 
 @interface TerminalView () {
@@ -1624,7 +1624,7 @@ static location_t location(int32_t row, int32_t column);
         return;
     }
 
-    CGFloat y = (CGFloat)((NSInteger)self.rows - 1 - last - index) * cellHeight;
+    CGFloat y = (CGFloat)((NSInteger)self.rows - 1 - (last - index)) * cellHeight;
     CGFloat width = (CGFloat)self.columns * cellWidth;
     CGFloat height = (CGFloat)(last - first + 1) * cellHeight;
     CGFloat inset = self.selectionLayer.lineWidth * 0.5;
