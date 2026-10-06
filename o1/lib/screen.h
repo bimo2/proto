@@ -168,4 +168,6 @@ void screen_needs_display(screen_t *screen);
 
 bool screen_invalidate_needs_display(screen_t *screen);
 
+size_t screen_total_memory(screen_t *screen);
+
 #endif // !SCREEN_H

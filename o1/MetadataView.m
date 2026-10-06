@@ -10,6 +10,7 @@
 #import <math.h>
 
 static const float kMetadataFontSize = 10.5f;
+static const float kMetadataLabelSpacing = 20.0f;
 
 @implementation MetadataView
 
@@ -32,22 +33,28 @@ static const float kMetadataFontSize = 10.5f;
 }
 
 - (void)drawRect:(NSRect)dirtyRect {
-    NSString *label = [NSString stringWithFormat:@"PID %ld", self.pid];
+    size_t bytes = self.screen ? screen_total_memory(self.screen) : 0;
+    NSString *pidLabel = [NSString stringWithFormat:@"PID %ld", self.pid];
+    NSString *memoryLabel = [NSString stringWithFormat:@"%lu bytes", (unsigned long)bytes];
 
     NSDictionary<NSAttributedStringKey, id> *attributes = @{
-        NSFontAttributeName : [NSFont monospacedSystemFontOfSize:kMetadataFontSize weight:NSFontWeightBold],
+        NSFontAttributeName : [NSFont monospacedSystemFontOfSize:kMetadataFontSize weight:NSFontWeightSemibold],
         NSForegroundColorAttributeName : [NSColor whiteColor],
     };
 
-    NSSize size = [label sizeWithAttributes:attributes];
-    CGFloat originX = -NSHeight(self.bounds) / 2.0;
+    NSSize pidSize = [pidLabel sizeWithAttributes:attributes];
+    NSSize memorySize = [memoryLabel sizeWithAttributes:attributes];
     CGFloat originY = -NSWidth(self.bounds) / 2.0;
+    CGFloat spacing = NSHeight(self.bounds) - pidSize.width - memorySize.width;
     CGContextRef context = [NSGraphicsContext currentContext].CGContext;
 
     CGContextSaveGState(context);
     CGContextTranslateCTM(context, NSMidX(self.bounds), NSMidY(self.bounds));
     CGContextRotateCTM(context, -M_PI_2);
-    [label drawInRect:NSMakeRect(originX, originY, size.width, size.height) withAttributes:attributes];
+
+    if (spacing >= kMetadataLabelSpacing) [pidLabel drawInRect:NSMakeRect(-NSHeight(self.bounds) / 2.0, originY, pidSize.width, pidSize.height) withAttributes:attributes];
+
+    [memoryLabel drawInRect:NSMakeRect(NSHeight(self.bounds) / 2.0 - memorySize.width, originY, memorySize.width, memorySize.height) withAttributes:attributes];
     CGContextRestoreGState(context);
 }
 
@@ -55,6 +62,11 @@ static const float kMetadataFontSize = 10.5f;
 
 - (void)setPID:(NSInteger)pid {
     _pid = pid;
+    [self setNeedsDisplay:YES];
+}
+
+- (void)setScreen:(screen_t *)screen {
+    _screen = screen;
     [self setNeedsDisplay:YES];
 }
 

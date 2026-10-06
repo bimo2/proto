@@ -23,8 +23,9 @@ static const float kTerminalViewTopMargin = 2.0f;
 static const float kTerminalViewBottomMargin = 20.0f;
 static const float kTerminalViewHorizontalMargin = 16.0f;
 static const float kMetadataViewLeadingMargin = 2.0f;
-static const float kMetadataViewVerticalMargin = 14.0f;
-static const float kMetadataViewWidth = 22.0f;
+static const float kMetadataViewTopMargin = 14.0f;
+static const float kMetadataViewBottomMargin = 32.0f;
+static const float kMetadataViewWidth = 26.0f;
 static const float kGradientStop = 60.0f;
 
 @interface ViewController ()
@@ -64,6 +65,7 @@ static const float kGradientStop = 60.0f;
         if (!strongSelf) return;
 
         [strongSelf.terminalView screen:screen];
+        strongSelf.metadataView.screen = (screen_t *)screen;
     };
 
     terminal.titleBlock = ^(const char *title) {
@@ -114,8 +116,8 @@ static const float kGradientStop = 60.0f;
         [terminalView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kTerminalViewBottomMargin],
         [terminalView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:kTerminalViewHorizontalMargin],
         [terminalView.trailingAnchor constraintEqualToAnchor:metadataView.leadingAnchor constant:-kMetadataViewLeadingMargin],
-        [metadataView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:kMetadataViewVerticalMargin],
-        [metadataView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kMetadataViewVerticalMargin],
+        [metadataView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:kMetadataViewTopMargin],
+        [metadataView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kMetadataViewBottomMargin],
         [metadataView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [metadataView.widthAnchor constraintEqualToConstant:kMetadataViewWidth],
     ]];

@@ -2152,3 +2152,19 @@ bool screen_invalidate_needs_display(screen_t *screen) {
 
     return needs_display;
 }
+
+size_t screen_total_memory(screen_t *screen) {
+    size_t cells = 0;
+
+    if (screen->rows > 0 && screen->columns > 0) cells = (size_t)screen->rows * (size_t)screen->columns;
+
+    if (screen->scrollback.lines && screen->scrollback.capacity > 0) {
+        for (size_t i = 0; i < screen->scrollback.size; i++) {
+            size_t index = (screen->scrollback.head + i) % screen->scrollback.capacity;
+
+            cells += screen->scrollback.lines[index].width;
+        }
+    }
+
+    return cells * sizeof(screen_cell_t);
+}

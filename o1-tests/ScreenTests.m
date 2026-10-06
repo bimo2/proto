@@ -422,4 +422,25 @@
     free_screen(screen);
 }
 
+- (void)test_memory {
+    screen_t *screen = init_screen(5, 5);
+    size_t grid = 5 * 5 * sizeof(screen_cell_t);
+
+    XCTAssertEqual(screen_total_memory(screen), grid);
+
+    screen_scroll_up(screen, 3);
+    XCTAssertEqual(screen_total_memory(screen), grid + 3 * 5 * sizeof(screen_cell_t));
+
+    screen_set_scrollback_capacity(screen, 2);
+    XCTAssertEqual(screen_total_memory(screen), grid + 2 * 5 * sizeof(screen_cell_t));
+
+    screen_scroll_up(screen, 1);
+    XCTAssertEqual(screen_total_memory(screen), grid + 2 * 5 * sizeof(screen_cell_t));
+
+    screen_set_scrollback_capacity(screen, 0);
+    XCTAssertEqual(screen_total_memory(screen), grid);
+
+    free_screen(screen);
+}
+
 @end
