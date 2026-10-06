@@ -24,7 +24,7 @@ static const float kTerminalViewBottomMargin = 20.0f;
 static const float kTerminalViewHorizontalMargin = 16.0f;
 static const float kMetadataViewLeadingMargin = 2.0f;
 static const float kMetadataViewTopMargin = 14.0f;
-static const float kMetadataViewBottomMargin = 32.0f;
+static const float kMetadataViewBottomMargin = 28.0f;
 static const float kMetadataViewWidth = 26.0f;
 static const float kGradientStop = 60.0f;
 

@@ -24,8 +24,8 @@
           "blend-mode" : "normal",
           "fill" : "automatic",
           "glass" : true,
-          "image-name" : "beta-group-1.png",
-          "name" : "beta-group-1"
+          "image-name" : "beta-layer-1.png",
+          "name" : "beta-layer-1"
         }
       ],
       "shadow" : {
@@ -43,9 +43,9 @@
         {
           "blend-mode" : "normal",
           "fill" : "automatic",
-          "glass" : true,
-          "image-name" : "beta-group-2.png",
-          "name" : "beta-group-2"
+          "glass" : false,
+          "image-name" : "beta-layer-2.png",
+          "name" : "beta-layer-2"
         }
       ],
       "shadow" : {

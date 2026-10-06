@@ -24,8 +24,8 @@
           "blend-mode" : "normal",
           "fill" : "automatic",
           "glass" : true,
-          "image-name" : "rc-group-1.png",
-          "name" : "rc-group-1"
+          "image-name" : "rc-layer-1.png",
+          "name" : "rc-layer-1"
         }
       ],
       "shadow" : {
@@ -43,9 +43,9 @@
         {
           "blend-mode" : "normal",
           "fill" : "automatic",
-          "glass" : true,
-          "image-name" : "rc-group-2.png",
-          "name" : "rc-group-2"
+          "glass" : false,
+          "image-name" : "rc-layer-2.png",
+          "name" : "rc-layer-2"
         }
       ],
       "shadow" : {

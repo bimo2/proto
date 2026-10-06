@@ -24,8 +24,8 @@
           "blend-mode" : "normal",
           "fill" : "automatic",
           "glass" : true,
-          "image-name" : "dev-group-1.png",
-          "name" : "dev-group-1"
+          "image-name" : "dev-layer-1.png",
+          "name" : "dev-layer-1"
         }
       ],
       "shadow" : {
@@ -43,9 +43,9 @@
         {
           "blend-mode" : "normal",
           "fill" : "automatic",
-          "glass" : true,
-          "image-name" : "dev-group-2.png",
-          "name" : "dev-group-2"
+          "glass" : false,
+          "image-name" : "dev-layer-2.png",
+          "name" : "dev-layer-2"
         }
       ],
       "shadow" : {
