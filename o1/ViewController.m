@@ -65,7 +65,8 @@ static const float kGradientStop = 60.0f;
         if (!strongSelf) return;
 
         [strongSelf.terminalView screen:screen];
-        strongSelf.metadataView.screen = (screen_t *)screen;
+        strongSelf.metadataView.lines = screen_total_rows((screen_t *)screen);
+        strongSelf.metadataView.bytes = screen_total_memory((screen_t *)screen);
     };
 
     terminal.titleBlock = ^(const char *title) {

@@ -36,7 +36,7 @@ static const float kCellHorizontalPadding = 0.0f;
 static const float kHyperlinkPadding = 4.0f;
 static const float kSelectionPadding = 1.0f;
 static const float kSelectionExcludedOpacity = 0.24f;
-static location_t location(int32_t row, int32_t column);
+static location_t location(int32_t, int32_t);
 
 @interface TerminalView () {
     screen_t *screen;

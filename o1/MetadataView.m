@@ -7,10 +7,13 @@
 
 #import "MetadataView.h"
 
-#import <math.h>
+#include "include.h"
+
+#include <math.h>
 
 static const float kMetadataFontSize = 10.5f;
 static const float kMetadataLabelSpacing = 20.0f;
+static int fractional(double, int, int);
 
 @implementation MetadataView
 
@@ -20,7 +23,7 @@ static const float kMetadataLabelSpacing = 20.0f;
     if (self) {
         self.wantsLayer = YES;
         self.clipsToBounds = YES;
-        self.layer.backgroundColor = NSColor.clearColor.CGColor;
+        self.layer.backgroundColor = [NSColor clearColor].CGColor;
     }
 
     return self;
@@ -33,9 +36,8 @@ static const float kMetadataLabelSpacing = 20.0f;
 }
 
 - (void)drawRect:(NSRect)dirtyRect {
-    size_t bytes = self.screen ? screen_total_memory(self.screen) : 0;
     NSString *pidLabel = [NSString stringWithFormat:@"PID %ld", self.pid];
-    NSString *memoryLabel = [NSString stringWithFormat:@"%lu bytes", (unsigned long)bytes];
+    NSString *memoryLabel = [NSString stringWithFormat:@"%ld / %@", (long)self.lines, [self formatMemory:self.bytes]];
 
     NSDictionary<NSAttributedStringKey, id> *attributes = @{
         NSFontAttributeName : [NSFont monospacedSystemFontOfSize:kMetadataFontSize weight:NSFontWeightSemibold],
@@ -65,9 +67,52 @@ static const float kMetadataLabelSpacing = 20.0f;
     [self setNeedsDisplay:YES];
 }
 
-- (void)setScreen:(screen_t *)screen {
-    _screen = screen;
+- (void)setLines:(NSUInteger)lines {
+    _lines = lines;
     [self setNeedsDisplay:YES];
 }
 
+- (void)setBytes:(NSUInteger)bytes {
+    _bytes = bytes;
+    [self setNeedsDisplay:YES];
+}
+
+#pragma mark - Private
+
+- (NSString *)formatMemory:(NSUInteger)bytes {
+    double value;
+    NSString *unit;
+
+    if ((double)bytes >= 1.001 * _GB(1)) {
+        value = (double)bytes / _GB(1);
+        unit = @"GB";
+    } else if ((double)bytes >= 1.001 * _MB(1)) {
+        value = (double)bytes / _MB(1);
+        unit = @"MB";
+    } else {
+        value = (double)bytes / _KB(1);
+        unit = @"kB";
+    }
+
+    int points = fractional(value, 4, 3);
+    double scale = pow(10.0, (double)points);
+    double rounded = round(value * scale) / scale;
+
+    points = fractional(rounded, 4, 3);
+
+    return [NSString stringWithFormat:@"%.*f %@", points, rounded, unit];
+}
+
 @end
+
+static int fractional(double value, int digits, int max_float) {
+    if (value <= 0.0) return max_float;
+
+    int magnitude = (int)floor(log10(value) + 1e-10);
+    int points = digits - magnitude - 1;
+
+    if (points < 0) points = 0;
+    if (points > max_float) points = max_float;
+
+    return points;
+}
