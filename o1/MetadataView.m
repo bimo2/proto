@@ -15,6 +15,12 @@ static const float kMetadataFontSize = 10.5f;
 static const float kMetadataLabelSpacing = 20.0f;
 static int fractional(double, int, int);
 
+@interface MetadataView ()
+
+@property (nonatomic, copy) NSDictionary<NSAttributedStringKey, id> *attributes;
+
+@end
+
 @implementation MetadataView
 
 - (instancetype)initWithFrame:(NSRect)frame {
@@ -24,6 +30,11 @@ static int fractional(double, int, int);
         self.wantsLayer = YES;
         self.clipsToBounds = YES;
         self.layer.backgroundColor = [NSColor clearColor].CGColor;
+
+        _attributes = @{
+            NSFontAttributeName : [NSFont monospacedSystemFontOfSize:kMetadataFontSize weight:NSFontWeightSemibold],
+            NSForegroundColorAttributeName : [NSColor whiteColor],
+        };
     }
 
     return self;
@@ -39,13 +50,8 @@ static int fractional(double, int, int);
     NSString *pidLabel = [NSString stringWithFormat:@"PID %ld", self.pid];
     NSString *memoryLabel = [NSString stringWithFormat:@"%ld / %@", (long)self.lines, [self formatMemory:self.bytes]];
 
-    NSDictionary<NSAttributedStringKey, id> *attributes = @{
-        NSFontAttributeName : [NSFont monospacedSystemFontOfSize:kMetadataFontSize weight:NSFontWeightSemibold],
-        NSForegroundColorAttributeName : [NSColor whiteColor],
-    };
-
-    NSSize pidSize = [pidLabel sizeWithAttributes:attributes];
-    NSSize memorySize = [memoryLabel sizeWithAttributes:attributes];
+    NSSize pidSize = [pidLabel sizeWithAttributes:self.attributes];
+    NSSize memorySize = [memoryLabel sizeWithAttributes:self.attributes];
     CGFloat originY = -NSWidth(self.bounds) / 2.0;
     CGFloat spacing = NSHeight(self.bounds) - pidSize.width - memorySize.width;
     CGContextRef context = [NSGraphicsContext currentContext].CGContext;
@@ -54,9 +60,9 @@ static int fractional(double, int, int);
     CGContextTranslateCTM(context, NSMidX(self.bounds), NSMidY(self.bounds));
     CGContextRotateCTM(context, -M_PI_2);
 
-    if (spacing >= kMetadataLabelSpacing) [pidLabel drawInRect:NSMakeRect(-NSHeight(self.bounds) / 2.0, originY, pidSize.width, pidSize.height) withAttributes:attributes];
+    if (spacing >= kMetadataLabelSpacing) [pidLabel drawInRect:NSMakeRect(-NSHeight(self.bounds) / 2.0, originY, pidSize.width, pidSize.height) withAttributes:self.attributes];
 
-    [memoryLabel drawInRect:NSMakeRect(NSHeight(self.bounds) / 2.0 - memorySize.width, originY, memorySize.width, memorySize.height) withAttributes:attributes];
+    [memoryLabel drawInRect:NSMakeRect(NSHeight(self.bounds) / 2.0 - memorySize.width, originY, memorySize.width, memorySize.height) withAttributes:self.attributes];
     CGContextRestoreGState(context);
 }
 

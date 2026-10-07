@@ -283,6 +283,7 @@ static location_t location(int32_t, int32_t);
     if (rows != self.rows || columns != self.columns) {
         self.rows = rows;
         self.columns = columns;
+        [self clearSelection];
 
         NSUInteger instanceCount = self.rows * self.columns;
 

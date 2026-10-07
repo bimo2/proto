@@ -20,7 +20,7 @@ static NSToolbarItemIdentifier const kSearchItemIdentifier = @"SearchItem";
 @implementation WindowController
 
 + (NSRect)defaultContentRect {
-    return NSMakeRect(100.0, 250.0, 550.0, 360.0);
+    return NSMakeRect(100.0, 250.0, 554.0, 358.0);
 }
 
 - (instancetype)init {
