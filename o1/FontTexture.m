@@ -37,7 +37,7 @@ static const float kFontTextureSize = 2048.0f;
 
         NSFontDescriptor *descriptor = [NSFontDescriptor fontDescriptorWithFontAttributes:@{
             NSFontFamilyAttribute: _name ?: @"",
-            NSFontTraitsAttribute: @{ NSFontWeightTrait: @(_weight) }
+            NSFontTraitsAttribute: @{NSFontWeightTrait: @(_weight)}
         }];
 
         CGFloat displaySize = _size * _scale;
@@ -46,9 +46,9 @@ static const float kFontTextureSize = 2048.0f;
         if (!font) font = [NSFont monospacedSystemFontOfSize:displaySize weight:_weight];
 
         _font = CFRetain((__bridge CTFontRef)font);
-        _data = [NSData data];
         _attributes = [NSMutableDictionary dictionary];
         _codepoints = [NSMutableDictionary dictionary];
+        _data = [NSData data];
     }
 
     return self;

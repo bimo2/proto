@@ -99,6 +99,7 @@ static location_t location(int32_t, int32_t);
     self.clearColor = MTLClearColorMake(0, 0, 0, 0);
     self.enableSetNeedsDisplay = YES;
     self.paused = YES;
+    [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
     selection_start = location(-1, -1);
     selection_end = location(-1, -1);
     _interactive = YES;
@@ -690,10 +691,70 @@ static location_t location(int32_t, int32_t);
     [self updateSelectionLayer];
 }
 
+#pragma mark - NSDraggingDestination
+
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender {
+    if (!self.interactive) return NSDragOperationNone;
+
+    NSDictionary<NSPasteboardReadingOptionKey, id> *options = @{NSPasteboardURLReadingFileURLsOnlyKey : @YES};
+    BOOL canReadURL = [sender.draggingPasteboard canReadObjectForClasses:@[[NSURL class]] options:options];
+
+    return canReadURL ? NSDragOperationCopy : NSDragOperationNone;
+}
+
+- (NSDragOperation)draggingUpdated:(id<NSDraggingInfo>)sender {
+    return [self draggingEntered:sender];
+}
+
+- (BOOL)prepareForDragOperation:(id<NSDraggingInfo>)sender {
+    return [self draggingEntered:sender] != NSDragOperationNone;
+}
+
+- (BOOL)performDragOperation:(id<NSDraggingInfo>)sender {
+    if (!self.isInteractive) return NO;
+
+    NSDictionary<NSPasteboardReadingOptionKey, id> *options = @{NSPasteboardURLReadingFileURLsOnlyKey : @YES};
+    NSArray<NSURL *> *urls = [sender.draggingPasteboard readObjectsForClasses:@[[NSURL class]] options:options];
+    NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithCapacity:urls.count];
+    NSMutableCharacterSet *safe = [[NSCharacterSet alphanumericCharacterSet] mutableCopy];
+
+    [safe addCharactersInString:@"_@%+=:,./-"];
+
+    for (NSURL *url in urls) {
+        if (!url.isFileURL || url.path.length < 1) continue;
+
+        NSString *path = url.path;
+
+        if ([path rangeOfCharacterFromSet:safe.invertedSet].location != NSNotFound) {
+            NSString *string = [path stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"];
+
+            path = [NSString stringWithFormat:@"'%@'", string];
+        }
+
+        [paths addObject:path];
+    }
+
+    if (paths.count < 1) return NO;
+    if (self.hasSelection) [self clearSelection];
+
+    [self skipCursorBlink];
+    [self.terminal paste:[[paths componentsJoinedByString:@" "] dataUsingEncoding:NSUTF8StringEncoding]];
+    [self.window makeFirstResponder:self];
+
+    return YES;
+}
+
 #pragma mark - Public
 
 - (void)setInteractive:(BOOL)interactive {
     _interactive = interactive;
+
+    if (interactive) {
+        [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
+    } else {
+        [self unregisterDraggedTypes];
+    }
+
     [self updateNextCursor];
     [self setNeedsDisplay:YES];
 }

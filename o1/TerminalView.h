@@ -13,7 +13,7 @@
 #include "render.h"
 #include "screen.h"
 
-@interface TerminalView : MTKView <MTKViewDelegate>
+@interface TerminalView : MTKView <MTKViewDelegate, NSDraggingDestination>
 
 @property (nonatomic, weak) Terminal *terminal;
 @property (nonatomic, assign, getter=isInteractive) BOOL interactive;
